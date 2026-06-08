@@ -8,37 +8,37 @@ const NAV_SECTIONS = [
   {
     section: 'MAIN',
     items: [
-      { path: '/',             label: 'Dashboard',    icon: '⊞', perm: 'dashboard',    end: true },
-      { path: '/patients',     label: 'Patients',     icon: '👤', perm: 'patients' },
+      { path: '/', label: 'Dashboard', icon: '⊞', perm: 'dashboard', end: true },
+      { path: '/patients', label: 'Patients', icon: '👤', perm: 'patients' },
     ],
   },
   {
     section: 'SERVICES',
     items: [
-      { path: '/ipd',              label: 'IPD / Admitted',  icon: '🏥', perm: 'ipd' },       // ← NEW
-      { path: '/billing',          label: 'Billing',         icon: '💳', perm: 'billing' },
-      { path: '/billing-requests', label: 'Lab Bills',       icon: '🧾', perm: 'billing' },
-      { path: '/pharmacy',         label: 'Pharmacy',        icon: '💊', perm: 'pharmacy' },
-      { path: '/lab',              label: 'Lab Tests',       icon: '🧪', perm: 'lab' },
-      { path: '/tokens',           label: 'Token Queue',     icon: '🎫', perm: 'patients' },
+      { path: '/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd' },       // ← NEW
+      { path: '/billing', label: 'Billing', icon: '💳', perm: 'billing' },
+      { path: '/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing' },
+      { path: '/pharmacy', label: 'Pharmacy', icon: '💊', perm: 'pharmacy' },
+      { path: '/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab' },
+      { path: '/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
     ],
   },
   {
     section: 'MANAGEMENT',
     items: [
-      { path: '/inventory', label: 'Inventory',  icon: '📦', perm: 'inventory' },
-      { path: '/staff',     label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
+      { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
+      { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
     ],
   },
 ];
 
 // ── Role badge config ──────────────────────────────────────────
 const ROLE_META = {
-  admin:          { label: 'Administrator',  color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-  doctor:         { label: 'Doctor',         color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
-  nurse:          { label: 'Nurse',          color: '#34d399', bg: 'rgba(52,211,153,0.15)' },
-  receptionist:   { label: 'Receptionist',   color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-  pharmacist:     { label: 'Pharmacist',     color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
+  admin: { label: 'Administrator', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+  doctor: { label: 'Doctor', color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
+  nurse: { label: 'Nurse', color: '#34d399', bg: 'rgba(52,211,153,0.15)' },
+  receptionist: { label: 'Receptionist', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+  pharmacist: { label: 'Pharmacist', color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
   lab_technician: { label: 'Lab Technician', color: '#fb923c', bg: 'rgba(251,146,60,0.15)' },
 };
 
@@ -46,6 +46,8 @@ export default function Layout() {
   const { user, logout, hasPerm } = useAuth();
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = window.innerWidth <= 768;
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -60,14 +62,31 @@ export default function Layout() {
   })).filter(s => s.items.length > 0);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div
+      style={{
+        display: 'flex',
+        height: '100vh',
+        overflow: 'hidden',
+        flexDirection: 'row',
+      }}
+    >
 
       {/* ── Sidebar ─────────────────────────────────────────────── */}
-      <aside style={{
-        width: 235, background: '#0f2942', color: '#fff',
-        display: 'flex', flexDirection: 'column', flexShrink: 0,
-        height: '100vh', overflowY: 'auto',
-      }}>
+      <aside
+        style={{
+          width: isMobile ? (sidebarOpen ? '260px' : '0px') : 235,
+          transition: 'all 0.3s ease',
+          background: '#0f2942',
+          color: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
+          height: '100vh',
+          overflowY: 'auto',
+          overflow: 'hidden',
+          transition: 'width 0.3s ease',
+        }}
+      >
         {/* Logo */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -104,6 +123,9 @@ export default function Layout() {
               {items.map(({ path, label, icon, end }) => (
                 <NavLink
                   key={path} to={path} end={end}
+                  onClick={() => {
+                    if (isMobile) setSidebarOpen(false);
+                  }}
                   style={({ isActive }) => ({
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '9px 20px', fontSize: 13, fontWeight: 500,
@@ -114,7 +136,13 @@ export default function Layout() {
                   })}
                 >
                   <span style={{ fontSize: 15 }}>{icon}</span>
-                  {label}
+                  <span
+                    onClick={() => {
+                      if (isMobile) setSidebarOpen(false);
+                    }}
+                  >
+                    {label}
+                  </span>
                 </NavLink>
               ))}
             </div>
@@ -153,11 +181,11 @@ export default function Layout() {
               fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background  = 'rgba(239,68,68,0.18)';
+              e.currentTarget.style.background = 'rgba(239,68,68,0.18)';
               e.currentTarget.style.borderColor = '#ef4444';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background  = 'rgba(239,68,68,0.08)';
+              e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
               e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)';
             }}
           >
@@ -168,7 +196,36 @@ export default function Layout() {
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────── */}
-      <main style={{ flex: 1, overflowY: 'auto', background: '#f1f5f9', padding: 24 }}>
+
+      {isMobile && !sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          style={{
+            position: 'fixed',
+            top: 10,
+            left: 10,
+            zIndex: 2000,
+            padding: '10px 14px',
+            border: 'none',
+            borderRadius: 8,
+            background: '#0f2942',
+            color: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          {sidebarOpen ? '✕ Close' : '☰ Menu'}
+        </button>
+      )}
+
+      <main
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          background: '#f1f5f9',
+          padding: isMobile ? 12 : 24,
+          paddingTop: isMobile ? 70 : 24,
+        }}
+      >
         <Outlet />
       </main>
 

@@ -4,19 +4,19 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
 
-import Login           from './pages/Login';
-import Register        from './pages/Register';
-import Layout          from './components/Layout';
-import Dashboard       from './pages/Dashboard';
-import Patients        from './pages/Patients';
-import Billing         from './pages/Billing';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Patients from './pages/Patients';
+import Billing from './pages/Billing';
 import BillingRequests from './pages/BillingRequests';
-import IMSApp          from './ims/App';
-import Lab             from './pages/Lab';
-import Inventory       from './pages/Inventory';
-import Staff           from './pages/Staff';
-import TokenPanel      from './pages/TokenPanel';
-import IPD             from './pages/IPD';   // ← NEW
+import IMSApp from './ims/App';
+import Lab from './pages/Lab';
+import Inventory from './pages/Inventory';
+import Staff from './pages/Staff';
+import TokenPanel from './pages/TokenPanel';
+import IPD from './pages/IPD';   // ← NEW
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 const PrivateRoute = ({ children }) => {
@@ -40,7 +40,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
@@ -50,15 +50,15 @@ function App() {
 
             <Route path="patients" element={
               <PermRoute permKey="patients"><Patients /></PermRoute>
-            }/>
+            } />
 
             <Route path="billing" element={
               <PermRoute permKey="billing"><Billing /></PermRoute>
-            }/>
+            } />
 
             <Route path="billing-requests" element={
               <PermRoute permKey="billing"><BillingRequests /></PermRoute>
-            }/>
+            } />
 
             {/* ── IPD: Inpatient Department ───────────────────────────
                 Visible to: receptionist (admits + adds meds + generates bill)
@@ -68,29 +68,29 @@ function App() {
             ──────────────────────────────────────────────────────── */}
             <Route path="ipd" element={
               <PermRoute permKey="ipd"><IPD /></PermRoute>
-            }/>
+            } />
 
-           <Route path="pharmacy/*" element={
+            <Route path="pharmacy/*" element={
               <PermRoute permKey="pharmacy">
                 <IMSApp />
-                </PermRoute>
-}/>
+              </PermRoute>
+            } />
 
             <Route path="lab" element={
               <PermRoute permKey="lab"><Lab /></PermRoute>
-            }/>
+            } />
 
             <Route path="inventory" element={
               <PermRoute permKey="inventory"><Inventory /></PermRoute>
-            }/>
+            } />
 
             <Route path="staff" element={
               <PermRoute permKey="staff"><Staff /></PermRoute>
-            }/>
+            } />
 
             <Route path="tokens" element={
               <PermRoute permKey="patients"><TokenPanel /></PermRoute>
-            }/>
+            } />
 
           </Route>
 

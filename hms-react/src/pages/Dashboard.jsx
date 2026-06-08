@@ -82,6 +82,7 @@ export default function Dashboard() {
     name: monthNames[m._id.month - 1],
     revenue: m.total,
   })) || [];
+  console.log(chartData);
 
   const showTokenQueue = hasPerm('patients');
 
@@ -114,11 +115,11 @@ export default function Dashboard() {
       </div>
 
       {/* ── Charts ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1fr', gap: 20, marginTop: 20 }}>
         {hasPerm('billing') && (
           <div className="card">
             <h3 style={{ marginBottom: 16, fontSize: 15 }}>Monthly Revenue (Last 6 Months)</h3>
-            <div className="chart-container">
+            <div className="chart-container" style={{ width: '100%', height: '250px', minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />

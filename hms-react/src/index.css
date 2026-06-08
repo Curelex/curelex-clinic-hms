@@ -89,8 +89,14 @@ a { text-decoration: none; color: inherit; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 
 /* Table */
-.table-wrapper { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
+/*.table-wrapper { overflow-x: auto; }*/
+.table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+  display: block;
+}
+.table-wrapper table { min-width: 1000px;}
+table { width: 100%; min-width: 1000px; border-collapse: collapse; }
 th { background: var(--surface2); padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 2px solid var(--border); }
 td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
 tr:last-child td { border-bottom: none; }

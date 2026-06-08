@@ -11,7 +11,7 @@ const ROOM_RATES = {
   'General Ward': 800,
   'Semi-Private': 1500,
   'Private Room': 2500,
-  'ICU':          4000,
+  'ICU': 4000,
 };
 
 // ── small helpers ────────────────────────────────────────────────
@@ -31,51 +31,52 @@ function fmtTime(date) {
 }
 
 const statusColor = { Admitted: '#d1fae5', Discharged: '#f1f5f9', Transferred: '#fef3c7' };
-const statusText  = { Admitted: '#065f46', Discharged: '#475569', Transferred: '#92400e' };
+const statusText = { Admitted: '#065f46', Discharged: '#475569', Transferred: '#92400e' };
 
 // ────────────────────────────────────────────────────────────────
 export default function IPD() {
   const { user } = useAuth();
   const isReceptionist = ['receptionist', 'admin'].includes(user?.role);
-  const isDoctor       = user?.role === 'doctor';
-  const isNurse        = user?.role === 'nurse';
-  const canAddNote     = isDoctor || isNurse || user?.role === 'admin';
+  const isDoctor = user?.role === 'doctor';
+  const isNurse = user?.role === 'nurse';
+  const canAddNote = isDoctor || isNurse || user?.role === 'admin';
+  const isMobile = window.innerWidth <= 768;
 
-  const [admissions,    setAdmissions]    = useState([]);
-  const [total,         setTotal]         = useState(0);
-  const [loading,       setLoading]       = useState(true);
-  const [filterStatus,  setFilterStatus]  = useState('Admitted');
-  const [page,          setPage]          = useState(1);
+  const [admissions, setAdmissions] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('Admitted');
+  const [page, setPage] = useState(1);
 
   // detail panel
-  const [selected,      setSelected]      = useState(null);   // admission object
+  const [selected, setSelected] = useState(null);   // admission object
   const [detailLoading, setDetailLoading] = useState(false);
 
   // admit modal
-  const [admitModal,    setAdmitModal]    = useState(false);
-  const [admitForm,     setAdmitForm]     = useState({ roomType: 'General Ward', roomNumber: '', notes: '' });
+  const [admitModal, setAdmitModal] = useState(false);
+  const [admitForm, setAdmitForm] = useState({ roomType: 'General Ward', roomNumber: '', notes: '' });
   const [patientSearch, setPatientSearch] = useState('');
-  const [patientResults,setPatientResults]= useState([]);
+  const [patientResults, setPatientResults] = useState([]);
   const [chosenPatient, setChosenPatient] = useState(null);
-  const [doctors,       setDoctors]       = useState([]);
-  const [chosenDoctor,  setChosenDoctor]  = useState('');
-  const [admitSaving,   setAdmitSaving]   = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [chosenDoctor, setChosenDoctor] = useState('');
+  const [admitSaving, setAdmitSaving] = useState(false);
 
   // add medicine modal
-  const [medModal,      setMedModal]      = useState(false);
-  const [medForm,       setMedForm]       = useState({ medicineName: '', dosage: '', quantity: 1, unitPrice: 0, notes: '' });
-  const [medSaving,     setMedSaving]     = useState(false);
+  const [medModal, setMedModal] = useState(false);
+  const [medForm, setMedForm] = useState({ medicineName: '', dosage: '', quantity: 1, unitPrice: 0, notes: '' });
+  const [medSaving, setMedSaving] = useState(false);
 
   // follow-up modal
-  const [noteModal,     setNoteModal]     = useState(false);
-  const [noteForm,      setNoteForm]      = useState({ note: '', type: 'General', vitals: { bp: '', temp: '', pulse: '', spo2: '' } });
-  const [noteSaving,    setNoteSaving]    = useState(false);
+  const [noteModal, setNoteModal] = useState(false);
+  const [noteForm, setNoteForm] = useState({ note: '', type: 'General', vitals: { bp: '', temp: '', pulse: '', spo2: '' } });
+  const [noteSaving, setNoteSaving] = useState(false);
 
   // discharge confirm
-  const [dischargeId,   setDischargeId]   = useState(null);
+  const [dischargeId, setDischargeId] = useState(null);
 
   // patient search debounce
-  const [searchTimer,   setSearchTimer]   = useState(null);
+  const [searchTimer, setSearchTimer] = useState(null);
 
   // ── fetch list ────────────────────────────────────────────────
   const fetchList = useCallback(async () => {
@@ -133,11 +134,11 @@ export default function IPD() {
     setAdmitSaving(true);
     try {
       await API.post('/admissions', {
-        patientId:  chosenPatient._id,
-        doctorId:   chosenDoctor || undefined,
-        roomType:   admitForm.roomType,
+        patientId: chosenPatient._id,
+        doctorId: chosenDoctor || undefined,
+        roomType: admitForm.roomType,
         roomNumber: admitForm.roomNumber,
-        notes:      admitForm.notes,
+        notes: admitForm.notes,
       });
       setAdmitModal(false);
       setChosenPatient(null);
@@ -212,19 +213,19 @@ export default function IPD() {
       const grandTotal = itemsTotal + summary.roomRent;
 
       await API.post('/billing', {
-        patient:        summary.patient._id,
-        items:          summary.items,
-        admissionDate:  summary.admissionDate,
-        dischargeDate:  summary.dischargeDate,
-        daysAdmitted:   summary.daysAdmitted,
-        roomType:       summary.roomType,
+        patient: summary.patient._id,
+        items: summary.items,
+        admissionDate: summary.admissionDate,
+        dischargeDate: summary.dischargeDate,
+        daysAdmitted: summary.daysAdmitted,
+        roomType: summary.roomType,
         roomRatePerDay: summary.roomRatePerDay,
-        roomRent:       summary.roomRent,
-        subtotal:       grandTotal,
-        totalAmount:    grandTotal,
-        paymentStatus:  'Pending',
-        paymentMethod:  'Pending',
-        notes:          `Auto-generated from Admission ${summary.admissionId}`,
+        roomRent: summary.roomRent,
+        subtotal: grandTotal,
+        totalAmount: grandTotal,
+        paymentStatus: 'Pending',
+        paymentMethod: 'Pending',
+        notes: `Auto-generated from Admission ${summary.admissionId}`,
       });
 
       alert(`Bill created for ${summary.patient.name}! Go to Billing page to view.`);
@@ -237,7 +238,7 @@ export default function IPD() {
 
   // ── medicine total for selected admission ─────────────────────
   const medTotal = selected?.medicineLog?.reduce((s, m) => s + (m.total || 0), 0) || 0;
-  const days     = selected
+  const days = selected
     ? (selected.daysAdmitted || daysSince(selected.admissionDate))
     : 0;
   const roomRent = days * (selected?.roomRatePerDay || 800);
@@ -245,10 +246,22 @@ export default function IPD() {
 
   // ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', gap: 20, height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: 20,
+      height: isMobile ? 'auto' : 'calc(100vh - 80px)',
+      overflow: 'hidden'
+    }}>
 
       {/* ── LEFT PANEL: Admission list ─────────────────────────── */}
-      <div style={{ flex: '0 0 440px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{
+        flex: isMobile ? '1' : '0 0 440px',
+        width: isMobile ? '100%' : '440px',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
         <div className="page-header" style={{ marginBottom: 12 }}>
           <h1 className="page-title" style={{ fontSize: 18 }}>🏥 IPD — Inpatient</h1>
           {isReceptionist && (
@@ -268,7 +281,7 @@ export default function IPD() {
                 padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                 border: 'none', cursor: 'pointer',
                 background: filterStatus === s ? '#0f4c81' : '#e2e8f0',
-                color:      filterStatus === s ? '#fff' : '#475569',
+                color: filterStatus === s ? '#fff' : '#475569',
               }}
             >
               {s || 'All'}
@@ -286,8 +299,8 @@ export default function IPD() {
               No admissions found
             </div>
           ) : admissions.map(adm => {
-            const isActive  = adm.status === 'Admitted';
-            const dStr      = isActive ? `${daysSince(adm.admissionDate)}d admitted` : `Discharged ${fmt(adm.dischargeDate)}`;
+            const isActive = adm.status === 'Admitted';
+            const dStr = isActive ? `${daysSince(adm.admissionDate)}d admitted` : `Discharged ${fmt(adm.dischargeDate)}`;
             const isSelected = selected?._id === adm._id;
             return (
               <div
@@ -317,7 +330,7 @@ export default function IPD() {
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
                     background: statusColor[adm.status] || '#f1f5f9',
-                    color:      statusText[adm.status]  || '#475569',
+                    color: statusText[adm.status] || '#475569',
                   }}>
                     {adm.status}
                   </span>
@@ -331,18 +344,24 @@ export default function IPD() {
           })}
           {pages > 1 && (
             <div className="pagination" style={{ justifyContent: 'center', marginTop: 8 }}>
-              <button className="page-btn" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}>‹</button>
+              <button className="page-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
               {Array.from({ length: pages }, (_, i) => (
-                <button key={i+1} className={`page-btn ${page===i+1?'active':''}`} onClick={() => setPage(i+1)}>{i+1}</button>
+                <button key={i + 1} className={`page-btn ${page === i + 1 ? 'active' : ''}`} onClick={() => setPage(i + 1)}>{i + 1}</button>
               ))}
-              <button className="page-btn" onClick={() => setPage(p => Math.min(pages, p+1))} disabled={page===pages}>›</button>
+              <button className="page-btn" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}>›</button>
             </div>
           )}
         </div>
       </div>
 
       {/* ── RIGHT PANEL: Admission detail ─────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          display: isMobile ? 'none' : 'block'
+        }}
+      >
         {!selected ? (
           <div style={{
             height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -429,7 +448,7 @@ export default function IPD() {
               }}>
                 {[
                   ['Medicines total', `₹${medTotal.toLocaleString()}`],
-                  [`Room rent (${days}d × ₹${(selected.roomRatePerDay||0).toLocaleString()})`, `₹${roomRent.toLocaleString()}`],
+                  [`Room rent (${days}d × ₹${(selected.roomRatePerDay || 0).toLocaleString()})`, `₹${roomRent.toLocaleString()}`],
                   ['Grand total', `₹${grandTotal.toLocaleString()}`],
                 ].map(([l, v], i) => (
                   <div key={l} style={{ flex: 1, minWidth: 120 }}>
@@ -469,8 +488,8 @@ export default function IPD() {
                         <td style={{ padding: '8px 10px', fontWeight: 600 }}>{m.medicineName}</td>
                         <td style={{ padding: '8px 10px', color: '#64748b' }}>{m.dosage || '—'}</td>
                         <td style={{ padding: '8px 10px' }}>{m.quantity}</td>
-                        <td style={{ padding: '8px 10px' }}>₹{(m.unitPrice||0).toLocaleString()}</td>
-                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>₹{(m.total||0).toLocaleString()}</td>
+                        <td style={{ padding: '8px 10px' }}>₹{(m.unitPrice || 0).toLocaleString()}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>₹{(m.total || 0).toLocaleString()}</td>
                         <td style={{ padding: '8px 10px', color: '#64748b', fontSize: 12 }}>{m.givenByName || '—'}</td>
                         <td style={{ padding: '8px 10px', color: '#94a3b8', fontSize: 11 }}>{fmtTime(m.givenAt)}</td>
                         <td style={{ padding: '8px 4px' }}>
@@ -506,8 +525,8 @@ export default function IPD() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {[...selected.followupLog].reverse().map((log, i) => {
                     const typeColor = {
-                      Doctor:  { bg: '#eff6ff', border: '#bfdbfe', badge: '#1e40af', badgeBg: '#dbeafe' },
-                      Nurse:   { bg: '#f0fdf4', border: '#bbf7d0', badge: '#065f46', badgeBg: '#d1fae5' },
+                      Doctor: { bg: '#eff6ff', border: '#bfdbfe', badge: '#1e40af', badgeBg: '#dbeafe' },
+                      Nurse: { bg: '#f0fdf4', border: '#bbf7d0', badge: '#065f46', badgeBg: '#d1fae5' },
                       General: { bg: '#f8fafc', border: '#e2e8f0', badge: '#475569', badgeBg: '#f1f5f9' },
                     }[log.type] || { bg: '#f8fafc', border: '#e2e8f0', badge: '#475569', badgeBg: '#f1f5f9' };
                     return (
@@ -748,7 +767,7 @@ export default function IPD() {
                 Vitals (optional)
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {[['bp','BP (e.g. 120/80)'],['temp','Temp (e.g. 98.6°F)'],['pulse','Pulse (e.g. 72 bpm)'],['spo2','SpO2 (e.g. 98%)']].map(([k, ph]) => (
+                {[['bp', 'BP (e.g. 120/80)'], ['temp', 'Temp (e.g. 98.6°F)'], ['pulse', 'Pulse (e.g. 72 bpm)'], ['spo2', 'SpO2 (e.g. 98%)']].map(([k, ph]) => (
                   <div className="form-group" key={k} style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: 11 }}>{ph.split(' (')[0]}</label>
                     <input className="form-control" placeholder={ph}
