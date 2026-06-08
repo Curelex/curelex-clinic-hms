@@ -124,38 +124,42 @@ router.post('/:id/dispense', auth, async (req, res) => {
     // ── STEP 1: Stock check — all-or-nothing before any changes ─────────────
     const stockErrors = [];
     for (const med of rx.medicines) {
-      const escaped = med.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const item = await Inventory.findOne({
-        name:     { $regex: new RegExp(`^${escaped}$`, 'i') },
-        category: 'Medicine',
-      });
-      if (!item) {
-        stockErrors.push(`"${med.name}" not found in inventory`);
-      } else if (item.quantity < med.quantity) {
-        stockErrors.push(`"${med.name}" insufficient stock (have ${item.quantity}, need ${med.quantity})`);
-      }
-    }
+  const escaped = med.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const item = await Inventory.findOne({
+    name: { $regex: new RegExp(`^${escaped}$`, 'i') },
+    category: 'Medicine',
+  });
+  if (!item) {
+    stockErrors.push(`"${med.name}" not found in inventory`);
+  } else if (item.quantity < med.quantity) {
+    stockErrors.push(`"${med.name}" insufficient stock (have ${item.quantity}, need ${med.quantity})`);
+  }
+}
     if (stockErrors.length > 0) {
       return res.status(400).json({ message: 'Stock check failed.', stockErrors });
     }
 
     // ── STEP 2: Deduct stock ─────────────────────────────────────────────────
     for (const med of rx.medicines) {
-      const escaped = med.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const item = await Inventory.findOne({
-        name:     { $regex: new RegExp(`^${escaped}$`, 'i') },
-        category: 'Medicine',
-      });
-      item.quantity -= med.quantity;
-      item.transactions.push({
-        type:        'OUT',
-        quantity:    med.quantity,
-        reason:      `Dispensed — ${rx.prescriptionId} (${rx.patient?.name})`,
-        performedBy: req.user.id,
-        date:        new Date(),
-      });
-      await item.save();
-    }
+  const escaped = med.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const item = await Inventory.findOne({
+    name: { $regex: new RegExp(`^${escaped}$`, 'i') },
+    category: 'Medicine',
+  });
+  item.quantity -= med.quantity;
+  item.transactions.push({
+    type: 'OUT',
+    quantity: med.quantity,
+    unitPrice: med.unitPrice,
+    totalPrice: med.total,
+    reason: `Dispensed — ${rx.prescriptionId} (${rx.patient?.name})`,
+    referenceNumber: rx.prescriptionId,
+    performedBy: req.user.id,
+    performedByName: req.user.name,
+    date: new Date()
+  });
+  await item.save();
+}
 
     // ── STEP 3: Mark dispensed ───────────────────────────────────────────────
     rx.status      = 'Dispensed';
