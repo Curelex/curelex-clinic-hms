@@ -70,11 +70,7 @@ function App() {
               <PermRoute permKey="ipd"><IPD /></PermRoute>
             }/>
 
-           <Route path="pharmacy/*" element={
-              <PermRoute permKey="pharmacy">
-                <IMSApp />
-                </PermRoute>
-}/>
+          <Route path="pharmacy/*" element={<IMSApp />} />
 
             <Route path="lab" element={
               <PermRoute permKey="lab"><Lab /></PermRoute>
