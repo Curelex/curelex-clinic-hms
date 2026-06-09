@@ -33,7 +33,7 @@ const FollowupLogSchema = new mongoose.Schema({
 
 const AdmissionSchema = new mongoose.Schema({
   admissionId:   { type: String, unique: true },
-
+  clinicId: { type: String, required: true, index: true, default: 'default' },
   patient:       { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   doctor:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },   // treating doctor
   admittedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },   // receptionist who admitted

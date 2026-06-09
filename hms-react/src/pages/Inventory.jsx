@@ -5,9 +5,8 @@ import inventoryService from '../services/inventoryService';
 import vendorService from '../services/vendorService';
 
 const emptyForm = {
-  name: '', category: 'Medicine', description: '', quantity: 0, unit: 'units',
+  name: '', category: 'Medicine', description: '', quantity: 0, unit: 'Units',
   unitPrice: 0, reorderLevel: 10, location: '', vendor: '',
-  // Equipment fields
   equipmentDetails: {
     serialNumber: '', modelNumber: '', manufacturer: '', purchaseDate: '',
     warrantyExpiry: '', condition: 'Good', assignedTo: '', maintenanceIntervalDays: 90
@@ -19,8 +18,8 @@ const conditionOptions = ['Excellent', 'Good', 'Fair', 'Poor', 'Under Repair', '
 const unitOptions = ['Units', 'Box', 'Pack', 'Vial', 'Strip', 'Bottle', 'Pair', 'Set', 'Kg', 'Liter'];
 
 export default function Inventory() {
-  const [activeTab, setActiveTab] = useState('inventory'); // inventory, vendors, equipment, stock
-  
+  const [activeTab, setActiveTab] = useState('inventory');
+
   // Inventory state
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -31,7 +30,7 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [page, setPage] = useState(1);
-  
+
   // Vendor state
   const [vendors, setVendors] = useState([]);
   const [vendorModal, setVendorModal] = useState(false);
@@ -41,25 +40,33 @@ export default function Inventory() {
     gstNumber: '', category: 'Medical Supplies', paymentTerms: 'Net 30', rating: 3
   });
   const [editVendorId, setEditVendorId] = useState(null);
-  
-  // Stock transaction state
+
+  // Stock transaction state — txModal holds the item, shown as overlay modal
   const [txModal, setTxModal] = useState(null);
-  const [tx, setTx] = useState({ type: 'IN', quantity: 1, reason: '', unitPrice: '', referenceNumber: '', notes: '' });
-  const [historyItem, setHistoryItem] = useState(null);
-  
+  const [tx, setTx] = useState({ type: 'IN', quantity: 1, reason: '', referenceNumber: '', notes: '' });
+  const [historyModal, setHistoryModal] = useState(null); // { item, transactions }
+
   // Equipment maintenance state
   const [maintenanceModal, setMaintenanceModal] = useState(null);
   const [maintenanceForm, setMaintenanceForm] = useState({ type: 'Routine', performedBy: '', cost: 0, notes: '', nextDueDate: '' });
-  
+
   // Stats
   const [stats, setStats] = useState({ lowStock: 0, outOfStock: 0, dueMaintenance: 0, totalVendors: 0 });
 
-  // Fetch data based on active tab
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState({});
+
+  // ── Fetch vendors on mount so dropdown always works ──
   useEffect(() => {
-    if (activeTab === 'inventory') fetchItems();
+    fetchVendors();
+    fetchStats();
+  }, []);
+
+  // ── Fetch tab-specific data ──
+  useEffect(() => {
+    if (activeTab === 'inventory' || activeTab === 'stock') fetchItems();
     if (activeTab === 'vendors') fetchVendors();
     if (activeTab === 'equipment') fetchEquipment();
-    fetchStats();
   }, [activeTab, search, filterCategory, page]);
 
   const fetchItems = async () => {
@@ -71,21 +78,28 @@ export default function Inventory() {
       const { data } = await inventoryService.getItems(params);
       setItems(data.items);
       setTotal(data.total);
+    } catch (err) {
+      console.error('Failed to fetch items:', err);
     } finally { setLoading(false); }
   };
 
   const fetchVendors = async () => {
     try {
       const { data } = await vendorService.getVendors({ limit: 100 });
-      setVendors(data.vendors);
-    } catch {}
+      setVendors(data.vendors || []);
+    } catch (err) {
+      console.error('Failed to fetch vendors:', err);
+    }
   };
 
   const fetchEquipment = async () => {
+    setLoading(true);
     try {
       const { data } = await inventoryService.getEquipment({ limit: 100 });
-      setItems(data.items);
-    } catch {}
+      setItems(data.items || []);
+    } catch (err) {
+      console.error('Failed to fetch equipment:', err);
+    } finally { setLoading(false); }
   };
 
   const fetchStats = async () => {
@@ -102,20 +116,69 @@ export default function Inventory() {
         dueMaintenance: dueMaintenance.data?.length || 0,
         totalVendors: vendorStats.data?.totalVendors || 0
       });
-    } catch {}
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+    }
   };
 
-  // Inventory CRUD
+  // ── Validate form ──
+  const validateForm = () => {
+    const errors = {};
+    if (!form.name.trim()) errors.name = 'Item name is required';
+    if (!form.category) errors.category = 'Category is required';
+    // Vendor is optional — removed mandatory check so items can be added without vendor
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // ── Open edit modal, extract vendor ID safely ──
+  const openEditModal = (item) => {
+    const vendorId = (item.vendor && typeof item.vendor === 'object') ? item.vendor._id : (item.vendor || '');
+    setForm({
+      name: item.name || '',
+      category: item.category || 'Medicine',
+      description: item.description || '',
+      quantity: item.quantity ?? 0,
+      unit: item.unit || 'Units',
+      unitPrice: item.unitPrice ?? 0,
+      reorderLevel: item.reorderLevel ?? 10,
+      location: item.location || '',
+      vendor: vendorId,
+      equipmentDetails: item.equipmentDetails
+        ? { ...emptyForm.equipmentDetails, ...item.equipmentDetails }
+        : { ...emptyForm.equipmentDetails }
+    });
+    setEditId(item._id);
+    setModal(true);
+  };
+
+  // ── Inventory submit ──
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
     try {
-      const payload = { ...form };
-      if (form.category !== 'Equipment') delete payload.equipmentDetails;
-      if (editId) await inventoryService.updateItem(editId, payload);
-      else await inventoryService.createItem(payload);
+      const payload = {
+        name: form.name,
+        category: form.category,
+        description: form.description,
+        quantity: Number(form.quantity) || 0,
+        unit: form.unit,
+        unitPrice: Number(form.unitPrice) || 0,
+        reorderLevel: Number(form.reorderLevel) || 0,
+        location: form.location,
+      };
+      if (form.vendor) payload.vendor = form.vendor;
+      if (form.category === 'Equipment') payload.equipmentDetails = form.equipmentDetails;
+
+      if (editId) {
+        await inventoryService.updateItem(editId, payload);
+      } else {
+        await inventoryService.createItem(payload);
+      }
       setModal(false);
       resetForm();
-      fetchItems();
+      if (activeTab === 'inventory') fetchItems();
+      if (activeTab === 'equipment') fetchEquipment();
       fetchStats();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save');
@@ -123,27 +186,51 @@ export default function Inventory() {
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete "${name}"?`)) return;
-    await inventoryService.deleteItem(id);
-    fetchItems();
-    fetchStats();
-  };
-
-  // Stock transaction
-  const handleTransaction = async (e) => {
-    e.preventDefault();
+    if (!window.confirm(`Delete "${name}"? This action cannot be undone.`)) return;
     try {
-      await inventoryService.addTransaction(txModal._id, tx);
-      setTxModal(null);
-      setTx({ type: 'IN', quantity: 1, reason: '', unitPrice: '', referenceNumber: '', notes: '' });
+      await inventoryService.deleteItem(id);
       fetchItems();
       fetchStats();
     } catch (err) {
-      alert(err.response?.data?.message || 'Transaction failed');
+      alert(err.response?.data?.message || 'Failed to delete item');
     }
   };
 
-  // Maintenance
+  // ── Open stock modal ──
+  const openStockModal = (item, type = 'IN') => {
+    setTx({ type, quantity: 1, reason: '', referenceNumber: '', notes: '' });
+    setTxModal(item);
+  };
+
+  // ── Submit stock transaction ──
+  const handleTransaction = async (e) => {
+    e.preventDefault();
+    const qty = Number(tx.quantity);
+    if (!qty || qty <= 0) {
+      alert('Please enter a valid quantity');
+      return;
+    }
+    try {
+      await inventoryService.addTransaction(txModal._id, { ...tx, quantity: qty });
+      setTxModal(null);
+      fetchItems();
+      fetchStats();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Transaction failed. Please try again.');
+    }
+  };
+
+  // ── Open history modal ──
+  const openHistory = async (item) => {
+    try {
+      const { data } = await inventoryService.getTransactions(item._id, 20);
+      setHistoryModal({ item, transactions: data.transactions || [] });
+    } catch (err) {
+      alert('Failed to load history');
+    }
+  };
+
+  // ── Maintenance ──
   const handleLogMaintenance = async (e) => {
     e.preventDefault();
     try {
@@ -157,19 +244,15 @@ export default function Inventory() {
     }
   };
 
-  // Vendor CRUD
+  // ── Vendor CRUD ──
   const handleVendorSubmit = async (e) => {
     e.preventDefault();
+    if (!vendorForm.name.trim()) { alert('Vendor name is required'); return; }
     try {
       if (editVendorId) await vendorService.updateVendor(editVendorId, vendorForm);
       else await vendorService.createVendor(vendorForm);
       setVendorModal(false);
-      setVendorForm({
-        name: '', contactPerson: '', email: '', phone: '',
-        address: { street: '', city: '', state: '', pincode: '', country: 'India' },
-        gstNumber: '', category: 'Medical Supplies', paymentTerms: 'Net 30', rating: 3
-      });
-      setEditVendorId(null);
+      resetVendorForm();
       fetchVendors();
       fetchStats();
     } catch (err) {
@@ -177,11 +260,7 @@ export default function Inventory() {
     }
   };
 
-  const resetForm = () => {
-    setForm(emptyForm);
-    setEditId(null);
-  };
-
+  const resetForm = () => { setForm(emptyForm); setEditId(null); setFormErrors({}); };
   const resetVendorForm = () => {
     setVendorForm({
       name: '', contactPerson: '', email: '', phone: '',
@@ -193,23 +272,22 @@ export default function Inventory() {
 
   const pages = Math.ceil(total / 20);
 
-  // Get vendor name by ID
-  const getVendorName = (vendorId) => {
-    const vendor = vendors.find(v => v._id === vendorId);
-    return vendor?.name || '—';
+  const getVendorName = (vendor) => {
+    if (!vendor) return '—';
+    if (typeof vendor === 'object') return vendor.name || '—';
+    const found = vendors.find(v => v._id === vendor);
+    return found?.name || '—';
   };
 
   return (
     <div>
-      {/* Header with Stats */}
+      {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Inventory Management</h1>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setModal(true); }}>
-          + Add Item
-        </button>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setModal(true); }}>+ Add Item</button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="stat-grid">
         <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('inventory')}>
           <div className="stat-icon" style={{ background: '#dbeafe' }}>📦</div>
@@ -250,13 +328,16 @@ export default function Inventory() {
               {categoryOptions.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
-
           {loading ? <div className="spinner" /> : (
             <div className="table-wrapper">
               <table>
-                <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Qty</th><th>Unit Price</th><th>Total Value</th><th>Vendor</th><th>Actions</th></tr></thead>
+                <thead>
+                  <tr><th>Code</th><th>Name</th><th>Category</th><th>Qty</th><th>Unit Price</th><th>Total Value</th><th>Vendor</th><th>Actions</th></tr>
+                </thead>
                 <tbody>
-                  {items.length === 0 ? (<tr><td colSpan="8" className="empty-state">No items found</td></tr>) : items.map(item => {
+                  {items.length === 0 ? (
+                    <tr><td colSpan="8" className="empty-state">No items found</td></tr>
+                  ) : items.map(item => {
                     const isLow = item.quantity <= item.reorderLevel;
                     return (
                       <tr key={item._id}>
@@ -266,11 +347,11 @@ export default function Inventory() {
                         <td style={{ color: isLow ? '#dc2626' : undefined, fontWeight: isLow ? 700 : undefined }}>{item.quantity} {item.unit} {isLow && '⚠️'}</td>
                         <td>₹{item.unitPrice}</td>
                         <td>₹{(item.totalValue || 0).toLocaleString()}</td>
-                        <td>{item.vendor ? getVendorName(item.vendor) : '—'}</td>
+                        <td>{getVendorName(item.vendor)}</td>
                         <td>
                           <div className="flex gap-2">
-                            <button className="btn btn-sm btn-success" onClick={() => { setTxModal(item); setTx({ type: 'IN', quantity: 1, reason: '', unitPrice: '', referenceNumber: '', notes: '' }); }}>Stock</button>
-                            <button className="btn btn-sm btn-outline" onClick={() => { setForm({ ...item, equipmentDetails: item.equipmentDetails || emptyForm.equipmentDetails }); setEditId(item._id); setModal(true); }}>Edit</button>
+                            <button className="btn btn-sm btn-success" onClick={() => openStockModal(item, 'IN')}>Stock</button>
+                            <button className="btn btn-sm btn-outline" onClick={() => openEditModal(item)}>Edit</button>
                             <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item._id, item.name)}>Del</button>
                           </div>
                         </td>
@@ -284,7 +365,9 @@ export default function Inventory() {
           {pages > 1 && (
             <div className="pagination">
               <button className="page-btn" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}>‹</button>
-              {Array.from({ length: Math.min(pages, 10) }, (_, i) => (<button key={i+1} className={`page-btn ${page===i+1?'active':''}`} onClick={() => setPage(i+1)}>{i+1}</button>))}
+              {Array.from({ length: Math.min(pages, 10) }, (_, i) => (
+                <button key={i+1} className={`page-btn ${page===i+1?'active':''}`} onClick={() => setPage(i+1)}>{i+1}</button>
+              ))}
               <button className="page-btn" onClick={() => setPage(p => Math.min(pages, p+1))} disabled={page===pages}>›</button>
             </div>
           )}
@@ -299,9 +382,13 @@ export default function Inventory() {
           </div>
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>Vendor ID</th><th>Name</th><th>Contact Person</th><th>Phone</th><th>Category</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr><th>Vendor ID</th><th>Name</th><th>Contact Person</th><th>Phone</th><th>Category</th><th>Rating</th><th>Status</th><th>Actions</th></tr>
+              </thead>
               <tbody>
-                {vendors.length === 0 ? (<tr><td colSpan="8" className="empty-state">No vendors found</td></tr>) : vendors.map(v => (
+                {vendors.length === 0 ? (
+                  <tr><td colSpan="8" className="empty-state">No vendors found</td></tr>
+                ) : vendors.map(v => (
                   <tr key={v._id}>
                     <td><strong style={{ color: 'var(--primary)' }}>{v.vendorId}</strong></td>
                     <td><strong>{v.name}</strong></td>
@@ -328,9 +415,15 @@ export default function Inventory() {
         <div className="card">
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>Code</th><th>Name</th><th>Serial Number</th><th>Model</th><th>Condition</th><th>Assigned To</th><th>Maintenance</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr><th>Code</th><th>Name</th><th>Serial Number</th><th>Model</th><th>Condition</th><th>Assigned To</th><th>Maintenance</th><th>Actions</th></tr>
+              </thead>
               <tbody>
-                {items.length === 0 ? (<tr><td colSpan="8" className="empty-state">No equipment found</td></tr>) : items.filter(i => i.category === 'Equipment').map(item => {
+                {loading ? (
+                  <tr><td colSpan="8" className="empty-state">Loading...</td></tr>
+                ) : items.length === 0 ? (
+                  <tr><td colSpan="8" className="empty-state">No equipment found</td></tr>
+                ) : items.filter(i => i.category === 'Equipment').map(item => {
                   const isDue = item.equipmentDetails?.nextMaintenanceDate && new Date(item.equipmentDetails.nextMaintenanceDate) <= new Date();
                   return (
                     <tr key={item._id}>
@@ -344,7 +437,7 @@ export default function Inventory() {
                       <td>
                         <div className="flex gap-2">
                           <button className="btn btn-sm btn-warning" onClick={() => { setMaintenanceModal(item); setMaintenanceForm({ type: 'Routine', performedBy: '', cost: 0, notes: '', nextDueDate: '' }); }}>Maintenance</button>
-                          <button className="btn btn-sm btn-outline" onClick={() => { setForm({ ...item, equipmentDetails: item.equipmentDetails || emptyForm.equipmentDetails }); setEditId(item._id); setModal(true); }}>Edit</button>
+                          <button className="btn btn-sm btn-outline" onClick={() => openEditModal(item)}>Edit</button>
                         </div>
                       </td>
                     </tr>
@@ -359,7 +452,6 @@ export default function Inventory() {
       {/* ==================== STOCK MANAGEMENT TAB ==================== */}
       {activeTab === 'stock' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          {/* Left: Items List */}
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>Items</h3>
             <div className="search-wrap" style={{ marginBottom: 12 }}>
@@ -370,54 +462,120 @@ export default function Inventory() {
               {items.map(item => {
                 const isLow = item.quantity <= item.reorderLevel;
                 return (
-                  <div key={item._id} style={{ padding: 12, borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => { setTxModal(item); setTx({ type: 'IN', quantity: 1, reason: '', unitPrice: '', referenceNumber: '', notes: '' }); }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div key={item._id} style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                       <div><strong>{item.name}</strong><br/><span className="text-muted text-small">{item.itemCode}</span></div>
-                      <div style={{ textAlign: 'right' }}><div style={{ fontSize: 20, fontWeight: 700, color: isLow ? '#dc2626' : '#1e293b' }}>{item.quantity} {item.unit}</div></div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: isLow ? '#dc2626' : '#1e293b' }}>{item.quantity} {item.unit}</div>
                     </div>
-                    <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                      <button className="btn btn-sm btn-success" onClick={(e) => { e.stopPropagation(); setTxModal(item); setTx({ type: 'IN', quantity: 1, reason: '', unitPrice: '', referenceNumber: '', notes: '' }); }}>+ Stock IN</button>
-                      <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); setTxModal(item); setTx({ type: 'OUT', quantity: 1, reason: '', unitPrice: '', referenceNumber: '', notes: '' }); }}>- Stock OUT</button>
-                      <button className="btn btn-sm btn-ghost" onClick={async (e) => { e.stopPropagation(); const { data } = await inventoryService.getTransactions(item._id, 20); setHistoryItem({ item, transactions: data.transactions }); }}>History</button>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button className="btn btn-sm btn-success" onClick={() => openStockModal(item, 'IN')}>+ Stock IN</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => openStockModal(item, 'OUT')}>- Stock OUT</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => openHistory(item)}>History</button>
+                      <button className="btn btn-sm btn-outline" onClick={() => openEditModal(item)}>Edit</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item._id, item.name)}>Del</button>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center', color: '#94a3b8' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+              <div>Click Stock IN / OUT on any item to manage stock</div>
+            </div>
+          </div>
+        </div>
+      )}
 
-          {/* Right: Transaction Form or History */}
-          <div className="card">
-            {historyItem ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <h3 style={{ margin: 0 }}>History - {historyItem.item.name}</h3>
-                  <button className="btn btn-sm btn-ghost" onClick={() => setHistoryItem(null)}>← Back</button>
+      {/* ==================== STOCK TRANSACTION MODAL (overlay, works from any tab) ==================== */}
+      {txModal && (
+        <div className="modal-overlay" onClick={() => setTxModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{tx.type === 'IN' ? '➕ Stock IN' : '➖ Stock OUT'} — {txModal.name}</h3>
+              <button className="modal-close" onClick={() => setTxModal(null)}>×</button>
+            </div>
+            <form onSubmit={handleTransaction}>
+              <div className="modal-body">
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Current Stock</span>
+                  <strong>{txModal.quantity} {txModal.unit}</strong>
                 </div>
-                <div className="table-wrapper">
-                  <table><thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Reason</th></tr></thead>
-                  <tbody>{historyItem.transactions?.map((t, i) => (
-                    <tr key={i}><td>{new Date(t.date).toLocaleString()}</td><td><span className={`badge ${t.type === 'IN' ? 'badge-success' : 'badge-danger'}`}>{t.type}</span></td><td>{t.quantity}</td><td>{t.reason || '—'}</td></tr>
-                  ))}</tbody></table>
+                <div className="form-group">
+                  <label>Transaction Type</label>
+                  <select className="form-control" value={tx.type} onChange={e => setTx({...tx, type: e.target.value})}>
+                    <option value="IN">Stock IN (Add)</option>
+                    <option value="OUT">Stock OUT (Remove)</option>
+                    <option value="ADJUSTMENT">Adjustment (Set exact qty)</option>
+                    <option value="RETURN">Return</option>
+                  </select>
                 </div>
-              </>
-            ) : txModal ? (
-              <>
-                <h3 style={{ marginBottom: 16 }}>{tx.type === 'IN' ? '➕ Stock IN' : '➖ Stock OUT'} - {txModal.name}</h3>
-                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-                  Current Stock: <strong>{txModal.quantity} {txModal.unit}</strong>
+                <div className="form-group">
+                  <label>Quantity *</label>
+                  <input className="form-control" type="number" min="1" value={tx.quantity}
+                    onChange={e => setTx({...tx, quantity: parseInt(e.target.value) || 1})} required />
                 </div>
-                <form onSubmit={handleTransaction}>
-                  <div className="form-group"><label>Quantity *</label><input className="form-control" type="number" min="1" value={tx.quantity} onChange={e => setTx({...tx, quantity: parseInt(e.target.value)})} required /></div>
-                  <div className="form-group"><label>Reason</label><input className="form-control" value={tx.reason} onChange={e => setTx({...tx, reason: e.target.value})} placeholder={tx.type === 'IN' ? 'Purchase Order #' : 'Department name'} /></div>
-                  <div className="form-group"><label>Reference Number</label><input className="form-control" value={tx.referenceNumber} onChange={e => setTx({...tx, referenceNumber: e.target.value})} /></div>
-                  <div className="form-group"><label>Notes</label><textarea className="form-control" rows={2} value={tx.notes} onChange={e => setTx({...tx, notes: e.target.value})} /></div>
-                  <div className="flex gap-2"><button type="button" className="btn btn-ghost" onClick={() => setTxModal(null)}>Cancel</button><button type="submit" className={`btn ${tx.type === 'IN' ? 'btn-success' : 'btn-danger'}`}>Confirm {tx.type === 'IN' ? 'Stock IN' : 'Stock OUT'}</button></div>
-                </form>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}><div style={{ fontSize: 48, marginBottom: 12 }}>📦</div><div>Select an item to manage stock</div></div>
-            )}
+                <div className="form-group">
+                  <label>Reason</label>
+                  <input className="form-control" value={tx.reason}
+                    onChange={e => setTx({...tx, reason: e.target.value})}
+                    placeholder={tx.type === 'IN' ? 'Purchase Order #' : 'Department name'} />
+                </div>
+                <div className="form-group">
+                  <label>Reference Number</label>
+                  <input className="form-control" value={tx.referenceNumber}
+                    onChange={e => setTx({...tx, referenceNumber: e.target.value})}
+                    placeholder="Invoice/PO number" />
+                </div>
+                <div className="form-group">
+                  <label>Notes</label>
+                  <textarea className="form-control" rows={2} value={tx.notes}
+                    onChange={e => setTx({...tx, notes: e.target.value})} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setTxModal(null)}>Cancel</button>
+                <button type="submit" className={`btn ${tx.type === 'IN' || tx.type === 'RETURN' ? 'btn-success' : 'btn-danger'}`}>
+                  Confirm {tx.type}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== HISTORY MODAL ==================== */}
+      {historyModal && (
+        <div className="modal-overlay" onClick={() => setHistoryModal(null)}>
+          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Transaction History — {historyModal.item.name}</h3>
+              <button className="modal-close" onClick={() => setHistoryModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="table-wrapper">
+                <table>
+                  <thead><tr><th>Date</th><th>Type</th><th>Qty</th><th>Reason</th><th>Reference</th></tr></thead>
+                  <tbody>
+                    {historyModal.transactions.length === 0 ? (
+                      <tr><td colSpan="5" className="empty-state">No transactions found</td></tr>
+                    ) : historyModal.transactions.map((t, i) => (
+                      <tr key={i}>
+                        <td>{new Date(t.date).toLocaleString()}</td>
+                        <td><span className={`badge ${t.type === 'IN' || t.type === 'RETURN' ? 'badge-success' : 'badge-danger'}`}>{t.type}</span></td>
+                        <td>{t.quantity}</td>
+                        <td>{t.reason || '—'}</td>
+                        <td>{t.referenceNumber || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setHistoryModal(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}
@@ -426,24 +584,64 @@ export default function Inventory() {
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(false)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3 className="modal-title">{editId ? 'Edit Item' : 'Add Inventory Item'}</h3><button className="modal-close" onClick={() => setModal(false)}>×</button></div>
+            <div className="modal-header">
+              <h3 className="modal-title">{editId ? 'Edit Item' : 'Add Inventory Item'}</h3>
+              <button className="modal-close" onClick={() => setModal(false)}>×</button>
+            </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="form-row">
-                  <div className="form-group"><label>Item Name *</label><input className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required /></div>
-                  <div className="form-group"><label>Category *</label><select className="form-control" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>{categoryOptions.map(c => <option key={c}>{c}</option>)}</select></div>
+                  <div className="form-group">
+                    <label>Item Name *</label>
+                    <input className="form-control" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                    {formErrors.name && <small style={{ color: '#dc2626' }}>{formErrors.name}</small>}
+                  </div>
+                  <div className="form-group">
+                    <label>Category *</label>
+                    <select className="form-control" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                      {categoryOptions.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="form-row-3">
-                  <div className="form-group"><label>Quantity</label><input className="form-control" type="number" value={form.quantity} onChange={e => setForm({...form, quantity: parseInt(e.target.value)})} /></div>
-                  <div className="form-group"><label>Unit</label><select className="form-control" value={form.unit} onChange={e => setForm({...form, unit: e.target.value})}>{unitOptions.map(u => <option key={u}>{u}</option>)}</select></div>
-                  <div className="form-group"><label>Unit Price (₹)</label><input className="form-control" type="number" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: parseFloat(e.target.value)})} /></div>
+                  <div className="form-group">
+                    <label>Quantity</label>
+                    <input className="form-control" type="number" min="0" value={form.quantity}
+                      onChange={e => setForm({...form, quantity: parseInt(e.target.value) || 0})} />
+                  </div>
+                  <div className="form-group">
+                    <label>Unit</label>
+                    <select className="form-control" value={form.unit} onChange={e => setForm({...form, unit: e.target.value})}>
+                      {unitOptions.map(u => <option key={u}>{u}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Unit Price (₹)</label>
+                    <input className="form-control" type="number" min="0" value={form.unitPrice}
+                      onChange={e => setForm({...form, unitPrice: parseFloat(e.target.value) || 0})} />
+                  </div>
                 </div>
                 <div className="form-row">
-                  <div className="form-group"><label>Reorder Level</label><input className="form-control" type="number" value={form.reorderLevel} onChange={e => setForm({...form, reorderLevel: parseInt(e.target.value)})} /></div>
-                  <div className="form-group"><label>Location</label><input className="form-control" value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder="e.g., Shelf A-3" /></div>
+                  <div className="form-group">
+                    <label>Reorder Level</label>
+                    <input className="form-control" type="number" min="0" value={form.reorderLevel}
+                      onChange={e => setForm({...form, reorderLevel: parseInt(e.target.value) || 0})} />
+                  </div>
+                  <div className="form-group">
+                    <label>Location</label>
+                    <input className="form-control" value={form.location} onChange={e => setForm({...form, location: e.target.value})} placeholder="e.g., Shelf A-3" />
+                  </div>
                 </div>
-                <div className="form-group"><label>Vendor</label><select className="form-control" value={form.vendor || ''} onChange={e => setForm({...form, vendor: e.target.value})}><option value="">— Select Vendor —</option>{vendors.map(v => <option key={v._id} value={v._id}>{v.name}</option>)}</select></div>
-                
+
+                {/* Vendor selection — optional for all, shown for all */}
+                <div className="form-group">
+                  <label>Vendor {form.category === 'Equipment' && <span style={{ color: '#888', fontSize: 12 }}>(optional)</span>}</label>
+                  <select className="form-control" value={form.vendor || ''} onChange={e => setForm({...form, vendor: e.target.value})}>
+                    <option value="">— Select Vendor (optional) —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name}</option>)}
+                  </select>
+                </div>
+
                 {/* Equipment-specific fields */}
                 {form.category === 'Equipment' && (
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 8 }}>
@@ -462,13 +660,16 @@ export default function Inventory() {
                     </div>
                     <div className="form-row">
                       <div className="form-group"><label>Assigned To (Ward)</label><input className="form-control" value={form.equipmentDetails?.assignedTo || ''} onChange={e => setForm({...form, equipmentDetails: {...form.equipmentDetails, assignedTo: e.target.value}})} placeholder="e.g., ICU, OT-2" /></div>
-                      <div className="form-group"><label>Maintenance Interval (Days)</label><input className="form-control" type="number" value={form.equipmentDetails?.maintenanceIntervalDays || 90} onChange={e => setForm({...form, equipmentDetails: {...form.equipmentDetails, maintenanceIntervalDays: parseInt(e.target.value)}})} /></div>
+                      <div className="form-group"><label>Maintenance Interval (Days)</label><input className="form-control" type="number" value={form.equipmentDetails?.maintenanceIntervalDays || 90} onChange={e => setForm({...form, equipmentDetails: {...form.equipmentDetails, maintenanceIntervalDays: parseInt(e.target.value) || 90}})} /></div>
                     </div>
                   </div>
                 )}
                 <div className="form-group"><label>Description</label><textarea className="form-control" rows={2} value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
               </div>
-              <div className="modal-footer"><button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Add'}</button></div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Add'}</button>
+              </div>
             </form>
           </div>
         </div>
@@ -481,16 +682,33 @@ export default function Inventory() {
             <div className="modal-header"><h3 className="modal-title">{editVendorId ? 'Edit Vendor' : 'Add Vendor'}</h3><button className="modal-close" onClick={() => setVendorModal(false)}>×</button></div>
             <form onSubmit={handleVendorSubmit}>
               <div className="modal-body">
-                <div className="form-row"><div className="form-group"><label>Vendor Name *</label><input className="form-control" value={vendorForm.name} onChange={e => setVendorForm({...vendorForm, name: e.target.value})} required /></div>
-                <div className="form-group"><label>Contact Person</label><input className="form-control" value={vendorForm.contactPerson} onChange={e => setVendorForm({...vendorForm, contactPerson: e.target.value})} /></div></div>
-                <div className="form-row"><div className="form-group"><label>Phone</label><input className="form-control" value={vendorForm.phone} onChange={e => setVendorForm({...vendorForm, phone: e.target.value})} /></div>
-                <div className="form-group"><label>Email</label><input className="form-control" type="email" value={vendorForm.email} onChange={e => setVendorForm({...vendorForm, email: e.target.value})} /></div></div>
-                <div className="form-row"><div className="form-group"><label>GST Number</label><input className="form-control" value={vendorForm.gstNumber} onChange={e => setVendorForm({...vendorForm, gstNumber: e.target.value})} /></div>
-                <div className="form-group"><label>Category</label><select className="form-control" value={vendorForm.category} onChange={e => setVendorForm({...vendorForm, category: e.target.value})}><option>Medical Supplies</option><option>Equipment</option><option>Pharmaceuticals</option><option>General</option><option>Other</option></select></div></div>
-                <div className="form-row"><div className="form-group"><label>Payment Terms</label><select className="form-control" value={vendorForm.paymentTerms} onChange={e => setVendorForm({...vendorForm, paymentTerms: e.target.value})}><option>Immediate</option><option>Net 15</option><option>Net 30</option><option>Net 45</option><option>Net 60</option></select></div>
-                <div className="form-group"><label>Rating</label><select className="form-control" value={vendorForm.rating} onChange={e => setVendorForm({...vendorForm, rating: parseInt(e.target.value)})}><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div></div>
+                <div className="form-row">
+                  <div className="form-group"><label>Vendor Name *</label><input className="form-control" value={vendorForm.name} onChange={e => setVendorForm({...vendorForm, name: e.target.value})} required /></div>
+                  <div className="form-group"><label>Contact Person</label><input className="form-control" value={vendorForm.contactPerson} onChange={e => setVendorForm({...vendorForm, contactPerson: e.target.value})} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Phone</label><input className="form-control" value={vendorForm.phone} onChange={e => setVendorForm({...vendorForm, phone: e.target.value})} /></div>
+                  <div className="form-group"><label>Email</label><input className="form-control" type="email" value={vendorForm.email} onChange={e => setVendorForm({...vendorForm, email: e.target.value})} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>GST Number</label><input className="form-control" value={vendorForm.gstNumber} onChange={e => setVendorForm({...vendorForm, gstNumber: e.target.value})} /></div>
+                  <div className="form-group"><label>Category</label><select className="form-control" value={vendorForm.category} onChange={e => setVendorForm({...vendorForm, category: e.target.value})}>
+                    <option>Medical Supplies</option><option>Equipment</option><option>Pharmaceuticals</option><option>General</option><option>Other</option>
+                  </select></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Payment Terms</label><select className="form-control" value={vendorForm.paymentTerms} onChange={e => setVendorForm({...vendorForm, paymentTerms: e.target.value})}>
+                    <option>Immediate</option><option>Net 15</option><option>Net 30</option><option>Net 45</option><option>Net 60</option>
+                  </select></div>
+                  <div className="form-group"><label>Rating</label><select className="form-control" value={vendorForm.rating} onChange={e => setVendorForm({...vendorForm, rating: parseInt(e.target.value)})}>
+                    <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                  </select></div>
+                </div>
               </div>
-              <div className="modal-footer"><button type="button" className="btn btn-ghost" onClick={() => setVendorModal(false)}>Cancel</button><button type="submit" className="btn btn-primary">{editVendorId ? 'Update' : 'Add'}</button></div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setVendorModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{editVendorId ? 'Update' : 'Add'}</button>
+              </div>
             </form>
           </div>
         </div>
@@ -500,16 +718,25 @@ export default function Inventory() {
       {maintenanceModal && (
         <div className="modal-overlay" onClick={() => setMaintenanceModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header"><h3 className="modal-title">Log Maintenance - {maintenanceModal.name}</h3><button className="modal-close" onClick={() => setMaintenanceModal(null)}>×</button></div>
+            <div className="modal-header"><h3 className="modal-title">Log Maintenance — {maintenanceModal.name}</h3><button className="modal-close" onClick={() => setMaintenanceModal(null)}>×</button></div>
             <form onSubmit={handleLogMaintenance}>
               <div className="modal-body">
-                <div className="form-row"><div className="form-group"><label>Type</label><select className="form-control" value={maintenanceForm.type} onChange={e => setMaintenanceForm({...maintenanceForm, type: e.target.value})}><option>Routine</option><option>Repair</option><option>Calibration</option><option>Emergency</option></select></div>
-                <div className="form-group"><label>Performed By</label><input className="form-control" value={maintenanceForm.performedBy} onChange={e => setMaintenanceForm({...maintenanceForm, performedBy: e.target.value})} placeholder="Engineer name" /></div></div>
-                <div className="form-row"><div className="form-group"><label>Cost (₹)</label><input className="form-control" type="number" value={maintenanceForm.cost} onChange={e => setMaintenanceForm({...maintenanceForm, cost: parseFloat(e.target.value)})} /></div>
-                <div className="form-group"><label>Next Due Date</label><input className="form-control" type="date" value={maintenanceForm.nextDueDate} onChange={e => setMaintenanceForm({...maintenanceForm, nextDueDate: e.target.value})} /></div></div>
+                <div className="form-row">
+                  <div className="form-group"><label>Type</label><select className="form-control" value={maintenanceForm.type} onChange={e => setMaintenanceForm({...maintenanceForm, type: e.target.value})}>
+                    <option>Routine</option><option>Repair</option><option>Calibration</option><option>Emergency</option>
+                  </select></div>
+                  <div className="form-group"><label>Performed By</label><input className="form-control" value={maintenanceForm.performedBy} onChange={e => setMaintenanceForm({...maintenanceForm, performedBy: e.target.value})} placeholder="Engineer name" /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Cost (₹)</label><input className="form-control" type="number" value={maintenanceForm.cost} onChange={e => setMaintenanceForm({...maintenanceForm, cost: parseFloat(e.target.value) || 0})} /></div>
+                  <div className="form-group"><label>Next Due Date</label><input className="form-control" type="date" value={maintenanceForm.nextDueDate} onChange={e => setMaintenanceForm({...maintenanceForm, nextDueDate: e.target.value})} /></div>
+                </div>
                 <div className="form-group"><label>Notes</label><textarea className="form-control" rows={3} value={maintenanceForm.notes} onChange={e => setMaintenanceForm({...maintenanceForm, notes: e.target.value})} /></div>
               </div>
-              <div className="modal-footer"><button type="button" className="btn btn-ghost" onClick={() => setMaintenanceModal(null)}>Cancel</button><button type="submit" className="btn btn-primary">Log Maintenance</button></div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setMaintenanceModal(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Log Maintenance</button>
+              </div>
             </form>
           </div>
         </div>

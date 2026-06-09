@@ -30,6 +30,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/staff-work', require('./routes/staffWork'));
+app.use('/api/room-settings', require('./routes/room'));
 
 app.get('/', (req, res) => res.json({ message: 'HMS API Running' }));
 

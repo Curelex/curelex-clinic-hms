@@ -17,6 +17,7 @@ import Inventory from './pages/Inventory';
 import Staff from './pages/Staff';
 import TokenPanel from './pages/TokenPanel';
 import IPD from './pages/IPD';   // ← NEW
+import RoomSettings from './pages/RoomSettings';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 const PrivateRoute = ({ children }) => {
@@ -69,6 +70,8 @@ function App() {
             <Route path="ipd" element={
               <PermRoute permKey="ipd"><IPD /></PermRoute>
             } />
+
+            <Route path="room-settings" element={<PermRoute permKey="room-settings"><RoomSettings /></PermRoute>} />
 
 <Route path="pharmacy/*" element={
               <PermRoute permKey="pharmacy">

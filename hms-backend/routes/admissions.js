@@ -1,18 +1,10 @@
 // hms-backend/routes/admissions.js
-// Add to server.js:  app.use('/api/admissions', require('./routes/admissions'));
-
-const express   = require('express');
-const router    = express.Router();
-const auth      = require('../middleware/auth');
+const express = require('express');
+const router = express.Router();
+const auth = require('../middleware/auth');
 const Admission = require('../models/Admission');
-const Patient   = require('../models/Patient');
-
-const ROOM_RATES = {
-  'General Ward': 800,
-  'Semi-Private': 1500,
-  'Private Room': 2500,
-  'ICU':          4000,
-};
+const Patient = require('../models/Patient');
+const ClinicRoomConfig = require('../models/ClinicRoomConfig');
 
 // ── helpers ─────────────────────────────────────────────────────
 function computeDays(admissionDate, dischargeDate) {
@@ -26,7 +18,8 @@ function computeDays(admissionDate, dischargeDate) {
 router.get('/', auth, async (req, res) => {
   try {
     const { status, patient, page = 1, limit = 20 } = req.query;
-    const query = {};
+    const clinicId = req.user.clinicId || 'default';
+    const query = { clinicId };
     if (status)  query.status  = status;
     if (patient) query.patient = patient;
 
@@ -48,7 +41,8 @@ router.get('/', auth, async (req, res) => {
 // ── GET /api/admissions/active  — currently admitted patients ───
 router.get('/active', auth, async (req, res) => {
   try {
-    const admissions = await Admission.find({ status: 'Admitted' })
+    const clinicId = req.user.clinicId || 'default';
+    const admissions = await Admission.find({ status: 'Admitted', clinicId })
       .populate('patient', 'name patientId phone age gender bloodGroup')
       .populate('doctor',  'name department')
       .sort({ admissionDate: -1 });
@@ -61,7 +55,8 @@ router.get('/active', auth, async (req, res) => {
 // ── GET /api/admissions/:id  — single admission with full logs ──
 router.get('/:id', auth, async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id)
+    const clinicId = req.user.clinicId || 'default';
+    const admission = await Admission.findOne({ _id: req.params.id, clinicId })
       .populate('patient',    'name patientId phone age gender bloodGroup allergies assignedDoctor')
       .populate('doctor',     'name department')
       .populate('admittedBy', 'name')
@@ -73,35 +68,85 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+// ── GET /api/admissions/config/room-types  — get dynamic room configs ──
+router.get('/config/room-types', auth, async (req, res) => {
+  try {
+    const clinicId = req.user.clinicId || 'default';
+    let configs = await ClinicRoomConfig.find({ clinicId });
+    
+    if (configs.length === 0) {
+      // Return defaults if no config exists
+      configs = [
+        { roomType: 'General Ward', dailyRate: 800, totalRooms: 5, availableRooms: 5 },
+        { roomType: 'Semi-Private', dailyRate: 1500, totalRooms: 4, availableRooms: 4 },
+        { roomType: 'Private Room', dailyRate: 2500, totalRooms: 3, availableRooms: 3 },
+        { roomType: 'ICU', dailyRate: 4000, totalRooms: 4, availableRooms: 4 },
+      ];
+    }
+    
+    res.json(configs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ── POST /api/admissions  — admit a patient (receptionist) ──────
 router.post('/', auth, async (req, res) => {
   try {
     const { patientId, doctorId, roomType, roomNumber, notes } = req.body;
+    const clinicId = req.user.clinicId || 'default';
+    
     if (!patientId) return res.status(400).json({ message: 'patientId is required' });
 
     // Check if already admitted
-    const existing = await Admission.findOne({ patient: patientId, status: 'Admitted' });
+    const existing = await Admission.findOne({ patient: patientId, status: 'Admitted', clinicId });
     if (existing) return res.status(400).json({ message: 'Patient is already admitted' });
 
-    const rate = ROOM_RATES[roomType] || 800;
+    // Get dynamic room rate from clinic config
+    let roomConfig = await ClinicRoomConfig.findOne({ clinicId, roomType });
+    
+    if (!roomConfig) {
+      // Fallback to defaults if config doesn't exist
+      const defaults = {
+        'General Ward': 800,
+        'Semi-Private': 1500,
+        'Private Room': 2500,
+        'ICU': 4000,
+      };
+      roomConfig = { dailyRate: defaults[roomType] || 800, availableRooms: 5 };
+    }
+    
+    // Check if room is available
+    if (roomConfig.availableRooms <= 0) {
+      return res.status(400).json({ message: `No ${roomType} rooms available` });
+    }
+    
+    const rate = roomConfig.dailyRate;
 
     const admission = await Admission.create({
-      patient:       patientId,
-      doctor:        doctorId || undefined,
-      admittedBy:    req.user.id,
-      admittedByName:req.user.name,
-      roomType:      roomType || 'General Ward',
-      roomNumber:    roomNumber || '',
-      roomRatePerDay:rate,
-      notes:         notes || '',
+      patient:        patientId,
+      doctor:         doctorId || undefined,
+      admittedBy:     req.user.id,
+      admittedByName: req.user.name,
+      roomType:       roomType || 'General Ward',
+      roomNumber:     roomNumber || '',
+      roomRatePerDay: rate,
+      notes:          notes || '',
+      clinicId:       clinicId,
     });
+
+    // Decrease available rooms count
+    await ClinicRoomConfig.updateOne(
+      { clinicId, roomType },
+      { $inc: { availableRooms: -1 } }
+    );
 
     // Update patient status to Active (admitted)
     await Patient.findByIdAndUpdate(patientId, { status: 'Active' });
 
     const populated = await Admission.findById(admission._id)
       .populate('patient', 'name patientId phone')
-      .populate('doctor',  'name department');
+      .populate('doctor', 'name department');
 
     res.status(201).json(populated);
   } catch (err) {
@@ -113,18 +158,25 @@ router.post('/', auth, async (req, res) => {
 // ── PATCH /api/admissions/:id/discharge  — discharge patient ────
 router.patch('/:id/discharge', auth, async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const clinicId = req.user.clinicId || 'default';
+    const admission = await Admission.findOne({ _id: req.params.id, clinicId });
     if (!admission) return res.status(404).json({ message: 'Not found' });
 
     const dischargeDate = new Date();
     const daysAdmitted  = computeDays(admission.admissionDate, dischargeDate);
     const roomRent      = daysAdmitted * admission.roomRatePerDay;
 
-    admission.status       = 'Discharged';
+    admission.status        = 'Discharged';
     admission.dischargeDate = dischargeDate;
     admission.daysAdmitted  = daysAdmitted;
     admission.roomRent      = roomRent;
     await admission.save();
+
+    // Increase available rooms back
+    await ClinicRoomConfig.updateOne(
+      { clinicId, roomType: admission.roomType },
+      { $inc: { availableRooms: +1 } }
+    );
 
     // Update patient status
     await Patient.findByIdAndUpdate(admission.patient, { status: 'Discharged' });
@@ -136,16 +188,17 @@ router.patch('/:id/discharge', auth, async (req, res) => {
 });
 
 // ── POST /api/admissions/:id/medicines  — add medicine to log ───
-// Only receptionist / admin
 router.post('/:id/medicines', auth, async (req, res) => {
   try {
     const { medicineName, dosage, quantity, unitPrice, notes } = req.body;
+    const clinicId = req.user.clinicId || 'default';
+    
     if (!medicineName) return res.status(400).json({ message: 'medicineName is required' });
 
     const qty   = Number(quantity)  || 1;
     const price = Number(unitPrice) || 0;
 
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, clinicId });
     if (!admission) return res.status(404).json({ message: 'Admission not found' });
     if (admission.status !== 'Admitted') return res.status(400).json({ message: 'Patient not currently admitted' });
 
@@ -170,8 +223,10 @@ router.post('/:id/medicines', auth, async (req, res) => {
 // ── DELETE /api/admissions/:id/medicines/:medId  — remove a medicine entry
 router.delete('/:id/medicines/:medId', auth, async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id);
+    const clinicId = req.user.clinicId || 'default';
+    const admission = await Admission.findOne({ _id: req.params.id, clinicId });
     if (!admission) return res.status(404).json({ message: 'Not found' });
+    
     admission.medicineLog = admission.medicineLog.filter(
       m => String(m._id) !== req.params.medId
     );
@@ -183,13 +238,14 @@ router.delete('/:id/medicines/:medId', auth, async (req, res) => {
 });
 
 // ── POST /api/admissions/:id/followup  — add follow-up note ─────
-// Doctor or nurse
 router.post('/:id/followup', auth, async (req, res) => {
   try {
     const { note, type, vitals } = req.body;
+    const clinicId = req.user.clinicId || 'default';
+    
     if (!note) return res.status(400).json({ message: 'note is required' });
 
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findOne({ _id: req.params.id, clinicId });
     if (!admission) return res.status(404).json({ message: 'Not found' });
 
     admission.followupLog.push({
@@ -208,10 +264,10 @@ router.post('/:id/followup', auth, async (req, res) => {
 });
 
 // ── GET /api/admissions/:id/bill-summary  — totals for billing ──
-// Returns medicine log totals + room rent so billing page can auto-fill
 router.get('/:id/bill-summary', auth, async (req, res) => {
   try {
-    const admission = await Admission.findById(req.params.id)
+    const clinicId = req.user.clinicId || 'default';
+    const admission = await Admission.findOne({ _id: req.params.id, clinicId })
       .populate('patient', 'name patientId');
     if (!admission) return res.status(404).json({ message: 'Not found' });
 

@@ -5,7 +5,7 @@ const auth   = require('../middleware/auth');
 
 const ALL_PERMISSIONS = [
   'dashboard','patients','appointments','billing',
-  'prescriptions','pharmacy','lab','inventory','staff',
+  'prescriptions','pharmacy','lab','inventory','staff', 'room-settings'
 ];
 
 // ── Build the user object sent to the client ───────────────────
@@ -59,7 +59,7 @@ router.post('/login', async (req, res) => {
     if (!user.isActive)
       return res.status(403).json({ message: 'Account is inactive. Contact admin.' });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id, role: user.role, permissions: user.permissions }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: userPayload(user) });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -59,6 +59,189 @@ function AppointmentList({ appointments }) {
   ));
 }
 
+// ── NEW: Room Summary Component ─────────────────────────────────
+function RoomSummary() {
+  const [roomConfigs, setRoomConfigs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const { data } = await API.get('/room-settings');
+        setRoomConfigs(data);
+      } catch (err) {
+        console.error('Failed to fetch room stats', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRooms();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="card" style={{ marginTop: 20 }}>
+        <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+          Loading room stats...
+        </div>
+      </div>
+    );
+  }
+
+  if (roomConfigs.length === 0) {
+    return null;
+  }
+
+  const totalRooms = roomConfigs.reduce((sum, r) => sum + r.totalRooms, 0);
+  const availableRooms = roomConfigs.reduce((sum, r) => sum + r.availableRooms, 0);
+  const occupiedRooms = totalRooms - availableRooms;
+  const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+
+  const thStyle = { padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#64748b' };
+  const tdStyle = { padding: '10px 12px', fontSize: 13, borderBottom: '1px solid #f1f5f9' };
+
+  return (
+    <div className="card" style={{ marginTop: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ fontSize: 15, margin: 0 }}>🏨 Hospital Room Summary</h3>
+        <button 
+          onClick={() => window.location.href = '/room-settings'}
+          style={{
+            padding: '4px 12px',
+            fontSize: 11,
+            borderRadius: 20,
+            border: '1px solid #0f4c81',
+            background: 'transparent',
+            color: '#0f4c81',
+            cursor: 'pointer',
+          }}
+        >
+          ⚙️ Manage Rooms
+        </button>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc' }}>
+              <th style={thStyle}>Room Type</th>
+              <th style={thStyle}>Daily Rate</th>
+              <th style={thStyle}>Available</th>
+              <th style={thStyle}>Total</th>
+              <th style={thStyle}>Occupancy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roomConfigs.map(config => {
+              const percentage = totalRooms > 0 ? (config.availableRooms / config.totalRooms) * 100 : 0;
+              const isFull = config.availableRooms === 0;
+              const isLow = config.availableRooms < config.totalRooms / 2;
+              
+              return (
+                <tr key={config.roomType}>
+                  <td style={tdStyle}>
+                    <strong>{config.roomType}</strong>
+                    {config.roomType === 'General Ward' && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6 }}>🛏️</span>}
+                    {config.roomType === 'Semi-Private' && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6 }}>🛏️🛏️</span>}
+                    {config.roomType === 'Private Room' && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6 }}>⭐</span>}
+                    {config.roomType === 'ICU' && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 6 }}>🚨</span>}
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={{ fontWeight: 600, color: '#0f4c81' }}>₹{config.dailyRate.toLocaleString()}</span>
+                    <span style={{ fontSize: 10, color: '#94a3b8' }}>/day</span>
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={{ 
+                      fontWeight: 700, 
+                      color: isFull ? '#dc2626' : '#16a34a',
+                      fontSize: 14,
+                    }}>
+                      {config.availableRooms}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}> / {config.totalRooms}</span>
+                  </td>
+                  <td style={tdStyle}>{config.totalRooms}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 80, height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ 
+                          width: `${percentage}%`, 
+                          height: '100%', 
+                          background: isFull ? '#ef4444' : isLow ? '#f59e0b' : '#10b981' 
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: isFull ? '#dc2626' : '#475569' }}>
+                        {Math.round(percentage)}% free
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: '#f1f5f9', fontWeight: 700 }}>
+              <td style={{ ...tdStyle, borderBottom: 'none' }}><strong>TOTAL</strong></td>
+              <td style={{ ...tdStyle, borderBottom: 'none' }}>—</td>
+              <td style={{ ...tdStyle, borderBottom: 'none' }}>
+                <strong style={{ color: '#16a34a', fontSize: 15 }}>{availableRooms}</strong>
+              </td>
+              <td style={{ ...tdStyle, borderBottom: 'none' }}>
+                <strong>{totalRooms}</strong>
+              </td>
+              <td style={{ ...tdStyle, borderBottom: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 80, height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ 
+                      width: `${(occupiedRooms / totalRooms) * 100}%`, 
+                      height: '100%', 
+                      background: occupancyRate > 80 ? '#ef4444' : occupancyRate > 50 ? '#f59e0b' : '#10b981'
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: occupancyRate > 80 ? '#dc2626' : '#475569' }}>
+                    {occupancyRate}% occupied
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style={{ 
+        marginTop: 14, 
+        padding: '10px 14px', 
+        background: '#f8fafc', 
+        borderRadius: 8,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12,
+        fontSize: 12,
+      }}>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <div>
+            <span style={{ color: '#64748b' }}>🟢 Available:</span>
+            <strong style={{ color: '#16a34a', marginLeft: 6 }}>{availableRooms} rooms</strong>
+          </div>
+          <div>
+            <span style={{ color: '#64748b' }}>🟠 Occupied:</span>
+            <strong style={{ color: '#f59e0b', marginLeft: 6 }}>{occupiedRooms} rooms</strong>
+          </div>
+          <div>
+            <span style={{ color: '#64748b' }}>🏨 Total Capacity:</span>
+            <strong style={{ marginLeft: 6 }}>{totalRooms} rooms</strong>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+          * Room availability auto-updates on admit/discharge
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [stats,   setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
@@ -121,6 +304,7 @@ export default function Dashboard() {
 
   const showTokenQueue = hasPerm('patients');
   const showInventoryAlerts = hasPerm('inventory') || hasPerm('pharmacy');
+  const showRoomSummary = hasPerm('ipd') || hasPerm('admin'); // Show for IPD users and admins
 
   // Calculate alert counts
   const totalAlerts = notifications.lowStock.length + notifications.outOfStock.length + 
@@ -180,6 +364,9 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {/* ── ROOM SUMMARY (NEW) ── */}
+      {showRoomSummary && <RoomSummary />}
 
       {/* ── OVERDUE MAINTENANCE ALERT (CRITICAL) ── */}
       {showInventoryAlerts && notifications.overdueMaintenance.length > 0 && (

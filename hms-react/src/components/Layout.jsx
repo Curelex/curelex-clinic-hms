@@ -28,6 +28,7 @@ const NAV_SECTIONS = [
   items: [
     { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
     { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
+    { path: '/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
   ],
 },
 ];

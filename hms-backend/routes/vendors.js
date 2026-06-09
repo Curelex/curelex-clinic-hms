@@ -1,9 +1,49 @@
 // hms-backend/routes/vendors.js
+
 const router = require('express').Router();
 const Vendor = require('../models/Vendor');
 const Inventory = require('../models/Inventory');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
+
+// ── GET vendor stats summary (SPECIFIC route - MUST come first) ──
+router.get('/stats/summary', auth, async (req, res) => {
+  try {
+    const totalVendors = await Vendor.countDocuments();
+    const activeVendors = await Vendor.countDocuments({ status: 'Active' });
+    const inactiveVendors = await Vendor.countDocuments({ status: 'Inactive' });
+    
+    const byCategory = await Vendor.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+    
+    const categoryMap = {};
+    byCategory.forEach(cat => {
+      categoryMap[cat._id] = cat.count;
+    });
+    
+    res.json({
+      totalVendors,
+      activeVendors,
+      inactiveVendors,
+      byCategory: categoryMap
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── GET active vendors for dropdown ──
+router.get('/list/active', auth, async (req, res) => {
+  try {
+    const vendors = await Vendor.find({ status: 'Active' })
+      .select('name vendorId contactPerson phone')
+      .sort({ name: 1 });
+    res.json(vendors);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // ── GET all vendors ──
 router.get('/', auth, async (req, res) => {
@@ -95,18 +135,6 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
     
     await Vendor.findByIdAndDelete(req.params.id);
     res.json({ message: 'Vendor deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ── GET vendor dropdown (for forms) ──
-router.get('/list/active', auth, async (req, res) => {
-  try {
-    const vendors = await Vendor.find({ status: 'Active' })
-      .select('name vendorId contactPerson phone')
-      .sort({ name: 1 });
-    res.json(vendors);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

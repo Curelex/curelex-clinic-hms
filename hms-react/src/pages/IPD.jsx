@@ -1,28 +1,22 @@
 // hms-react/src/pages/IPD.jsx
 // Inpatient Department — Receptionist manages admissions, adds medicines.
 // Doctor/Nurse can add follow-up notes.
-// Anyone with 'ipd' permission can view the full history.
 
 import React, { useEffect, useState, useCallback } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-
-const ROOM_RATES = {
-  'General Ward': 800,
-  'Semi-Private': 1500,
-  'Private Room': 2500,
-  'ICU': 4000,
-};
 
 // ── small helpers ────────────────────────────────────────────────
 function daysSince(date) {
   const d = Math.round((Date.now() - new Date(date)) / 86400000);
   return d <= 0 ? 1 : d;
 }
+
 function fmt(date) {
   if (!date) return '—';
   return new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+
 function fmtTime(date) {
   if (!date) return '';
   return new Date(date).toLocaleString('en-IN', {
@@ -48,8 +42,12 @@ export default function IPD() {
   const [filterStatus, setFilterStatus] = useState('Admitted');
   const [page, setPage] = useState(1);
 
+  // Room configs (dynamic)
+  const [roomConfigs, setRoomConfigs] = useState([]);
+  const [roomConfigsLoading, setRoomConfigsLoading] = useState(true);
+
   // detail panel
-  const [selected, setSelected] = useState(null);   // admission object
+  const [selected, setSelected] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   // admit modal
@@ -78,6 +76,29 @@ export default function IPD() {
   // patient search debounce
   const [searchTimer, setSearchTimer] = useState(null);
 
+  // ── fetch room configs ─────────────────────────────────────────
+  const fetchRoomConfigs = useCallback(async () => {
+    try {
+      const { data } = await API.get('/admissions/config/room-types');
+      setRoomConfigs(data);
+      // Set default room type to first available
+      if (data.length > 0 && data[0].availableRooms > 0) {
+        setAdmitForm(f => ({ ...f, roomType: data[0].roomType }));
+      }
+    } catch (err) {
+      console.error('Failed to load room configs:', err);
+      // Fallback defaults
+      setRoomConfigs([
+        { roomType: 'General Ward', dailyRate: 800, totalRooms: 5, availableRooms: 5 },
+        { roomType: 'Semi-Private', dailyRate: 1500, totalRooms: 4, availableRooms: 4 },
+        { roomType: 'Private Room', dailyRate: 2500, totalRooms: 3, availableRooms: 3 },
+        { roomType: 'ICU', dailyRate: 4000, totalRooms: 4, availableRooms: 4 },
+      ]);
+    } finally {
+      setRoomConfigsLoading(false);
+    }
+  }, []);
+
   // ── fetch list ────────────────────────────────────────────────
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -87,15 +108,20 @@ export default function IPD() {
       const { data } = await API.get(url);
       setAdmissions(data.admissions);
       setTotal(data.total);
+    } catch (err) {
+      console.error('Fetch list error:', err);
     } finally {
       setLoading(false);
     }
   }, [page, filterStatus]);
 
-  useEffect(() => { fetchList(); }, [fetchList]);
+  useEffect(() => {
+    fetchList();
+    fetchRoomConfigs();
+  }, [fetchList, fetchRoomConfigs]);
 
   useEffect(() => {
-    API.get('/auth/users').then(r => setDoctors(r.data.filter(u => u.role === 'doctor')));
+    API.get('/auth/users').then(r => setDoctors(r.data.filter(u => u.role === 'doctor'))).catch(console.error);
   }, []);
 
   // ── fetch detail ──────────────────────────────────────────────
@@ -105,6 +131,8 @@ export default function IPD() {
     try {
       const { data } = await API.get(`/admissions/${adm._id}`);
       setSelected(data);
+    } catch (err) {
+      console.error('Detail fetch error:', err);
     } finally {
       setDetailLoading(false);
     }
@@ -112,9 +140,13 @@ export default function IPD() {
 
   const refreshDetail = async () => {
     if (!selected) return;
-    const { data } = await API.get(`/admissions/${selected._id}`);
-    setSelected(data);
-    fetchList();
+    try {
+      const { data } = await API.get(`/admissions/${selected._id}`);
+      setSelected(data);
+      fetchList();
+    } catch (err) {
+      console.error('Refresh detail error:', err);
+    }
   };
 
   // ── patient search ────────────────────────────────────────────
@@ -123,14 +155,26 @@ export default function IPD() {
     clearTimeout(searchTimer);
     if (!val.trim()) { setPatientResults([]); return; }
     setSearchTimer(setTimeout(async () => {
-      const { data } = await API.get(`/patients?search=${encodeURIComponent(val)}&limit=8`);
-      setPatientResults(data.patients || []);
+      try {
+        const { data } = await API.get(`/patients?search=${encodeURIComponent(val)}&limit=8`);
+        setPatientResults(data.patients || []);
+      } catch (err) {
+        console.error('Patient search error:', err);
+      }
     }, 300));
   };
 
   // ── admit submit ──────────────────────────────────────────────
   const handleAdmit = async () => {
     if (!chosenPatient) return alert('Select a patient first');
+    
+    // Check if selected room type has availability
+    const selectedRoom = roomConfigs.find(r => r.roomType === admitForm.roomType);
+    if (selectedRoom && selectedRoom.availableRooms <= 0) {
+      alert(`No ${admitForm.roomType} rooms available`);
+      return;
+    }
+    
     setAdmitSaving(true);
     try {
       await API.post('/admissions', {
@@ -144,8 +188,9 @@ export default function IPD() {
       setChosenPatient(null);
       setPatientSearch('');
       setPatientResults([]);
-      setAdmitForm({ roomType: 'General Ward', roomNumber: '', notes: '' });
+      setAdmitForm({ roomType: roomConfigs[0]?.roomType || 'General Ward', roomNumber: '', notes: '' });
       fetchList();
+      fetchRoomConfigs(); // Refresh room availability
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to admit patient');
     } finally {
@@ -160,6 +205,7 @@ export default function IPD() {
       setDischargeId(null);
       if (selected?._id === id) refreshDetail();
       else fetchList();
+      fetchRoomConfigs(); // Refresh room availability
     } catch (err) {
       alert(err.response?.data?.message || 'Discharge failed');
     }
@@ -184,8 +230,12 @@ export default function IPD() {
   // ── remove medicine ───────────────────────────────────────────
   const handleRemoveMed = async (medId) => {
     if (!window.confirm('Remove this medicine entry?')) return;
-    await API.delete(`/admissions/${selected._id}/medicines/${medId}`);
-    refreshDetail();
+    try {
+      await API.delete(`/admissions/${selected._id}/medicines/${medId}`);
+      refreshDetail();
+    } catch (err) {
+      alert('Failed to remove medicine');
+    }
   };
 
   // ── add follow-up note ────────────────────────────────────────
@@ -208,7 +258,6 @@ export default function IPD() {
   const handleCreateBill = async () => {
     try {
       const { data: summary } = await API.get(`/admissions/${selected._id}/bill-summary`);
-      // Compute total
       const itemsTotal = summary.items.reduce((s, i) => s + i.total, 0);
       const grandTotal = itemsTotal + summary.roomRent;
 
@@ -243,6 +292,13 @@ export default function IPD() {
     : 0;
   const roomRent = days * (selected?.roomRatePerDay || 800);
   const grandTotal = medTotal + roomRent;
+
+  // Helper to get room availability text
+  const getRoomAvailabilityText = (roomType) => {
+    const config = roomConfigs.find(r => r.roomType === roomType);
+    if (!config) return '';
+    return ` (${config.availableRooms} of ${config.totalRooms} available)`;
+  };
 
   // ─────────────────────────────────────────────────────────────
   return (
@@ -576,7 +632,7 @@ export default function IPD() {
         )}
       </div>
 
-      {/* ── ADMIT MODAL ────────────────────────────────────────────── */}
+      {/* ── ADMIT MODAL (UPDATED with dynamic room options) ────────────────────────────── */}
       {admitModal && (
         <div className="modal-overlay" onClick={() => setAdmitModal(false)}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
@@ -591,7 +647,7 @@ export default function IPD() {
                 <label className="form-label">Search Patient *</label>
                 <input
                   className="form-control"
-                  placeholder="Type patient name…"
+                  placeholder="Type patient name..."
                   value={patientSearch}
                   onChange={e => { handlePatientSearch(e.target.value); setChosenPatient(null); }}
                   autoComplete="off"
@@ -635,11 +691,30 @@ export default function IPD() {
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Room Type</label>
-                  <select className="form-control" value={admitForm.roomType} onChange={e => setAdmitForm(f => ({ ...f, roomType: e.target.value }))}>
-                    {Object.entries(ROOM_RATES).map(([t, r]) => (
-                      <option key={t} value={t}>{t} — ₹{r}/day</option>
-                    ))}
-                  </select>
+                  {roomConfigsLoading ? (
+                    <div className="spinner" style={{ height: 36 }} />
+                  ) : (
+                    <select 
+                      className="form-control" 
+                      value={admitForm.roomType} 
+                      onChange={e => setAdmitForm(f => ({ ...f, roomType: e.target.value }))}
+                    >
+                      {roomConfigs.map(config => {
+                        const isAvailable = config.availableRooms > 0;
+                        return (
+                          <option 
+                            key={config.roomType} 
+                            value={config.roomType}
+                            disabled={!isAvailable}
+                          >
+                            {config.roomType} — ₹{config.dailyRate}/day 
+                            ({config.availableRooms} of {config.totalRooms} available)
+                            {!isAvailable ? ' ❌ FULL' : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Room Number</label>

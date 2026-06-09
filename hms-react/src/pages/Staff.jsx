@@ -12,13 +12,14 @@ const ALL_MODULES = [
   { key: 'pharmacy',      label: 'Pharmacy',        icon: '💊' },
   { key: 'lab',           label: 'Lab Tests',       icon: '🧪' },
   { key: 'inventory',     label: 'Inventory',       icon: '📦' },
+  { key: 'room-settings', label: 'Room Settings',   icon: '🏨' }
 ];
 
 const ROLE_DEFAULTS = {
   admin:          ALL_MODULES.map(m => m.key),
   doctor:         ['dashboard', 'patients', 'ipd', 'prescriptions', 'lab'],
   nurse:          ['dashboard', 'patients', 'ipd', 'lab'],
-  receptionist:   ['dashboard', 'patients', 'ipd', 'billing'],
+  receptionist:   ['dashboard', 'patients', 'ipd', 'billing', 'room-settings'],
   pharmacist:     ['dashboard', 'prescriptions', 'pharmacy', 'inventory'],
   lab_technician: ['dashboard', 'patients', 'lab'],
 };
