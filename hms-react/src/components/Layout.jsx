@@ -24,13 +24,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
-  section: 'MANAGEMENT',
-  items: [
-    { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
-    { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
-    { path: '/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
-  ],
-},
+    section: 'MANAGEMENT',
+    items: [
+      { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
+      { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
+      { path: '/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
+    ],
+  },
 ];
 
 // ── Role badge config ──────────────────────────────────────────
@@ -76,7 +76,7 @@ export default function Layout() {
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside
         style={{
-          width: isMobile ? (sidebarOpen ? '260px' : '0px') : 235,
+          width: sidebarOpen ? '235px' : '0px',
           transition: 'width 0.3s ease',
           background: '#0f2942',
           color: '#fff',
@@ -124,7 +124,7 @@ export default function Layout() {
                 <NavLink
                   key={path} to={path} end={end}
                   onClick={() => {
-                    if (isMobile) setSidebarOpen(false);
+                    setSidebarOpen(false);
                   }}
                   style={({ isActive }) => ({
                     display: 'flex', alignItems: 'center', gap: 10,
@@ -191,13 +191,13 @@ export default function Layout() {
 
       {/* ── Main content ─────────────────────────────────────────── */}
 
-      {isMobile && !sidebarOpen && (
+      {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           style={{
             position: 'fixed',
-            top: 10,
-            left: 10,
+            top: isMobile ? 10 : 24,
+            left: isMobile ? 10 : 24,
             zIndex: 2000,
             padding: '10px 14px',
             border: 'none',
@@ -217,7 +217,7 @@ export default function Layout() {
           overflowY: 'auto',
           background: '#f1f5f9',
           padding: isMobile ? 12 : 24,
-          paddingTop: isMobile ? 70 : 24,
+          paddingTop: sidebarOpen ? (isMobile ? 70 : 24) : (isMobile ? 70 : 90),
         }}
       >
         <Outlet />

@@ -21,10 +21,10 @@ function getClinicId() {
 }
 
 const ROOM_DEFAULTS = {
-  'General Ward': { dailyRate: 800,  totalRooms: 5, availableRooms: 5 },
+  'General Ward': { dailyRate: 800, totalRooms: 5, availableRooms: 5 },
   'Semi-Private': { dailyRate: 1500, totalRooms: 4, availableRooms: 4 },
   'Private Room': { dailyRate: 2500, totalRooms: 3, availableRooms: 3 },
-  'ICU':          { dailyRate: 4000, totalRooms: 4, availableRooms: 4 },
+  'ICU': { dailyRate: 4000, totalRooms: 4, availableRooms: 4 },
 };
 const ROOM_TYPES = Object.keys(ROOM_DEFAULTS);
 
@@ -32,8 +32,8 @@ export default function RoomSettings() {
   const clinicId = getClinicId();
 
   const [roomConfigs, setRoomConfigs] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [saving,      setSaving]      = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
 
   useEffect(() => { fetchConfigs(); }, []); // eslint-disable-line
@@ -61,9 +61,14 @@ export default function RoomSettings() {
   };
 
   const updateConfig = (index, field, value) => {
-    const updated   = [...roomConfigs];
-    const numValue  = Number(value);
-    updated[index]  = { ...updated[index], [field]: numValue };
+    console.log(field, value);
+    const updated = [...roomConfigs];
+    const numValue = Number(value);
+    // updated[index]  = { ...updated[index], [field]: numValue };
+    updated[index] = {
+      ...updated[index],
+      [field]: value === "" ? "" : Number(value)
+    };
 
     // Guard: availableRooms must not exceed totalRooms
     if (field === 'totalRooms' && updated[index].availableRooms > numValue) {
@@ -152,7 +157,7 @@ export default function RoomSettings() {
         <div style={{
           padding: '12px 16px', borderRadius: 8, marginBottom: 20,
           background: saveMessage.type === 'success' ? '#dcfce7' : '#fee2e2',
-          color:      saveMessage.type === 'success' ? '#166534' : '#991b1b',
+          color: saveMessage.type === 'success' ? '#166534' : '#991b1b',
           border: `1px solid ${saveMessage.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
         }}>
           {saveMessage.text}
@@ -176,7 +181,7 @@ export default function RoomSettings() {
       {/* Room cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {roomConfigs.map((config, idx) => {
-          const isFull      = config.availableRooms === 0;
+          const isFull = Number(config.availableRooms) === 0;
           const isOverbooked = config.availableRooms > config.totalRooms;
 
           return (
@@ -192,16 +197,16 @@ export default function RoomSettings() {
                 <div>
                   <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>🏨 {config.roomType}</h3>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                    {config.roomType === 'General Ward'  && 'Shared room with multiple beds'}
-                    {config.roomType === 'Semi-Private'  && 'Shared room with 2–3 beds'}
-                    {config.roomType === 'Private Room'  && 'Single occupancy private room'}
-                    {config.roomType === 'ICU'           && 'Intensive Care Unit with monitoring'}
+                    {config.roomType === 'General Ward' && 'Shared room with multiple beds'}
+                    {config.roomType === 'Semi-Private' && 'Shared room with 2–3 beds'}
+                    {config.roomType === 'Private Room' && 'Single occupancy private room'}
+                    {config.roomType === 'ICU' && 'Intensive Care Unit with monitoring'}
                   </div>
                 </div>
                 <div style={{
                   padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                   background: isFull ? '#fee2e2' : isOverbooked ? '#fef3c7' : '#dcfce7',
-                  color:      isFull ? '#b91c1c' : isOverbooked ? '#92400e' : '#166534',
+                  color: isFull ? '#b91c1c' : isOverbooked ? '#92400e' : '#166534',
                 }}>
                   {isFull
                     ? '❌ No rooms available'
@@ -221,10 +226,13 @@ export default function RoomSettings() {
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>₹</span>
                     <input
-                      type="number" className="form-control"
+                      type="number"
+                      className="form-control"
                       value={config.dailyRate}
+                      placeholder="Enter daily rate"
                       onChange={e => updateConfig(idx, 'dailyRate', e.target.value)}
-                      min="0" step="100"
+                      min="0"
+                      step="100"
                       style={{ paddingLeft: 28 }}
                     />
                   </div>
@@ -237,10 +245,13 @@ export default function RoomSettings() {
                     🏢 Total Rooms
                   </label>
                   <input
-                    type="number" className="form-control"
+                    type="number"
+                    className="form-control"
                     value={config.totalRooms}
+                    placeholder="Enter total rooms"
                     onChange={e => updateConfig(idx, 'totalRooms', e.target.value)}
-                    min="0" step="1"
+                    min="0"
+                    step="1"
                   />
                   <small style={{ fontSize: 11, color: '#94a3b8' }}>Total number of rooms in your clinic</small>
                 </div>
@@ -251,10 +262,14 @@ export default function RoomSettings() {
                     🟢 Currently Available
                   </label>
                   <input
-                    type="number" className="form-control"
+                    type="number"
+                    className="form-control"
                     value={config.availableRooms}
+                    placeholder="Enter available rooms"
                     onChange={e => updateConfig(idx, 'availableRooms', e.target.value)}
-                    min="0" max={config.totalRooms} step="1"
+                    min="0"
+                    max={config.totalRooms}
+                    step="1"
                     style={{ borderColor: isFull ? '#ef4444' : '#e2e8f0' }}
                   />
                   <small style={{ fontSize: 11, color: isFull ? '#ef4444' : '#94a3b8' }}>

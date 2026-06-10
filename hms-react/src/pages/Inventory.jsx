@@ -1,7 +1,7 @@
 // hms-react/src/pages/InventoryUnified.jsx
 import React, { useEffect, useState } from 'react';
 import inventoryService from '../services/inventoryService';
-import vendorService    from '../services/vendorService';
+import vendorService from '../services/vendorService';
 
 const emptyForm = {
   name: '', category: 'Medicine', description: '', quantity: 0, unit: 'Units',
@@ -18,39 +18,39 @@ const emptyVendorForm = {
   gstNumber: '', category: 'Medical Supplies', paymentTerms: 'Net 30', rating: 3
 };
 
-const categoryOptions  = ['Medicine', 'Equipment', 'Consumable', 'Surgical', 'Other'];
+const categoryOptions = ['Medicine', 'Equipment', 'Consumable', 'Surgical', 'Other'];
 const conditionOptions = ['Excellent', 'Good', 'Fair', 'Poor', 'Under Repair', 'Decommissioned'];
-const unitOptions      = ['Units', 'Box', 'Pack', 'Vial', 'Strip', 'Bottle', 'Pair', 'Set', 'Kg', 'Liter'];
+const unitOptions = ['Units', 'Box', 'Pack', 'Vial', 'Strip', 'Bottle', 'Pair', 'Set', 'Kg', 'Liter'];
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState('inventory');
 
   // ── Inventory state ──
-  const [items,          setItems]          = useState([]);
-  const [total,          setTotal]          = useState(0);
-  const [loading,        setLoading]        = useState(true);
-  const [modal,          setModal]          = useState(false);
-  const [form,           setForm]           = useState(emptyForm);
-  const [editId,         setEditId]         = useState(null);
-  const [search,         setSearch]         = useState('');
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [page,           setPage]           = useState(1);
-  const [formErrors,     setFormErrors]     = useState({});
+  const [page, setPage] = useState(1);
+  const [formErrors, setFormErrors] = useState({});
 
   // ── Vendor state ──
-  const [vendors,       setVendors]       = useState([]);
-  const [vendorModal,   setVendorModal]   = useState(false);
-  const [vendorForm,    setVendorForm]    = useState(emptyVendorForm);
-  const [editVendorId,  setEditVendorId]  = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [vendorModal, setVendorModal] = useState(false);
+  const [vendorForm, setVendorForm] = useState(emptyVendorForm);
+  const [editVendorId, setEditVendorId] = useState(null);
 
   // ── Stock transaction state ──
-  const [txModal,      setTxModal]      = useState(null);
-  const [tx,           setTx]           = useState({ type: 'IN', quantity: 1, reason: '', referenceNumber: '', notes: '' });
+  const [txModal, setTxModal] = useState(null);
+  const [tx, setTx] = useState({ type: 'IN', quantity: 1, reason: '', referenceNumber: '', notes: '' });
   const [historyModal, setHistoryModal] = useState(null);
 
   // ── Equipment maintenance state ──
   const [maintenanceModal, setMaintenanceModal] = useState(null);
-  const [maintenanceForm,  setMaintenanceForm]  = useState({ type: 'Routine', performedBy: '', cost: 0, notes: '', nextDueDate: '' });
+  const [maintenanceForm, setMaintenanceForm] = useState({ type: 'Routine', performedBy: '', cost: 0, notes: '', nextDueDate: '' });
 
   // ── Stats ──
   const [stats, setStats] = useState({ lowStock: 0, outOfStock: 0, dueMaintenance: 0, totalVendors: 0 });
@@ -64,7 +64,7 @@ export default function Inventory() {
   // ── Fetch tab-specific data when tab / search / filter / page changes ──
   useEffect(() => {
     if (activeTab === 'inventory' || activeTab === 'stock') fetchItems();
-    if (activeTab === 'vendors')   fetchVendors();
+    if (activeTab === 'vendors') fetchVendors();
     if (activeTab === 'equipment') fetchEquipment();
   }, [activeTab, search, filterCategory, page]);
 
@@ -75,11 +75,11 @@ export default function Inventory() {
     setLoading(true);
     try {
       const params = { page, limit: 20 };
-      if (search)         params.search   = search;
+      if (search) params.search = search;
       if (filterCategory) params.category = filterCategory;
       const { data } = await inventoryService.getItems(params);
-      setItems(data.items  || []);
-      setTotal(data.total  || 0);
+      setItems(data.items || []);
+      setTotal(data.total || 0);
     } catch (err) {
       console.error('Failed to fetch items:', err);
     } finally { setLoading(false); }
@@ -107,16 +107,16 @@ export default function Inventory() {
   const fetchStats = async () => {
     try {
       const [lowStock, outOfStock, dueMaintenance, vendorStats] = await Promise.all([
-        inventoryService.getLowStock().catch(()      => ({ data: [] })),
-        inventoryService.getOutOfStock().catch(()    => ({ data: [] })),
+        inventoryService.getLowStock().catch(() => ({ data: [] })),
+        inventoryService.getOutOfStock().catch(() => ({ data: [] })),
         inventoryService.getDueMaintenance().catch(() => ({ data: [] })),
-        vendorService.getVendorStats().catch(()      => ({ data: {} }))
+        vendorService.getVendorStats().catch(() => ({ data: {} }))
       ]);
       setStats({
-        lowStock:      lowStock.data?.length        || 0,
-        outOfStock:    outOfStock.data?.length      || 0,
-        dueMaintenance:dueMaintenance.data?.length  || 0,
-        totalVendors:  vendorStats.data?.totalVendors || 0
+        lowStock: lowStock.data?.length || 0,
+        outOfStock: outOfStock.data?.length || 0,
+        dueMaintenance: dueMaintenance.data?.length || 0,
+        totalVendors: vendorStats.data?.totalVendors || 0
       });
     } catch (err) {
       console.error('Failed to fetch stats:', err);
@@ -128,14 +128,14 @@ export default function Inventory() {
   // ────────────────────────────────────────────────────────────────
   const validateForm = () => {
     const errors = {};
-    if (!form.name.trim()) errors.name     = 'Item name is required';
-    if (!form.category)    errors.category = 'Category is required';
+    if (!form.name.trim()) errors.name = 'Item name is required';
+    if (!form.category) errors.category = 'Category is required';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const resetForm      = () => { setForm(emptyForm);       setEditId(null);      setFormErrors({}); };
-  const resetVendorForm= () => { setVendorForm(emptyVendorForm); setEditVendorId(null); };
+  const resetForm = () => { setForm(emptyForm); setEditId(null); setFormErrors({}); };
+  const resetVendorForm = () => { setVendorForm(emptyVendorForm); setEditVendorId(null); };
 
   const openEditModal = (item) => {
     const vendorId = item.vendor && typeof item.vendor === 'object'
@@ -143,15 +143,15 @@ export default function Inventory() {
       : (item.vendor || '');
 
     setForm({
-      name:         item.name         || '',
-      category:     item.category     || 'Medicine',
-      description:  item.description  || '',
-      quantity:     item.quantity      ?? 0,
-      unit:         item.unit         || 'Units',
-      unitPrice:    item.unitPrice     ?? 0,
-      reorderLevel: item.reorderLevel  ?? 10,
-      location:     item.location     || '',
-      vendor:       vendorId,
+      name: item.name || '',
+      category: item.category || 'Medicine',
+      description: item.description || '',
+      quantity: item.quantity ?? 0,
+      unit: item.unit || 'Units',
+      unitPrice: item.unitPrice ?? 0,
+      reorderLevel: item.reorderLevel ?? 10,
+      location: item.location || '',
+      vendor: vendorId,
       equipmentDetails: item.equipmentDetails
         ? { ...emptyForm.equipmentDetails, ...item.equipmentDetails }
         : { ...emptyForm.equipmentDetails }
@@ -168,17 +168,17 @@ export default function Inventory() {
     if (!validateForm()) return;
     try {
       const payload = {
-        name:         form.name,
-        category:     form.category,
-        description:  form.description,
-        quantity:     Number(form.quantity)     || 0,
-        unit:         form.unit,
-        unitPrice:    Number(form.unitPrice)    || 0,
+        name: form.name,
+        category: form.category,
+        description: form.description,
+        quantity: Number(form.quantity) || 0,
+        unit: form.unit,
+        unitPrice: Number(form.unitPrice) || 0,
         reorderLevel: Number(form.reorderLevel) || 0,
-        location:     form.location,
+        location: form.location,
       };
-      if (form.vendor)                       payload.vendor           = form.vendor;
-      if (form.category === 'Equipment')     payload.equipmentDetails = form.equipmentDetails;
+      if (form.vendor) payload.vendor = form.vendor;
+      if (form.category === 'Equipment') payload.equipmentDetails = form.equipmentDetails;
 
       if (editId) {
         await inventoryService.updateItem(editId, payload);
@@ -263,7 +263,7 @@ export default function Inventory() {
     if (!vendorForm.name.trim()) { alert('Vendor name is required'); return; }
     try {
       if (editVendorId) await vendorService.updateVendor(editVendorId, vendorForm);
-      else              await vendorService.createVendor(vendorForm);
+      else await vendorService.createVendor(vendorForm);
       setVendorModal(false);
       resetVendorForm();
       fetchVendors();
@@ -306,6 +306,34 @@ export default function Inventory() {
           <div className="stat-icon" style={{ background: '#dbeafe' }}>📦</div>
           <div><div className="stat-label">Total Items</div><div className="stat-value">{total}</div></div>
         </div>
+        <div
+          className="stat-card"
+          style={{
+            cursor: 'pointer',
+            background: stats.outOfStock > 0 ? '#fee2e2' : 'white'
+          }}
+          onClick={() => setActiveTab('inventory')}
+        >
+          <div
+            className="stat-icon"
+            style={{ background: '#fee2e2' }}
+          >
+            🚨
+          </div>
+
+          <div>
+            <div className="stat-label">Out of Stock</div>
+
+            <div
+              className="stat-value"
+              style={{
+                color: stats.outOfStock > 0 ? '#dc2626' : '#1e293b'
+              }}
+            >
+              {stats.outOfStock}
+            </div>
+          </div>
+        </div>
         <div className="stat-card" style={{ cursor: 'pointer', background: stats.lowStock > 0 ? '#fef3c7' : 'white' }} onClick={() => setActiveTab('inventory')}>
           <div className="stat-icon" style={{ background: '#fee2e2' }}>⚠️</div>
           <div><div className="stat-label">Low Stock</div><div className="stat-value" style={{ color: stats.lowStock > 0 ? '#dc2626' : '#1e293b' }}>{stats.lowStock}</div></div>
@@ -322,10 +350,10 @@ export default function Inventory() {
 
       {/* ── Tabs ── */}
       <div className="tabs">
-        <button className={`tab ${activeTab === 'inventory'  ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>📦 Inventory</button>
-        <button className={`tab ${activeTab === 'vendors'    ? 'active' : ''}`} onClick={() => setActiveTab('vendors')}>🤝 Vendors</button>
-        <button className={`tab ${activeTab === 'equipment'  ? 'active' : ''}`} onClick={() => setActiveTab('equipment')}>🩺 Equipment</button>
-        <button className={`tab ${activeTab === 'stock'      ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>📊 Stock Management</button>
+        <button className={`tab ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>📦 Inventory</button>
+        <button className={`tab ${activeTab === 'vendors' ? 'active' : ''}`} onClick={() => setActiveTab('vendors')}>🤝 Vendors</button>
+        <button className={`tab ${activeTab === 'equipment' ? 'active' : ''}`} onClick={() => setActiveTab('equipment')}>🩺 Equipment</button>
+        <button className={`tab ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>📊 Stock Management</button>
       </div>
 
       {/* ══════════════ INVENTORY TAB ══════════════ */}
@@ -333,7 +361,7 @@ export default function Inventory() {
         <div className="card">
           <div className="filter-bar">
             <div className="search-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
               <input className="search-input" placeholder="Search items..." value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
@@ -358,7 +386,7 @@ export default function Inventory() {
                     return (
                       <tr key={item._id}>
                         <td><strong style={{ color: 'var(--primary)' }}>{item.itemCode}</strong></td>
-                        <td><strong>{item.name}</strong><br/><span className="text-muted text-small">{item.location}</span></td>
+                        <td><strong>{item.name}</strong><br /><span className="text-muted text-small">{item.location}</span></td>
                         <td><span className="badge badge-info">{item.category}</span></td>
                         <td style={{ color: isLow ? '#dc2626' : undefined, fontWeight: isLow ? 700 : undefined }}>
                           {item.quantity} {item.unit} {isLow && '⚠️'}
@@ -370,7 +398,7 @@ export default function Inventory() {
                           <div className="flex gap-2">
                             <button className="btn btn-sm btn-success" onClick={() => openStockModal(item, 'IN')}>Stock</button>
                             <button className="btn btn-sm btn-outline" onClick={() => openEditModal(item)}>Edit</button>
-                            <button className="btn btn-sm btn-danger"  onClick={() => handleDelete(item._id, item.name)}>Del</button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item._id, item.name)}>Del</button>
                           </div>
                         </td>
                       </tr>
@@ -392,6 +420,7 @@ export default function Inventory() {
           )}
         </div>
       )}
+
 
       {/* ══════════════ VENDORS TAB ══════════════ */}
       {activeTab === 'vendors' && (
@@ -449,12 +478,11 @@ export default function Inventory() {
                       <td><strong style={{ color: 'var(--primary)' }}>{item.itemCode}</strong></td>
                       <td><strong>{item.name}</strong></td>
                       <td>{item.equipmentDetails?.serialNumber || '—'}</td>
-                      <td>{item.equipmentDetails?.modelNumber  || '—'}</td>
+                      <td>{item.equipmentDetails?.modelNumber || '—'}</td>
                       <td>
-                        <span className={`badge ${
-                          item.equipmentDetails?.condition === 'Excellent' ? 'badge-success' :
-                          item.equipmentDetails?.condition === 'Good'      ? 'badge-info'    : 'badge-warning'
-                        }`}>{item.equipmentDetails?.condition || '—'}</span>
+                        <span className={`badge ${item.equipmentDetails?.condition === 'Excellent' ? 'badge-success' :
+                          item.equipmentDetails?.condition === 'Good' ? 'badge-info' : 'badge-warning'
+                          }`}>{item.equipmentDetails?.condition || '—'}</span>
                       </td>
                       <td>{item.equipmentDetails?.assignedTo || '—'}</td>
                       <td>{isDue
@@ -485,7 +513,7 @@ export default function Inventory() {
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>Items</h3>
             <div className="search-wrap" style={{ marginBottom: 12 }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
               <input className="search-input" placeholder="Search items..." value={search}
                 onChange={e => setSearch(e.target.value)} />
             </div>
@@ -495,15 +523,15 @@ export default function Inventory() {
                 return (
                   <div key={item._id} style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <div><strong>{item.name}</strong><br/><span className="text-muted text-small">{item.itemCode}</span></div>
+                      <div><strong>{item.name}</strong><br /><span className="text-muted text-small">{item.itemCode}</span></div>
                       <div style={{ fontSize: 20, fontWeight: 700, color: isLow ? '#dc2626' : '#1e293b' }}>{item.quantity} {item.unit}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button className="btn btn-sm btn-success" onClick={() => openStockModal(item, 'IN')}>+ Stock IN</button>
-                      <button className="btn btn-sm btn-danger"  onClick={() => openStockModal(item, 'OUT')}>- Stock OUT</button>
-                      <button className="btn btn-sm btn-ghost"   onClick={() => openHistory(item)}>History</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => openStockModal(item, 'OUT')}>- Stock OUT</button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => openHistory(item)}>History</button>
                       <button className="btn btn-sm btn-outline" onClick={() => openEditModal(item)}>Edit</button>
-                      <button className="btn btn-sm btn-danger"  onClick={() => handleDelete(item._id, item.name)}>Del</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item._id, item.name)}>Del</button>
                     </div>
                   </div>
                 );
@@ -640,8 +668,8 @@ export default function Inventory() {
                 <div className="form-row-3">
                   <div className="form-group">
                     <label>Quantity</label>
-                    <input className="form-control" type="number" min="0" value={form.quantity}
-                      onChange={e => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })} />
+                    <input className="form-control" type="number" min="0" value={form.quantity} placeholder="Enter quantity"
+                      onChange={e => setForm({ ...form, quantity: e.target.value === "" ? "" : parseInt(e.target.value) })} />
                   </div>
                   <div className="form-group">
                     <label>Unit</label>
@@ -652,16 +680,16 @@ export default function Inventory() {
                   </div>
                   <div className="form-group">
                     <label>Unit Price (₹)</label>
-                    <input className="form-control" type="number" min="0" value={form.unitPrice}
-                      onChange={e => setForm({ ...form, unitPrice: parseFloat(e.target.value) || 0 })} />
+                    <input className="form-control" type="number" min="0" value={form.unitPrice} placeholder="Enter unit price"
+                      onChange={e => setForm({ ...form, unitPrice: e.target.value === "" ? "" : parseFloat(e.target.value) })} />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label>Reorder Level</label>
-                    <input className="form-control" type="number" min="0" value={form.reorderLevel}
-                      onChange={e => setForm({ ...form, reorderLevel: parseInt(e.target.value) || 0 })} />
+                    <input className="form-control" type="number" min="0" value={form.reorderLevel} placeholder="Enter reorder level"
+                      onChange={e => setForm({ ...form, reorderLevel: e.target.value === "" ? "" : parseInt(e.target.value) })} />
                   </div>
                   <div className="form-group">
                     <label>Location</label>
@@ -804,8 +832,8 @@ export default function Inventory() {
                 </div>
                 <div className="form-row">
                   <div className="form-group"><label>Cost (₹)</label>
-                    <input className="form-control" type="number" value={maintenanceForm.cost}
-                      onChange={e => setMaintenanceForm({ ...maintenanceForm, cost: parseFloat(e.target.value) || 0 })} /></div>
+                    <input className="form-control" type="number" value={maintenanceForm.cost} placeholder="Enter maintenance cost"
+                      onChange={e => setMaintenanceForm({ ...maintenanceForm, cost: e.target.value === "" ? "" : parseFloat(e.target.value) })} /></div>
                   <div className="form-group"><label>Next Due Date</label>
                     <input className="form-control" type="date" value={maintenanceForm.nextDueDate}
                       onChange={e => setMaintenanceForm({ ...maintenanceForm, nextDueDate: e.target.value })} /></div>
