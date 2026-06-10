@@ -28,6 +28,7 @@ async function fetchClinicToken(email, password, role) {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,7 +76,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("clinic_token");
     setUser(null);
   };
-
   const value = useMemo(() => ({ user, loading, login, signup, logout }), [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

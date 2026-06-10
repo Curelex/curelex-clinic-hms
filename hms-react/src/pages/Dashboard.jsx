@@ -453,7 +453,7 @@ export default function Dashboard() {
                 <span>
                   <strong>{item.name}</strong> <span className="badge badge-danger">Out of Stock</span>
                 </span>
-                <button className="btn btn-sm btn-primary" onClick={() => window.location.href = '/stock-transactions'}>
+                <button className="btn btn-sm btn-primary" onClick={() => window.location.href = '/inventory?tab=stock'}>
                   Restock
                 </button>
               </div>
@@ -466,7 +466,7 @@ export default function Dashboard() {
                 <span>
                   <strong>{item.name}</strong> — Only {item.quantity} {item.unit} left (Reorder at {item.reorderLevel})
                 </span>
-                <button className="btn btn-sm btn-outline" onClick={() => window.location.href = '/stock-transactions'}>
+                <button className="btn btn-sm btn-outline" onClick={() => window.location.href = '/inventory?tab=stock'}>
                   Add Stock
                 </button>
               </div>

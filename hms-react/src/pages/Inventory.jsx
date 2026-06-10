@@ -1,5 +1,6 @@
 // hms-react/src/pages/InventoryUnified.jsx
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import vendorService from '../services/vendorService';
 
@@ -23,6 +24,7 @@ const conditionOptions = ['Excellent', 'Good', 'Fair', 'Poor', 'Under Repair', '
 const unitOptions = ['Units', 'Box', 'Pack', 'Vial', 'Strip', 'Bottle', 'Pair', 'Set', 'Kg', 'Liter'];
 
 export default function Inventory() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('inventory');
 
   // ── Inventory state ──
@@ -60,6 +62,15 @@ export default function Inventory() {
     fetchVendors();
     fetchStats();
   }, []);
+
+  useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab');
+
+  if (tab === 'stock') {
+    setActiveTab('stock');
+  }
+}, [location.search]);
 
   // ── Fetch tab-specific data when tab / search / filter / page changes ──
   useEffect(() => {

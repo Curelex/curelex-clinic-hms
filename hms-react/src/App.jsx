@@ -3,7 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
-
+import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Layout from './components/Layout';
@@ -48,6 +48,8 @@ function App() {
 
             {/* Dashboard — every logged-in user */}
             <Route index element={<Dashboard />} />
+
+            <Route path="profile" element={<Profile />} />
 
             <Route path="patients" element={
               <PermRoute permKey="patients"><Patients /></PermRoute>

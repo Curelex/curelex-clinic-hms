@@ -45,7 +45,7 @@ const ROLE_META = {
 
 export default function Layout() {
   const { user, logout, hasPerm } = useAuth();
-
+  
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -144,8 +144,19 @@ export default function Layout() {
         </nav>
 
         {/* User info + logout */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '14px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '14px 16px', }}>
+          <div
+            onClick={() => navigate('/profile')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              marginBottom: 12,
+              cursor: 'pointer',
+              padding: 8,
+              borderRadius: 8,
+            }}
+          >
             <div style={{
               width: 36, height: 36, borderRadius: '50%', background: '#38bdf8',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -196,10 +207,10 @@ export default function Layout() {
           onClick={() => setSidebarOpen(!sidebarOpen)}
           style={{
             position: 'fixed',
-            top: isMobile ? 10 : 24,
+            top: isMobile ? 10 : 12,
             left: isMobile ? 10 : 24,
             zIndex: 2000,
-            padding: '10px 14px',
+            padding: '4px 14px',
             border: 'none',
             borderRadius: 8,
             background: '#0f2942',
@@ -217,7 +228,7 @@ export default function Layout() {
           overflowY: 'auto',
           background: '#f1f5f9',
           padding: isMobile ? 12 : 24,
-          paddingTop: sidebarOpen ? (isMobile ? 70 : 24) : (isMobile ? 70 : 90),
+          paddingTop: sidebarOpen ? (isMobile ? 70 : 24) : (isMobile ? 70 : 45),
         }}
       >
         <Outlet />

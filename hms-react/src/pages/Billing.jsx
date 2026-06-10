@@ -26,7 +26,7 @@ const ROOM_RATES = {
   'General Ward': 800,
   'Semi-Private': 1500,
   'Private Room': 2500,
-  'ICU':          4000,
+  'ICU': 4000,
 };
 
 const emptyItem = {
@@ -44,36 +44,36 @@ const emptyForm = {
 
 function recalcTotals(items, roomRent, discount, tax) {
   const itemsSubtotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
-  const subtotal      = itemsSubtotal + Number(roomRent || 0);
-  const disc          = Number(discount) || 0;
-  const taxPct        = Number(tax) || 0;
-  const totalAmount   = subtotal - disc + (subtotal * taxPct / 100);
+  const subtotal = itemsSubtotal + Number(roomRent || 0);
+  const disc = Number(discount) || 0;
+  const taxPct = Number(tax) || 0;
+  const totalAmount = subtotal - disc + (subtotal * taxPct / 100);
   return { subtotal, totalAmount };
 }
 
 export default function Billing() {
   const clinicId = getClinicId();   // stable for the lifetime of this render tree
 
-  const [bills,        setBills]        = useState([]);
-  const [total,        setTotal]        = useState(0);
-  const [loading,      setLoading]      = useState(true);
-  const [modal,        setModal]        = useState(false);
-  const [form,         setForm]         = useState(emptyForm);
-  const [editId,       setEditId]       = useState(null);
+  const [bills, setBills] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
-  const [page,         setPage]         = useState(1);
-  const [pdfLoading,   setPdfLoading]   = useState('');
+  const [page, setPage] = useState(1);
+  const [pdfLoading, setPdfLoading] = useState('');
 
   const [existingItemCount, setExistingItemCount] = useState(0);
 
   // patient search
-  const [patientSearch,  setPatientSearch]  = useState('');
+  const [patientSearch, setPatientSearch] = useState('');
   const [patientResults, setPatientResults] = useState([]);
   const [patientLoading, setPatientLoading] = useState(false);
-  const [showDropdown,   setShowDropdown]   = useState(false);
-  const [fetchingItems,  setFetchingItems]  = useState(false);
-  const [checkingBill,   setCheckingBill]   = useState(false);
-  const searchRef   = useRef(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [fetchingItems, setFetchingItems] = useState(false);
+  const [checkingBill, setCheckingBill] = useState(false);
+  const searchRef = useRef(null);
   const searchTimer = useRef(null);
 
   // pending lab billing requests
@@ -156,7 +156,7 @@ export default function Billing() {
     setForm({
       ...emptyForm,
       ...bill,
-      patient:     bill.patient?._id || bill.patient,
+      patient: bill.patient?._id || bill.patient,
       patientName: bill.patient?.name || '',
       items,
     });
@@ -270,7 +270,7 @@ export default function Billing() {
     });
   };
 
-  const addItem    = () => setForm(f => ({ ...f, items: [...f.items, { ...emptyItem }] }));
+  const addItem = () => setForm(f => ({ ...f, items: [...f.items, { ...emptyItem }] }));
   const removeItem = (idx) => {
     setForm(f => {
       const items = f.items.filter((_, i) => i !== idx);
@@ -291,7 +291,7 @@ export default function Billing() {
         if (!isNaN(a) && !isNaN(d) && d >= a) {
           const diff = Math.round((d - a) / (1000 * 60 * 60 * 24));
           next.daysAdmitted = diff;
-          next.roomRent     = diff * next.roomRatePerDay;
+          next.roomRent = diff * next.roomRatePerDay;
         }
       }
       const { subtotal, totalAmount } = recalcTotals(next.items, next.roomRent, next.discount, next.tax);
@@ -375,7 +375,7 @@ export default function Billing() {
   };
 
   const openCreate = () => { resetModal(); setModal(true); };
-  const openEdit   = (b) => { loadExistingBill(b); setModal(true); };
+  const openEdit = (b) => { loadExistingBill(b); setModal(true); };
 
   const statusBadge = (s) => {
     const map = {
@@ -637,7 +637,13 @@ export default function Billing() {
                   <button type="button" className="btn btn-sm btn-ghost" onClick={addItem}>+ Add item</button>
                 </div>
 
-                <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
+                <div style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  marginBottom: 16
+                }}>
                   {form.items.length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                       {form.patient
@@ -646,7 +652,12 @@ export default function Billing() {
                         : 'Select a patient to load their bill.'}
                     </div>
                   ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <table style={{
+                      width: '100%',
+                      minWidth: '900px',
+                      borderCollapse: 'collapse',
+                      fontSize: 13
+                    }}>
                       <thead>
                         <tr style={{ background: '#f8fafc' }}>
                           <th style={th}>Description</th>
