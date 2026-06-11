@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import API from '../utils/api';
 
 const socket = io('http://localhost:5000');
 
@@ -33,6 +34,7 @@ const styles = {
     alignItems: 'center',
     gap: '12px',
     marginBottom: '24px',
+    flexWrap: 'wrap',
   },
   headerBadge: {
     background: '#DC2626',
@@ -172,6 +174,39 @@ const styles = {
     marginTop: '4px',
     transition: 'background 0.15s',
   },
+  submitBtnDisabled: {
+    width: '100%',
+    background: '#94A3B8',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '10px',
+    fontSize: '13px',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    cursor: 'not-allowed',
+    marginTop: '4px',
+  },
+  successMsg: {
+    marginTop: '12px',
+    padding: '10px',
+    background: '#DCFCE7',
+    border: '1px solid #86EFAC',
+    borderRadius: '8px',
+    fontSize: '12px',
+    color: '#166534',
+    textAlign: 'center',
+  },
+  errorMsg: {
+    marginTop: '12px',
+    padding: '10px',
+    background: '#FEE2E2',
+    border: '1px solid #FCA5A5',
+    borderRadius: '8px',
+    fontSize: '12px',
+    color: '#991B1B',
+    textAlign: 'center',
+  },
 
   // ── Queue ──
   queueScroll: {
@@ -210,6 +245,14 @@ const styles = {
     marginTop: '2px',
     margin: 0,
   },
+  assignedDoctor: {
+    fontSize: '10px',
+    color: '#64748B',
+    marginTop: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
   triageBadge: (level) => {
     const c = TRIAGE_CONFIG[level] || { bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' };
     return {
@@ -246,6 +289,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
+    flexWrap: 'wrap',
   },
   emptyState: {
     textAlign: 'center',
@@ -322,41 +366,116 @@ const PulseDot = ({ color }) => (
 const Emergency = () => {
   const [queue, setQueue] = useState([]);
   const [beds, setBeds] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  
   const [formData, setFormData] = useState({
     patientName: '',
     age: '',
     chiefComplaint: '',
     vitals: { bloodPressure: '', heartRate: '', temperature: '', spO2: '' },
     triageLevel: 'P3',
+    assignedDoctor: '',
   });
 
+  // Fetch doctors on mount
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const res = await API.get('/auth/users');
+        console.log(res);
+        const docs = res.data.filter(u => u.role === 'doctor');
+        setDoctors(docs);
+      } catch (err) {
+        console.error('Failed to fetch doctors:', err);
+      }
+    };
+    fetchDoctors();
+  }, []);
+
   const fetchQueue = async () => {
-    try { const res = await axios.get('/api/emergency/queue'); setQueue(res.data); }
-    catch (err) { console.error('Error fetching queue:', err); }
+    try { 
+      const res = await API.get('/emergency/queue'); 
+      setQueue(res.data); 
+    } catch (err) { 
+      console.error('Error fetching queue:', err); 
+    }
   };
 
   const fetchBeds = async () => {
-    try { const res = await axios.get('/api/emergency/beds'); setBeds(res.data); }
-    catch (err) { console.error('Error fetching beds:', err); }
+    try { 
+      const res = await API.get('/emergency/beds'); 
+      setBeds(res.data); 
+    } catch (err) { 
+      console.error('Error fetching beds:', err); 
+    }
   };
 
   useEffect(() => {
-    fetchQueue(); fetchBeds();
+    fetchQueue(); 
+    fetchBeds();
+    
     socket.on('emergencyQueueUpdated', () => fetchQueue());
     socket.on('bedStatusUpdated', () => fetchBeds());
-    return () => { socket.off('emergencyQueueUpdated'); socket.off('bedStatusUpdated'); };
+    
+    return () => { 
+      socket.off('emergencyQueueUpdated'); 
+      socket.off('bedStatusUpdated'); 
+    };
   }, []);
 
   const handleIntakeSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation
+    if (!formData.assignedDoctor) {
+      setErrorMsg('Please select a doctor');
+      setTimeout(() => setErrorMsg(''), 3000);
+      return;
+    }
+    
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    
     try {
-      await axios.post('/api/emergency/intake', formData);
+      const selectedDoctor = doctors.find(d => d._id === formData.assignedDoctor);
+      
+      const payload = {
+        patientName: formData.patientName,
+        age: parseInt(formData.age) || 0,
+        chiefComplaint: formData.chiefComplaint,
+        vitals: formData.vitals,
+        triageLevel: formData.triageLevel,
+        assignedDoctor: formData.assignedDoctor,
+        doctorName: selectedDoctor?.name || '',
+      };
+      
+      await axios.post('/api/emergency/intake', payload);
+      
+      setSuccessMsg(`✅ Patient admitted and Dr. ${selectedDoctor?.name} notified`);
+      
+      // Reset form
       setFormData({
-        patientName: '', age: '', chiefComplaint: '',
+        patientName: '',
+        age: '',
+        chiefComplaint: '',
         vitals: { bloodPressure: '', heartRate: '', temperature: '', spO2: '' },
         triageLevel: 'P3',
+        assignedDoctor: '',
       });
-    } catch (err) { console.error(err); }
+      
+      setTimeout(() => setSuccessMsg(''), 5000);
+      
+    } catch (err) { 
+      console.error(err);
+      setErrorMsg(err.response?.data?.message || 'Failed to admit patient');
+      setTimeout(() => setErrorMsg(''), 5000);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const availableBeds = beds.filter(b => b.status === 'Available').length;
@@ -387,7 +506,7 @@ const Emergency = () => {
           <div style={styles.cardBody}>
             <form onSubmit={handleIntakeSubmit}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Patient Name</label>
+                <label style={styles.label}>Patient Name *</label>
                 <input
                   type="text" required style={styles.input}
                   placeholder="Full name"
@@ -397,7 +516,7 @@ const Emergency = () => {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Age</label>
+                <label style={styles.label}>Age *</label>
                 <input
                   type="number" required style={styles.input}
                   placeholder="Years"
@@ -407,7 +526,7 @@ const Emergency = () => {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Chief Complaint</label>
+                <label style={styles.label}>Chief Complaint *</label>
                 <textarea
                   required rows={2} style={{ ...styles.input, resize: 'none' }}
                   placeholder="Describe presenting complaint…"
@@ -438,8 +557,9 @@ const Emergency = () => {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Triage Level</label>
+                <label style={styles.label}>Triage Level *</label>
                 <select
+                  required
                   style={styles.select}
                   value={formData.triageLevel}
                   onChange={e => setFormData({ ...formData, triageLevel: e.target.value })}
@@ -452,9 +572,34 @@ const Emergency = () => {
                 </select>
               </div>
 
-              <button type="submit" style={styles.submitBtn}>
-                ＋ Admit to Emergency
+              {/* ─── NEW: Doctor Selection Field ─────────────────── */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Assign Doctor *</label>
+                <select
+                  required
+                  style={styles.select}
+                  value={formData.assignedDoctor}
+                  onChange={e => setFormData({ ...formData, assignedDoctor: e.target.value })}
+                >
+                  <option value="">— Select Doctor —</option>
+                  {doctors.map(doc => (
+                    <option key={doc._id} value={doc._id}>
+                      Dr. {doc.name} ({doc.department || 'General'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button 
+                type="submit" 
+                style={loading ? styles.submitBtnDisabled : styles.submitBtn}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : '＋ Admit to Emergency'}
               </button>
+              
+              {successMsg && <div style={styles.successMsg}>{successMsg}</div>}
+              {errorMsg && <div style={styles.errorMsg}>{errorMsg}</div>}
             </form>
           </div>
         </div>
@@ -481,6 +626,11 @@ const Emergency = () => {
                               <span style={styles.patientAge}>{patient.age}y</span>
                             </p>
                             <p style={styles.complaint}>{patient.chiefComplaint}</p>
+                            {patient.doctorName && (
+                              <div style={styles.assignedDoctor}>
+                                <span>👨‍⚕️</span> Assigned: Dr. {patient.doctorName}
+                              </div>
+                            )}
                           </div>
                           <span style={styles.triageBadge(patient.triageLevel)}>
                             {cfg.pulse
@@ -533,6 +683,7 @@ const Emergency = () => {
                             onChange={async (e) => {
                               try {
                                 await axios.put(`/api/emergency/beds/${bed._id}/status`, { status: e.target.value });
+                                fetchBeds(); // Refresh UI
                               } catch (err) {
                                 console.error('Error updating bed status:', err);
                               }

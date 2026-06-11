@@ -22,7 +22,15 @@ const emergencyEncounterSchema = new mongoose.Schema({
     },
     allocatedBed: { type: String, default: null }, 
     encounterType: { type: String, default: 'EMERGENCY' },
-    encounter_type: { type: String, default: 'EMERGENCY' }
+    encounter_type: { type: String, default: 'EMERGENCY' },
+    assignedDoctor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true, 
+    },
+    doctorName: { type: String, required: true },
+    doctorNotified: { type: Boolean, default: false },
+    notifiedAt: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('EmergencyEncounter', emergencyEncounterSchema);

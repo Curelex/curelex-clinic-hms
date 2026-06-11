@@ -16,6 +16,23 @@ const io = socketIo(server, {
   }
 });
 
+io.on('connection', (socket) => {
+  
+  // When doctor logs in, join their private room
+  socket.on('doctor:join', (doctorId) => {
+    if (doctorId) {
+      socket.join(`doctor_${doctorId}`);
+    }
+  });
+  
+  // When receptionist/nurse logs in (for general updates)
+  socket.on('staff:join', (staffId) => {
+    socket.join('emergency_staff');
+  });
+  
+  
+});
+
 const emergencyRoutes = require('./routes/emergency')(io);
 
 app.use(cors());

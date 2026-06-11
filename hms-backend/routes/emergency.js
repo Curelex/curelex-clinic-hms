@@ -2,25 +2,58 @@ const express = require('express');
 const router = express.Router();
 const EmergencyEncounter = require('../models/EmergencyEncounter');
 const Bed = require('../models/Bed');
+const User = require('../models/User');
 
 // We wrap the router in a function so we can pass the Socket.IO instance into it
 module.exports = (io) => {
 
     // 1. Emergency Patient Intake (Fast Registration)
     router.post('/intake', async (req, res) => {
-        try {
-            const newEncounter = new EmergencyEncounter(req.body);
-            const savedEncounter = await newEncounter.save();
-
-            // Push real-time update to all clients to refresh the priority queue
-            if (io) io.emit('emergencyQueueUpdated');
-
-            res.status(201).json(savedEncounter);
-        } catch (error) {
-            res.status(500).json({ message: error.message });
+    try {
+        const { assignedDoctor, doctorName, ...rest } = req.body;
+        
+        // Validate doctor exists
+        const doctor = await User.findById(assignedDoctor);
+        if (!doctor || doctor.role !== 'doctor') {
+            return res.status(400).json({ message: 'Invalid doctor selected' });
         }
-    });
-
+        
+        const newEncounter = new EmergencyEncounter({
+            ...rest,
+            assignedDoctor,
+            doctorName,
+        });
+        
+        const savedEncounter = await newEncounter.save();
+        
+        // ─── NOTIFICATIONS ─────────────────────────────────────
+        // 1. Public queue update (for reception/nurses)
+        if (io) io.emit('emergencyQueueUpdated');
+        
+        // 2. Private notification to assigned doctor
+        const notificationData = {
+            type: 'EMERGENCY_PATIENT',
+            encounterId: savedEncounter._id,
+            patientName: savedEncounter.patientName,
+            triageLevel: savedEncounter.triageLevel,
+            chiefComplaint: savedEncounter.chiefComplaint,
+            age: savedEncounter.age,
+            vitals: savedEncounter.vitals,
+            timestamp: new Date(),
+            message: `🚨 EMERGENCY: ${savedEncounter.patientName} (${savedEncounter.triageLevel}) assigned to you`,
+        };
+        
+        // Emit to specific doctor's room
+        io.to(`doctor_${assignedDoctor}`).emit('emergencyAssigned', notificationData);
+        
+        // Also emit to all doctors' dashboard for real-time counter
+        io.emit('emergencyNotification', notificationData);
+        
+        res.status(201).json(savedEncounter);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
     // 2. Triage & Priority Queue
     router.get('/queue', async (req, res) => {
         try {

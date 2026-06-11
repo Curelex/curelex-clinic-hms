@@ -5,6 +5,8 @@ import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import TokenDashboard from '../components/TokenDashboard';
 import inventoryService from '../services/inventoryService';
+import { io } from 'socket.io-client';
+const socket = io('http://localhost:5000');
 
 // ── Resolve clinicId from stored JWT / user object ───────────────────────────
 // Adjust the localStorage key / shape to match your app's auth storage.
@@ -312,6 +314,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      {user?.role === 'doctor' && <DoctorEmergencyAlerts />}
       {/* ── Page header ── */}
       <div className="page-header">
         <div>
@@ -511,4 +514,96 @@ export default function Dashboard() {
       )}
     </div>
   );
+}
+
+// components/DoctorEmergencyAlerts.jsx - NEW COMPONENT
+
+function DoctorEmergencyAlerts() {
+    const { user } = useAuth();
+    const [alerts, setAlerts] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        if (user?.role !== 'doctor') return;
+        
+        // Join doctor's room
+        socket.emit('doctor:join', user._id);
+        
+        // Listen for emergency assignments
+        socket.on('emergencyAssigned', (notification) => {
+            setAlerts(prev => [notification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            
+            // Browser notification
+            if (Notification.permission === 'granted') {
+                new Notification(notification.message, {
+                    body: `${notification.patientName} - ${notification.chiefComplaint}`,
+                    icon: '/emergency-icon.png',
+                });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        });
+        
+        return () => {
+            socket.off('emergencyAssigned');
+        };
+    }, [user]);
+
+    if (alerts.length === 0) return null;
+
+    return (
+        <div className="card" style={{ 
+            marginBottom: 20, 
+            border: '2px solid #dc2626',
+            background: '#fef2f2',
+        }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #fecaca' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>🚨</span>
+                    <span style={{ fontWeight: 700, color: '#991b1b' }}>
+                        Emergency Alerts ({unreadCount} new)
+                    </span>
+                    {unreadCount > 0 && (
+                        <button 
+                            onClick={() => setUnreadCount(0)}
+                            style={{ fontSize: 11, marginLeft: 'auto' }}
+                            className="btn btn-sm btn-outline"
+                        >
+                            Mark all read
+                        </button>
+                    )}
+                </div>
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {alerts.map((alert, idx) => (
+                    <div key={idx} style={{ 
+                        padding: '12px 16px', 
+                        borderBottom: '1px solid #fecaca',
+                        background: idx < unreadCount ? '#fee2e2' : 'transparent',
+                    }}>
+                        <div style={{ fontWeight: 700 }}>
+                            {alert.patientName} · {alert.age}y
+                            <span style={{ 
+                                marginLeft: 8, 
+                                fontSize: 11, 
+                                background: '#dc2626', 
+                                color: '#fff',
+                                padding: '2px 8px',
+                                borderRadius: 20,
+                            }}>
+                                {alert.triageLevel}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                            {alert.chiefComplaint}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#991b1b', marginTop: 6 }}>
+                            ⏰ {new Date(alert.timestamp).toLocaleTimeString()}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
