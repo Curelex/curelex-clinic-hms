@@ -56,18 +56,15 @@ export default function Layout() {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const handlePharmacySSO = async (e) => {
-    e.preventDefault();
-    try {
-      // 1. Generate SSO token from HMS backend
-      const { data } = await API.post('/auth/sso-token');
-      // 2. Redirect to IMS with the token in the URL
-      navigate(`/pharmacy?sso=${data.token}`);
-    } catch (err) {
-      console.error('SSO token generation failed', err);
-      // Fallback: navigate normally if SSO fails
-      navigate('/pharmacy');
-    }
-  };
+  e.preventDefault();
+  try {
+    const { data } = await API.post('/auth/sso-token');
+    window.location.href = `/pharmacy?sso=${data.token}`;
+  } catch (err) {
+    console.error('SSO token generation failed', err);
+    window.location.href = '/pharmacy';
+  }
+};
 
   const roleMeta = ROLE_META[user?.role?.toLowerCase()] || {
     label: user?.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.15)',

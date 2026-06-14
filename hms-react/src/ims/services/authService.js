@@ -14,3 +14,8 @@ export const getMe = async () => {
   const { data } = await api.get("/auth/me");
   return data;
 };
+
+export const ssoExchange = async (token) => {
+  const { data } = await api.post("/auth/sso-exchange", { token });
+  return data;
+};

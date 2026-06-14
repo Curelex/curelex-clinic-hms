@@ -9,20 +9,20 @@ const Clinic = require('../models/Clinic');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
-// Define SsoToken model locally in HMS to write to the shared IMS database
+// ── SSO Token Schema (ideally move to /models/SsoToken.js) ────────────────
 const ssoTokenSchema = new mongoose.Schema({
-  token: { type: String, required: true },
-  email: { type: String, required: true },
-  clinicId: { type: String, required: true },
-  expiresAt: { type: Date, required: true },
+  token:     { type: String, required: true },
+  email:     { type: String, required: true },
+  userId:    { type: String, required: true },   // added for better traceability
+  role:      { type: String, default: 'staff' },
+  clinicId:  { type: String, required: true },
+  expiresAt: { type: Date,   required: true },
 }, { timestamps: false });
 
 const SsoToken = mongoose.models.SsoToken || mongoose.model('SsoToken', ssoTokenSchema);
+// Note: the guard above prevents model re-registration on hot-reload / test runs.
 
-// ─────────────────────────────────────────────────────────────────
-// POST /api/auth/register
-// Creates a NEW clinic + the first admin user for that clinic
-// ─────────────────────────────────────────────────────────────────
+// ── Register ──────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, clinicName, phone } = req.body;
@@ -31,22 +31,26 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Clinic name is required' });
     }
 
-    // ✅ Check if clinic email already used
+    // Check for duplicate clinic email
     const existingClinic = await Clinic.findOne({ email });
     if (existingClinic) {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
-    // ✅ Create the clinic first
+    // Also check for duplicate user email
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'An account with this email already exists' });
+    }
+
     const clinic = await Clinic.create({ name: clinicName, email, phone });
 
-    // ✅ Create admin user tied to this clinic
     const user = await User.create({
       name,
       email,
       password,
       role: 'admin',
-      clinicId: clinic._id,           // ← key fix
+      clinicId: clinic._id,
       permissions: [
         'dashboard', 'patients', 'ipd', 'billing',
         'prescriptions', 'pharmacy', 'lab', 'inventory',
@@ -55,7 +59,7 @@ router.post('/register', async (req, res) => {
     });
 
     const token = jwt.sign(
-      { id: user._id, role: user.role, clinicId: clinic._id },  // ← clinicId in token
+      { id: user._id, role: user.role, clinicId: clinic._id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -68,20 +72,16 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────
-// POST /api/auth/login
-// ─────────────────────────────────────────────────────────────────
+// ── Login ─────────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // ✅ Find user by email (could be multiple clinics, match password)
     const users = await User.find({ email });
     if (!users.length) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Match password across found users
     let matchedUser = null;
     for (const u of users) {
       const ok = await u.matchPassword(password);
@@ -97,13 +97,12 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: matchedUser._id, role: matchedUser.role, clinicId: matchedUser.clinicId }, // ← clinicId in token
+      { id: matchedUser._id, role: matchedUser.role, clinicId: matchedUser.clinicId },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     const { password: _, ...userOut } = matchedUser.toObject();
-
     res.json({ token, user: userOut });
   } catch (err) {
     console.error(err);
@@ -111,9 +110,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────
-// GET /api/auth/profile  — returns current logged-in user
-// ─────────────────────────────────────────────────────────────────
+// ── Get Profile ───────────────────────────────────────────────────────────
 router.get('/profile', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -124,12 +121,9 @@ router.get('/profile', auth, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────
-// GET /api/auth/users  — list ALL staff for this clinic only
-// ─────────────────────────────────────────────────────────────────
-router.get('/users', auth, async (req, res) => {
+// ── List Staff (admin only) ───────────────────────────────────────────────
+router.get('/users', auth, roleCheck('admin'), async (req, res) => {
   try {
-    // ✅ FIX: filter by clinicId from the JWT — never shows other clinics' data
     const staff = await User.find(
       { clinicId: req.user.clinicId },
       '-password'
@@ -141,23 +135,20 @@ router.get('/users', auth, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────
-// POST /api/auth/users  — add staff to THIS clinic (admin only)
-// ─────────────────────────────────────────────────────────────────
+// ── Create Staff (admin only) ─────────────────────────────────────────────
 router.post('/users', auth, roleCheck('admin'), async (req, res) => {
   try {
     const { name, email, password, role, department, phone, permissions } = req.body;
 
     if (!password) return res.status(400).json({ message: 'Password is required' });
 
-    // ✅ Check email uniqueness WITHIN this clinic only
     const exists = await User.findOne({ email, clinicId: req.user.clinicId });
     if (exists) return res.status(400).json({ message: 'Email already registered in this clinic' });
 
     const user = await User.create({
       name, email, password, role,
       department, phone, permissions,
-      clinicId: req.user.clinicId,   // ← always attach clinic
+      clinicId: req.user.clinicId,
     });
 
     const { password: _, ...userOut } = user.toObject();
@@ -168,27 +159,20 @@ router.post('/users', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────
-// PUT /api/auth/users/:id  — update staff (admin only)
-// ─────────────────────────────────────────────────────────────────
+// ── Update Staff (admin only) ─────────────────────────────────────────────
 router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
-    const { password, avatar, ...fields } = req.body;
+    const { password, ...fields } = req.body;
 
-    // ✅ Only allow editing users within this clinic
     const user = await User.findOne({ _id: req.params.id, clinicId: req.user.clinicId });
     if (!user) return res.status(404).json({ message: 'Staff member not found' });
 
-    // Check email conflict within clinic if email is being changed
     if (fields.email && fields.email !== user.email) {
       const conflict = await User.findOne({ email: fields.email, clinicId: req.user.clinicId });
       if (conflict) return res.status(400).json({ message: 'Email already in use in this clinic' });
     }
 
     Object.assign(user, fields);
-    if (avatar !== undefined) {
-      user.avatar = avatar;
-    }
     if (password) user.password = password; // pre-save hook will hash it
 
     await user.save();
@@ -200,12 +184,9 @@ router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────
-// DELETE /api/auth/users/:id  — remove staff (admin only)
-// ─────────────────────────────────────────────────────────────────
+// ── Delete Staff (admin only) ─────────────────────────────────────────────
 router.delete('/users/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
-    // ✅ Only delete within this clinic
     const user = await User.findOneAndDelete({ _id: req.params.id, clinicId: req.user.clinicId });
     if (!user) return res.status(404).json({ message: 'Staff member not found' });
     res.json({ message: 'Staff member removed' });
@@ -214,62 +195,54 @@ router.delete('/users/:id', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-// ── Generate SSO Token for IMS ─────────────────────────────────
+// ── Generate SSO Token for IMS ────────────────────────────────────────────
 router.post('/sso-token', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.isActive) return res.status(403).json({ message: 'Account is inactive' });
 
-    // Generate a secure one-time token
     const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 1000); // 1 minute
 
-    // Set expiration to 1 minute from now
-    const expiresAt = new Date(Date.now() + 60 * 1000);
-
-    // Save to the shared database
     await SsoToken.create({
       token,
       email: user.email,
-      clinicId: 'HMS_DEFAULT_CLINIC', // Default since HMS User model doesn't store clinicId
+      userId: String(user._id),   // stored for traceability
+      role: user.role,
+      clinicId: String(user.clinicId),
       expiresAt,
     });
 
     res.status(201).json({ token });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' }); // never leak err.message
   }
 });
 
+// ── Change Password ───────────────────────────────────────────────────────
 router.put('/change-password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
     const user = await User.findById(req.user.id);
-
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     const isMatch = await user.matchPassword(currentPassword);
-
     if (!isMatch) {
-      return res.status(400).json({
-        message: 'Current password is incorrect'
-      });
+      return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
-    user.password = newPassword;
+    user.password = newPassword; // pre-save hook will hash it
     await user.save();
 
-    res.json({
-      message: 'Password updated successfully'
-    });
+    res.json({ message: 'Password updated successfully' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      message: 'Server error'
-    });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
