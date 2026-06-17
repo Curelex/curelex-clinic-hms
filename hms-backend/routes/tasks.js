@@ -97,6 +97,18 @@ export default function(io) {
         return res.status(403).json({ message: 'Not authorized' });
       }
 
+      // Workflow enforcement for non-admin
+      if (req.user.role !== 'admin') {
+        const allowedTransitions = {
+          'Received': ['In Process'],
+          'In Process': ['Completed'],
+          'Completed': []
+        };
+        if (task.status !== status && !allowedTransitions[task.status]?.includes(status)) {
+          return res.status(400).json({ message: `Invalid status transition from ${task.status} to ${status}` });
+        }
+      }
+
       task.status = status;
       if (completionNote) task.completionNote = completionNote;
       

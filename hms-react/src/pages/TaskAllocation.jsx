@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import taskService from '../services/taskService';
-import API from '../utils/api';
+import TaskCard from '../components/TaskCard';
 
 export default function TaskAllocation() {
   const { user } = useAuth();
@@ -75,24 +75,11 @@ export default function TaskAllocation() {
       )}
       
       {loading ? <p>Loading...</p> : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ border: '1px solid #ccc', padding: 8 }}>Title</th>
-              <th style={{ border: '1px solid #ccc', padding: 8 }}>Status</th>
-              <th style={{ border: '1px solid #ccc', padding: 8 }}>Priority</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.map(task => (
-              <tr key={task._id}>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{task.title}</td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{task.status}</td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>{task.priority}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div>
+          {tasks.map(task => (
+            <TaskCard key={task._id} task={task} onUpdate={fetchTasks} />
+          ))}
+        </div>
       )}
     </div>
   );
