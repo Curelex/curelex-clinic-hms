@@ -8,20 +8,25 @@ export default function(io) {
   const router = express.Router();
 
   // Create Task (Admin only)
-  router.post('/', auth, roleCheck('admin'), async (req, res) => {
+  router.post('/', auth, roleCheck('admin'), upload.array('files', 5), async (req, res) => {
     try {
-      const { title, description, priority, deadline, assignedTo } = req.body;
+      const { title, description, priority, deadline, assignedTo, assignedRole } = req.body;
       const task = new Task({
         title,
         description,
         priority,
         deadline,
-        assignedTo,
+        assignedTo: assignedTo || undefined,
+        assignedRole,
         createdBy: req.user.id,
-        clinicId: req.user.clinicId
+        clinicId: req.user.clinicId,
+        taskFiles: req.files ? req.files.map(f => f.path) : []
       });
       await task.save();
-      io.to(`doctor_${assignedTo}`).emit('task:new', task);
+      // Notify assigned staff
+      if (assignedTo) {
+        io.to(`doctor_${assignedTo}`).emit('task:new', task);
+      }
       res.status(201).json(task);
     } catch (err) {
       res.status(500).json({ message: err.message });
