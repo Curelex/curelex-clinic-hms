@@ -1,6 +1,7 @@
 import express from 'express';
 import Task from '../models/Task.js';
 import TaskLog from '../models/TaskLog.js';
+import Notification from '../models/Notification.js';
 import auth from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import upload from '../middleware/upload.js';
@@ -10,6 +11,10 @@ export default function(io) {
 
   const logAction = async (taskId, userId, action, previousStatus, newStatus, details) => {
     await TaskLog.create({ taskId, userId, action, previousStatus, newStatus, details });
+  };
+
+  const createNotification = async (userId, message, taskId, clinicId) => {
+    await Notification.create({ userId, message, taskId, clinicId });
   };
 
   // Create Task (Admin only)
@@ -28,6 +33,7 @@ export default function(io) {
       await logAction(task._id, req.user.id, 'Created', null, 'Received', 'Task created');
       
       if (assignedTo) {
+        await createNotification(assignedTo, `You have a new task: ${title}`, task._id, req.user.clinicId);
         io.to(`doctor_${assignedTo}`).emit('task:new', task);
       }
       res.status(201).json(task);
@@ -77,7 +83,7 @@ export default function(io) {
   // Get Task History (Completed)
   router.get('/history', auth, async (req, res) => {
     try {
-      const { search, priority, clinicId } = req.query;
+      const { search, priority } = req.query;
       const query = { status: 'Completed', clinicId: req.user.clinicId };
       if (search) query.title = { $regex: search, $options: 'i' };
       if (priority) query.priority = priority;
@@ -86,6 +92,16 @@ export default function(io) {
         .populate('assignedTo createdBy', 'name')
         .sort({ updatedAt: -1 });
       res.json(tasks);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Get Notifications
+  router.get('/notifications', auth, async (req, res) => {
+    try {
+      const notifications = await Notification.find({ userId: req.user.id, clinicId: req.user.clinicId }).sort({ createdAt: -1 });
+      res.json(notifications);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -126,6 +142,7 @@ export default function(io) {
 
       await task.save();
       await logAction(task._id, req.user.id, 'StatusChanged', previousStatus, status, completionNote);
+      await createNotification(task.createdBy, `Task ${task.title} status changed to ${status}`, task._id, req.user.clinicId);
       
       io.emit('task:updated', task);
       res.json(task);

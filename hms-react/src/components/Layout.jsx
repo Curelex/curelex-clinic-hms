@@ -4,6 +4,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import taskService from '../services/taskService';
+import { useSocket } from '../hooks/useSocket';
 
 // ── Nav definition ─────────────────────────────────────────────
 const NAV_SECTIONS = [
@@ -47,29 +48,31 @@ const ROLE_META = {
   lab_technician: { label: 'Lab Technician', color: '#fb923c', bg: 'rgba(251,146,60,0.15)' },
 };
 
-import { useSocket } from '../hooks/useSocket';
-
 export default function Layout() {
   const { user, logout, hasPerm } = useAuth();
   const [taskCount, setTaskCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const socket = useSocket();
 
-  const fetchCount = async () => {
+  const fetchData = async () => {
     try {
-      const { data } = await taskService.getPendingCount();
-      setTaskCount(data.count);
+      const { data: countData } = await taskService.getPendingCount();
+      setTaskCount(countData.count);
+      const { data: notifData } = await taskService.getNotifications();
+      setNotifications(notifData);
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    if (user) fetchCount();
-    socket.on('task:new', fetchCount);
-    socket.on('task:updated', fetchCount);
+    if (user) fetchData();
+    socket.on('task:new', fetchData);
+    socket.on('task:updated', fetchData);
     return () => {
-        socket.off('task:new', fetchCount);
-        socket.off('task:updated', fetchCount);
+        socket.off('task:new', fetchData);
+        socket.off('task:updated', fetchData);
     };
   }, [user, socket]);
 
@@ -115,9 +118,15 @@ export default function Layout() {
         position: 'fixed', top: 0, right: 0, padding: 15, zIndex: 2000,
         display: 'flex', gap: 15, alignItems: 'center'
       }}>
-        <div style={{ position: 'relative', cursor: 'pointer' }}>
+        <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setShowNotifications(!showNotifications)}>
           <span>🔔</span>
           {taskCount > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: 10 }}>{taskCount}</span>}
+          
+          {showNotifications && (
+            <div style={{ position: 'absolute', top: 25, right: 0, width: 250, background: '#fff', color: '#000', padding: 10, borderRadius: 8, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
+              {notifications.length === 0 ? <p>No notifications</p> : notifications.map(n => <div key={n._id} style={{ padding: 5, borderBottom: '1px solid #ccc' }}>{n.message}</div>)}
+            </div>
+          )}
         </div>
       </div>
 
