@@ -110,6 +110,16 @@ export default function Layout() {
         flexDirection: 'row',
       }}
     >
+      {/* ── Top Nav ─────────────────────────────────────────────── */}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, padding: 15, zIndex: 2000,
+        display: 'flex', gap: 15, alignItems: 'center'
+      }}>
+        <div style={{ position: 'relative', cursor: 'pointer' }}>
+          <span>🔔</span>
+          {taskCount > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: 10 }}>{taskCount}</span>}
+        </div>
+      </div>
 
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside

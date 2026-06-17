@@ -9,7 +9,10 @@ export default function TaskAllocation() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState({ title: '', description: '', priority: 'Medium', deadline: '', assignedTo: '', files: [] });
+  const [formData, setFormData] = useState({ 
+    title: '', description: '', priority: 'Medium', deadline: '', 
+    assignedTo: '', assignedRole: '', files: [] 
+  });
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -46,6 +49,7 @@ export default function TaskAllocation() {
     }
     await taskService.createTask(fd);
     setShowAddForm(false);
+    setFormData({ title: '', description: '', priority: 'Medium', deadline: '', assignedTo: '', assignedRole: '', files: [] });
     fetchTasks();
   };
 
@@ -66,7 +70,15 @@ export default function TaskAllocation() {
       {showAddForm && (
         <form onSubmit={handleCreateTask} className="card" style={{ marginBottom: 20, padding: 20 }}>
           <input placeholder="Title" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required style={{ display: 'block', width: '100%', marginBottom: 10 }} />
-          <textarea placeholder="Description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required style={{ display: 'block', width: '100%', marginBottom: 10 }} />
+          <textarea placeholder="Description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required style={{ display: 'block', width: '100%', marginBottom: 10, height: 100 }} />
+          
+          <select value={formData.assignedRole} onChange={e => setFormData({...formData, assignedRole: e.target.value})} required style={{ display: 'block', width: '100%', marginBottom: 10 }}>
+            <option value="">Select Role</option>
+            <option value="nurse">Nursing Staff</option>
+            <option value="pharmacist">Pharmacist</option>
+            <option value="lab_technician">Lab Technician</option>
+          </select>
+
           <input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} required style={{ display: 'block', width: '100%', marginBottom: 10 }} />
           <input type="file" multiple onChange={e => setFormData({...formData, files: e.target.files})} style={{ display: 'block', width: '100%', marginBottom: 10 }} />
           <button type="submit">Submit Task</button>
