@@ -1,11 +1,15 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/pharmacy.js
-const router         = require('express').Router();
-const Pharmacy       = require('../models/Pharmacy');
-const Inventory      = require('../models/Inventory');
-const Billing        = require('../models/Billing');
-const BillingRequest = require('../models/BillingRequest');
-const Admission      = require('../models/Admission');
-const auth           = require('../middleware/auth');
+import express from 'express'; const router = express.Router();
+import Pharmacy       from '../models/Pharmacy.js';
+import Inventory      from '../models/Inventory.js';
+import Billing        from '../models/Billing.js';
+import BillingRequest from '../models/BillingRequest.js';
+import Admission      from '../models/Admission.js';
+import auth           from '../middleware/auth.js';
 
 // ── GET /pharmacy/inventory/search?q=  ───────────────────────────────────────
 // MUST be before /:id route to avoid conflict
@@ -289,4 +293,4 @@ router.post('/:id/dispense', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

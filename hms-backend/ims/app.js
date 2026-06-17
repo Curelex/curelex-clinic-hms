@@ -16,6 +16,7 @@ app.use(
     origin: [
       "https://curelex.in",
       "https://www.curelex.in",
+      "http://localhost:5173"
     ],
     credentials: true
   })

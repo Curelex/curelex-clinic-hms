@@ -1,5 +1,5 @@
 // hms-backend/models/Vendor.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const VendorSchema = new mongoose.Schema({
   // ✅ FIX: every vendor belongs to a clinic
@@ -56,4 +56,4 @@ VendorSchema.pre('save', async function (next) {
   next();
 });
 
-module.exports = mongoose.model('Vendor', VendorSchema);
+export default mongoose.model('Vendor', VendorSchema);

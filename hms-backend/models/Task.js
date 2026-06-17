@@ -12,7 +12,16 @@ const taskSchema = new mongoose.Schema({
   clinicId: { type: String, required: true, index: true },
   completionNote: { type: String },
   completionFiles: [String],
-  taskFiles: [String] // Files attached during creation
+  taskFiles: [String],
+  // ── Recurrence / Ongoing ──────────────────────────────────────
+  recurrence: { type: String, enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none' },
+  isOngoing: { type: Boolean, default: false },
+  parentTaskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' },
+  lastGenerated: { type: Date },
+  // ── SLA ───────────────────────────────────────────────────────
+  slaHours: { type: Number, default: 0 }, // 0 = no SLA
+  slaBreached: { type: Boolean, default: false },
+  slaBreachedAt: { type: Date },
 }, { timestamps: true });
 
 export default mongoose.model('Task', taskSchema);

@@ -24,7 +24,6 @@ const NAV_SECTIONS = [
       { path: '/pharmacy', label: 'Pharmacy', icon: '💊', perm: 'pharmacy' },
       { path: '/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab' },
       { path: '/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
-      { path: '/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard' },
       { path: '/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients' },
     ],
   },
@@ -33,6 +32,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
       { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
+      { path: '/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard' },
       { path: '/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
     ],
   },
@@ -70,9 +70,19 @@ export default function Layout() {
     if (user) fetchData();
     socket.on('task:new', fetchData);
     socket.on('task:updated', fetchData);
+    socket.on('task:sla-breach', (task) => {
+      setNotifications(prev => [{
+        _id: `sla-${Date.now()}`,
+        message: `SLA BREACHED: "${task.title}" exceeded SLA`,
+        taskId: task._id,
+        read: false,
+        createdAt: new Date().toISOString(),
+      }, ...prev]);
+    });
     return () => {
         socket.off('task:new', fetchData);
         socket.off('task:updated', fetchData);
+        socket.off('task:sla-breach');
     };
   }, [user, socket]);
 
@@ -118,13 +128,62 @@ export default function Layout() {
         position: 'fixed', top: 0, right: 0, padding: 15, zIndex: 2000,
         display: 'flex', gap: 15, alignItems: 'center'
       }}>
-        <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setShowNotifications(!showNotifications)}>
-          <span>🔔</span>
-          {taskCount > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: 10 }}>{taskCount}</span>}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setShowNotifications(!showNotifications)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {notifications.length > 0 && (
+              <span style={{
+                position: 'absolute', top: 0, right: 0,
+                background: '#ef4444', color: '#fff',
+                borderRadius: '50%', minWidth: 16, height: 16,
+                fontSize: 9, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 3px',
+              }}>
+                {notifications.length}
+              </span>
+            )}
+          </button>
           
           {showNotifications && (
-            <div style={{ position: 'absolute', top: 25, right: 0, width: 250, background: '#fff', color: '#000', padding: 10, borderRadius: 8, boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
-              {notifications.length === 0 ? <p>No notifications</p> : notifications.map(n => <div key={n._id} style={{ padding: 5, borderBottom: '1px solid #ccc' }}>{n.message}</div>)}
+            <div style={{
+              position: 'absolute', top: 35, right: 0, width: 320,
+              background: '#fff', color: '#1e293b',
+              borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+              border: '1px solid #e2e8f0', zIndex: 3000,
+              maxHeight: 400, overflowY: 'auto',
+            }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0', fontWeight: 700, fontSize: 13 }}>
+                Notifications
+              </div>
+              {notifications.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>
+                  No notifications
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div key={n._id} style={{
+                    padding: '10px 14px', borderBottom: '1px solid #f1f5f9',
+                    background: n.read ? 'transparent' : '#eff6ff',
+                    fontSize: 12, cursor: 'pointer',
+                  }}
+                    onClick={async () => {
+                      if (!n.read && n._id && !n._id.startsWith('sla-')) {
+                        try { await taskService.markNotificationRead(n._id); } catch {}
+                      }
+                      if (n.taskId) navigate(`/tasks`);
+                    }}
+                  >
+                    <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                      {n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

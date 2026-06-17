@@ -1,11 +1,15 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/staff.js
 // In server.js add: app.use('/api/staff', require('./routes/staff'));
 
-const express   = require('express');
+import express   from 'express';
 const router    = express.Router();
-const auth      = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
-const User      = require('../models/User');
+import auth      from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
+import User      from '../models/User.js';
 
 /**
  * Resolves clinicId from (in priority order):
@@ -44,7 +48,6 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
     const exists = await User.findOne({ email, clinicId });
     if (exists) return res.status(400).json({ message: 'Email already registered' });
 
-    const bcrypt = require('bcryptjs');
     const hashed = await bcrypt.hash(password, 10);
     const user   = new User({ clinicId, name, email, password: hashed, role, phone, department });
     await user.save();
@@ -70,7 +73,7 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // hms-backend/routes/staff.js  ← separate file (add to server.js too)
@@ -79,10 +82,10 @@ module.exports = router;
 
 // Exported below as a separate module — split into its own file in your project.
 
-// const staffRouter  = require('express').Router();
-// const staffAuth    = require('../middleware/auth');
-// const roleCheck    = require('../middleware/roleCheck');
-// const User         = require('../models/User');
+// import staffRouter  from 'express').Router(;
+// import staffAuth    from '../middleware/auth.js';
+// import roleCheck    from '../middleware/roleCheck.js';
+// import User         from '../models/User.js';
 
 // function resolveStaffClinicId(req) {
 //   return (
@@ -113,7 +116,6 @@ module.exports = router;
 //     const exists = await User.findOne({ email, clinicId });
 //     if (exists) return res.status(400).json({ message: 'Email already registered' });
 
-//     const bcrypt = require('bcryptjs');
 //     const hashed = await bcrypt.hash(password, 10);
 //     const user   = new User({ clinicId, name, email, password: hashed, role, phone, department });
 //     await user.save();
@@ -138,4 +140,4 @@ module.exports = router;
 //   }
 // });
 
-// module.exports = staffRouter;
+// export default staffRouter;

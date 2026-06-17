@@ -1,11 +1,15 @@
-const express = require('express');
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
+import express from 'express';
 const router = express.Router();
-const EmergencyEncounter = require('../models/EmergencyEncounter');
-const Bed = require('../models/Bed');
-const User = require('../models/User');
+import EmergencyEncounter from '../models/EmergencyEncounter.js';
+import Bed from '../models/Bed.js';
+import User from '../models/User.js';
 
 // We wrap the router in a function so we can pass the Socket.IO instance into it
-module.exports = (io) => {
+export default (io) => {
 
     // 1. Emergency Patient Intake (Fast Registration)
     router.post('/intake', async (req, res) => {

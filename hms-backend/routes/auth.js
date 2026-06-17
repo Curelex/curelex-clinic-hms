@@ -1,13 +1,17 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/auth.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const mongoose = require('mongoose');
-const User = require('../models/User');
-const Clinic = require('../models/Clinic');
-const auth = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import mongoose from 'mongoose';
+import User from '../models/User.js';
+import Clinic from '../models/Clinic.js';
+import auth from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
 
 // ── SSO Token Schema (ideally move to /models/SsoToken.js) ────────────────
 const ssoTokenSchema = new mongoose.Schema({
@@ -76,6 +80,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt:', { email, password });
 
     const users = await User.find({ email });
     if (!users.length) {
@@ -246,4 +251,4 @@ router.put('/change-password', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

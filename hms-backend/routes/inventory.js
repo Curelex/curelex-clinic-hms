@@ -1,8 +1,12 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/inventory.js
-const router = require('express').Router();
-const Inventory = require('../models/Inventory');
-const auth = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
+import express from 'express'; const router = express.Router();
+import Inventory from '../models/Inventory.js';
+import auth from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
 
 // ── GET all inventory items (with filters) ──
 router.get('/', auth, async (req, res) => {
@@ -305,4 +309,4 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
 // hms-backend/models/Appointment.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const appointmentSchema = new mongoose.Schema(
   {
@@ -48,4 +48,4 @@ appointmentSchema.index({ clinicId: 1, date: 1 });
 appointmentSchema.index({ clinicId: 1, status: 1 });
 appointmentSchema.index({ clinicId: 1, doctor: 1 });
 
-module.exports = mongoose.model('Appointment', appointmentSchema);
+export default mongoose.model('Appointment', appointmentSchema);

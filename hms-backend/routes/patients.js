@@ -1,7 +1,11 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/patients.js
-const router  = require('express').Router();
-const Patient = require('../models/Patient');
-const auth    = require('../middleware/auth');
+import express from 'express'; const router = express.Router();
+import Patient from '../models/Patient.js';
+import auth    from '../middleware/auth.js';
 
 // ── Get all patients — scoped to clinic ────────────────────────────────────
 router.get('/', auth, async (req, res) => {
@@ -95,4 +99,4 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

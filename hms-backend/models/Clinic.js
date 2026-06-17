@@ -1,5 +1,5 @@
 // hms-backend/models/Clinic.js  ← NEW FILE
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ClinicSchema = new mongoose.Schema({
   name:    { type: String, required: true },
@@ -8,4 +8,4 @@ const ClinicSchema = new mongoose.Schema({
   address: { type: String },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Clinic', ClinicSchema);
+export default mongoose.model('Clinic', ClinicSchema);

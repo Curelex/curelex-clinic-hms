@@ -1,7 +1,7 @@
 // hms-backend/middleware/roleCheck.js
 // Usage: router.get('/route', auth, roleCheck('admin', 'doctor'), handler)
 
-module.exports = function (...allowedRoles) {
+export default function (...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Not authenticated' });

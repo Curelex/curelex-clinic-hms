@@ -3,7 +3,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import API from '../utils/api';
 
-const socket = io('http://localhost:5000');
+const socket = io('/', { path: '/socket.io' });
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const TRIAGE_CONFIG = {

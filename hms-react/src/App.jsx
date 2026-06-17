@@ -19,6 +19,7 @@ import TokenPanel from './pages/TokenPanel';
 import IPD from './pages/IPD';   // ← NEW
 import RoomSettings from './pages/RoomSettings';
 import Emergency from './pages/Emergency';
+import TaskAllocation from './pages/TaskAllocation';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 const PrivateRoute = ({ children }) => {
@@ -97,6 +98,8 @@ function App() {
             <Route path="tokens" element={
               <PermRoute permKey="patients"><TokenPanel /></PermRoute>
             } />
+
+            <Route path="tasks" element={<PrivateRoute><TaskAllocation /></PrivateRoute>} />
 
             <Route path="emergency" element={<Emergency />} />
 

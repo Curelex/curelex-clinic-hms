@@ -1,5 +1,5 @@
 // hms-backend/models/Bed.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const bedSchema = new mongoose.Schema({
   bedNumber: { type: String, required: true },
@@ -21,4 +21,4 @@ const bedSchema = new mongoose.Schema({
 // Ensure bedNumber is unique per clinic
 bedSchema.index({ clinicId: 1, bedNumber: 1 }, { unique: true });
 
-module.exports = mongoose.model('Bed', bedSchema);
+export default mongoose.model('Bed', bedSchema);

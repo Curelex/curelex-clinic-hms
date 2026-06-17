@@ -1,5 +1,5 @@
 // hms-backend/models/Inventory.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const InventorySchema = new mongoose.Schema({
   // ✅ Every inventory item belongs to a clinic — required, no exceptions
@@ -124,4 +124,4 @@ InventorySchema.virtual('maintenanceStatus').get(function () {
 InventorySchema.set('toJSON',   { virtuals: true });
 InventorySchema.set('toObject', { virtuals: true });
 
-module.exports = mongoose.model('Inventory', InventorySchema);
+export default mongoose.model('Inventory', InventorySchema);

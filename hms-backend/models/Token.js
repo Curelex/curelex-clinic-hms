@@ -1,5 +1,5 @@
 // hms-backend/models/Token.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const TokenSchema = new mongoose.Schema({
   clinicId:     { type: String, required: true, index: true, default: 'default' }, // ← NEW
@@ -17,4 +17,4 @@ const TokenSchema = new mongoose.Schema({
 // e.g. Doctor A at Clinic X can only have one Token #3 on a given day
 TokenSchema.index({ clinicId: 1, doctor: 1, date: 1, tokenNumber: 1 }, { unique: true });
 
-module.exports = mongoose.model('Token', TokenSchema);
+export default mongoose.model('Token', TokenSchema);

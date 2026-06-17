@@ -1,5 +1,5 @@
 // hms-backend/models/Lab.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const LabSchema = new mongoose.Schema({
   labId:    { type: String, unique: true },
@@ -37,4 +37,4 @@ LabSchema.pre('save', async function (next) {
   next();
 });
 
-module.exports = mongoose.model('Lab', LabSchema);
+export default mongoose.model('Lab', LabSchema);

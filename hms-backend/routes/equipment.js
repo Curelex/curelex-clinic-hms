@@ -1,7 +1,11 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/equipment.js
-const router    = require('express').Router();
-const Inventory = require('../models/Inventory');
-const auth      = require('../middleware/auth');
+import express from 'express'; const router = express.Router();
+import Inventory from '../models/Inventory.js';
+import auth      from '../middleware/auth.js';
 
 /**
  * Resolves clinicId from (in priority order):
@@ -191,4 +195,4 @@ router.get('/:id/maintenance-history', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

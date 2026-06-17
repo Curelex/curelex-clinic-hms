@@ -1,9 +1,13 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/roomSettings.js
 
-const express = require('express');
+import express from 'express';
 const router  = express.Router();
-const auth    = require('../middleware/auth');
-const ClinicRoomConfig = require('../models/ClinicRoomConfig');
+import auth    from '../middleware/auth.js';
+import ClinicRoomConfig from '../models/ClinicRoomConfig.js';
 
 /**
  * Resolves clinicId from (in priority order):
@@ -116,4 +120,4 @@ router.put('/:roomType', auth, async (req, res) => {
 });
 
 
-module.exports = router;
+export default router;

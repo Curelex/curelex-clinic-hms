@@ -1,5 +1,5 @@
 // hms-backend/models/Patient.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // ── Counter collection for atomic patientId generation ─────────────────────
 const CounterSchema = new mongoose.Schema({
@@ -44,4 +44,4 @@ PatientSchema.pre('save', async function (next) {
   }
 });
 
-module.exports = mongoose.model('Patient', PatientSchema);
+export default mongoose.model('Patient', PatientSchema);
