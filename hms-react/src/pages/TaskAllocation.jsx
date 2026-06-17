@@ -14,6 +14,8 @@ export default function TaskAllocation() {
     assignedTo: '', assignedRole: '', files: [] 
   });
 
+  const [filters, setFilters] = useState({ search: '', priority: '' });
+
   const fetchTasks = async () => {
     setLoading(true);
     try {
@@ -23,7 +25,7 @@ export default function TaskAllocation() {
       } else if (activeTab === 'assignedByMe') {
         ({ data } = await taskService.getCreatedTasks());
       } else {
-        ({ data } = await taskService.getHistoryTasks());
+        ({ data } = await taskService.getHistoryTasks(filters));
       }
       setTasks(data);
     } catch (err) {
@@ -35,7 +37,20 @@ export default function TaskAllocation() {
 
   useEffect(() => {
     fetchTasks();
-  }, [activeTab]);
+  }, [activeTab, filters]);
+// ...
+      {activeTab === 'history' && (
+        <div style={{ marginBottom: 10 }}>
+          <input placeholder="Search title..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
+          <select value={filters.priority} onChange={e => setFilters({...filters, priority: e.target.value})}>
+            <option value="">All Priorities</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+      )}
 
   const handleCreateTask = async (e) => {
     e.preventDefault();

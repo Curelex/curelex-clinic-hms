@@ -77,10 +77,14 @@ export default function(io) {
   // Get Task History (Completed)
   router.get('/history', auth, async (req, res) => {
     try {
-      const tasks = await Task.find({
-        status: 'Completed',
-        clinicId: req.user.clinicId
-      }).populate('assignedTo createdBy', 'name').sort({ updatedAt: -1 });
+      const { search, priority, clinicId } = req.query;
+      const query = { status: 'Completed', clinicId: req.user.clinicId };
+      if (search) query.title = { $regex: search, $options: 'i' };
+      if (priority) query.priority = priority;
+
+      const tasks = await Task.find(query)
+        .populate('assignedTo createdBy', 'name')
+        .sort({ updatedAt: -1 });
       res.json(tasks);
     } catch (err) {
       res.status(500).json({ message: err.message });
