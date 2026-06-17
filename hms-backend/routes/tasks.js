@@ -1,5 +1,6 @@
 import express from 'express';
 import Task from '../models/Task.js';
+import TaskLog from '../models/TaskLog.js';
 import auth from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import upload from '../middleware/upload.js';
@@ -7,15 +8,16 @@ import upload from '../middleware/upload.js';
 export default function(io) {
   const router = express.Router();
 
+  const logAction = async (taskId, userId, action, previousStatus, newStatus, details) => {
+    await TaskLog.create({ taskId, userId, action, previousStatus, newStatus, details });
+  };
+
   // Create Task (Admin only)
   router.post('/', auth, roleCheck('admin'), upload.array('files', 5), async (req, res) => {
     try {
       const { title, description, priority, deadline, assignedTo, assignedRole } = req.body;
       const task = new Task({
-        title,
-        description,
-        priority,
-        deadline,
+        title, description, priority, deadline,
         assignedTo: assignedTo || undefined,
         assignedRole,
         createdBy: req.user.id,
@@ -23,7 +25,8 @@ export default function(io) {
         taskFiles: req.files ? req.files.map(f => f.path) : []
       });
       await task.save();
-      // Notify assigned staff
+      await logAction(task._id, req.user.id, 'Created', null, 'Received', 'Task created');
+      
       if (assignedTo) {
         io.to(`doctor_${assignedTo}`).emit('task:new', task);
       }
@@ -109,6 +112,7 @@ export default function(io) {
         }
       }
 
+      const previousStatus = task.status;
       task.status = status;
       if (completionNote) task.completionNote = completionNote;
       
@@ -117,6 +121,8 @@ export default function(io) {
       }
 
       await task.save();
+      await logAction(task._id, req.user.id, 'StatusChanged', previousStatus, status, completionNote);
+      
       io.emit('task:updated', task);
       res.json(task);
     } catch (err) {
