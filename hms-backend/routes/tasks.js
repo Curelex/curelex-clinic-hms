@@ -62,8 +62,10 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
+import upload from '../middleware/upload.js';
+
 // Update Task Status
-router.put('/:id/status', auth, async (req, res) => {
+router.put('/:id/status', auth, upload.array('files', 5), async (req, res) => {
   try {
     const { status, completionNote } = req.body;
     const task = await Task.findOne({ _id: req.params.id, clinicId: req.user.clinicId });
@@ -77,6 +79,11 @@ router.put('/:id/status', auth, async (req, res) => {
 
     task.status = status;
     if (completionNote) task.completionNote = completionNote;
+    
+    if (req.files) {
+      task.completionFiles = req.files.map(f => f.path);
+    }
+
     await task.save();
     
     res.json(task);

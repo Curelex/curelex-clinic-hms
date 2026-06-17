@@ -31,6 +31,19 @@ export default function TaskAllocation() {
     fetchTasks();
   }, [activeTab]);
 
+  const handleStatusChange = async (taskId, status, note, files) => {
+    const formData = new FormData();
+    formData.append('status', status);
+    if (note) formData.append('completionNote', note);
+    if (files) {
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+    }
+    await taskService.updateTaskStatus(taskId, formData);
+    fetchTasks();
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Task Allocation</h1>
@@ -48,6 +61,7 @@ export default function TaskAllocation() {
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Title</th>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Status</th>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Priority</th>
+              <th style={{ border: '1px solid #ccc', padding: 8 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -56,6 +70,11 @@ export default function TaskAllocation() {
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>{task.title}</td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>{task.status}</td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>{task.priority}</td>
+                <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                  {task.status !== 'Completed' && (
+                    <button onClick={() => handleStatusChange(task._id, 'Completed', 'Done', null)}>Complete</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
