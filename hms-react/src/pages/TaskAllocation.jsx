@@ -68,6 +68,17 @@ export default function TaskAllocation() {
     fetchTasks();
   };
 
+  const exportToCSV = () => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + ["Title,Status,Priority,Created At"].concat(tasks.map(t => `${t.title},${t.status},${t.priority},${t.createdAt}`)).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "task_history.csv");
+    document.body.appendChild(link);
+    link.click();
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Task Allocation</h1>
@@ -80,6 +91,7 @@ export default function TaskAllocation() {
           </>
         )}
         <button onClick={() => setActiveTab('history')}>History</button>
+        {activeTab === 'history' && <button onClick={exportToCSV}>Export CSV</button>}
       </div>
 
       {showAddForm && (

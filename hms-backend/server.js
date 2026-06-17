@@ -25,6 +25,7 @@ import staffWorkRoutes from './routes/staffWork.js';
 import roomRoutes from './routes/room.js';
 import emergencyRoutesFactory from './routes/emergency.js';
 import taskRoutesFactory from './routes/tasks.js';
+import fileRoutes from './routes/files.js';
 import Task from './models/Task.js';
 
 dotenv.config();
@@ -107,6 +108,7 @@ app.use('/api/staff-work', staffWorkRoutes);
 app.use('/api/room-settings', roomRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/files', fileRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
