@@ -1,7 +1,7 @@
 // hms-backend/routes/admissions.js
 const express          = require('express');
 const router           = express.Router();
-const auth             = require('../middleware/auth');
+const {auth}             = require('../middleware/auth');
 const Admission        = require('../models/Admission');
 const Patient          = require('../models/Patient');
 const ClinicRoomConfig = require('../models/ClinicRoomConfig');
