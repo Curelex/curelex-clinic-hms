@@ -2,19 +2,40 @@
 const mongoose = require('mongoose');
 
 const TokenSchema = new mongoose.Schema({
-  clinicId:     { type: String, required: true, index: true, default: 'default' }, // ← NEW
+  clinicId:     { type: String, required: true, index: true, default: 'default' },
   tokenNumber:  { type: Number, required: true },
   date:         { type: String, required: true },   // "YYYY-MM-DD" — resets daily
-  doctor:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  // ── Doctor is now OPTIONAL ─────────────────────────────────────────────
+  // Patient-requested tokens won't have a doctor assigned yet — staff
+  // assigns one later. Receptionist-generated tokens still set this.
+  doctor:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
   patient:      { type: mongoose.Schema.Types.ObjectId, ref: 'Patient' },
   patientName:  { type: String },                   // denormalised for quick display
   generatedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // receptionist
-  status:       { type: String, enum: ['Waiting', 'Called', 'Done', 'Skipped'], default: 'Waiting' },
+
+  status:       { type: String, enum: ['Waiting', 'Called', 'Done', 'Skipped', 'Pending'], default: 'Waiting' },
   calledAt:     { type: Date },
+
+  // ── NEW: fields for patient-initiated appointment requests ────────────
+  source:       { type: String, enum: ['staff', 'patient'], default: 'staff' },
+  age:          { type: Number },
+  gender:       { type: String },
+  symptoms:     { type: String },
 }, { timestamps: true });
 
 // Unique token per clinic + doctor + date
-// e.g. Doctor A at Clinic X can only have one Token #3 on a given day
-TokenSchema.index({ clinicId: 1, doctor: 1, date: 1, tokenNumber: 1 }, { unique: true });
+// NOTE: doctor can be null/undefined for patient-requested tokens before
+// a doctor is assigned — Mongo's unique index treats missing/null doctor
+// values as a single shared value across docs, which could collide.
+// We work around this by only enforcing this index when doctor is set;
+// patient-requested tokens get their tokenNumber from a separate counter
+// (see resolveTokenNumber in the route) and so practically won't collide,
+// but to be fully safe we make the index partial.
+TokenSchema.index(
+  { clinicId: 1, doctor: 1, date: 1, tokenNumber: 1 },
+  { unique: true, partialFilterExpression: { doctor: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Token', TokenSchema);

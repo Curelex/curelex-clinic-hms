@@ -6,7 +6,7 @@ import API from '../utils/api';
 import '../css/PatientDashboard.css';
 
 export default function PatientDashboard() {
-  const { user, patient, logout, hasPerm, isPatient } = useAuth();
+  const { user, patient, logout, isPatient } = useAuth();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -21,7 +21,6 @@ export default function PatientDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
 
-  // ── Check if user is a patient ──────────────────────────────────────────
   useEffect(() => {
     if (!user) {
       navigate('/patient-login');
@@ -37,35 +36,30 @@ export default function PatientDashboard() {
   async function loadDashboardData() {
     setLoading(true);
     try {
-      // Get patient ID from patient object or user
       const patientId = patient?._id || patient?.id || user?.id || user?._id;
-      
+
       if (!patientId) {
         console.error('No patient ID found');
         setLoading(false);
         return;
       }
 
-      // Load stats from patient portal
       const statsRes = await API.get(`/patient-portal/${patientId}/dashboard`);
       if (statsRes.data.success) {
         setStats(statsRes.data.data);
       }
 
-      // Load appointments
       const apptRes = await API.get(`/patient-portal/${patientId}/appointments`);
       if (apptRes.data.success) {
         setAppointments(apptRes.data.appointments || []);
       }
 
-      // Load prescriptions (if available)
       try {
         const rxRes = await API.get(`/patient-portal/${patientId}/prescriptions`);
         if (rxRes.data.success) {
           setPrescriptions(rxRes.data.prescriptions || []);
         }
-      } catch (rxErr) {
-        // Prescriptions may not be implemented yet - ignore
+      } catch {
         console.log('Prescriptions not available yet');
       }
     } catch (error) {
@@ -79,27 +73,29 @@ export default function PatientDashboard() {
     navigate('/patient-login');
   };
 
+  const goTo = (path) => {
+    setSidebarOpen(false);
+    setUserDropdown(false);
+    navigate(path);
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+      day: 'numeric', month: 'short', year: 'numeric',
     });
   };
 
   const formatTime = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
+      hour: '2-digit', minute: '2-digit',
     });
   };
 
-  // Get patient name from user or patient object
-  const patientName = patient?.name || user?.name || 'Patient';
+  const patientName  = patient?.name  || user?.name  || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
-  
+
   const initials = patientName
     .split(' ')
     .map(n => n[0])
@@ -159,13 +155,13 @@ export default function PatientDashboard() {
                     <span>{patientEmail}</span>
                   </div>
                   <div className="pd-user-dropdown__divider" />
-                  <button className="pd-user-dropdown__item" onClick={() => { setUserDropdown(false); }}>
+                  <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-profile')}>
                     <i className="fas fa-user-circle"></i> Profile
                   </button>
-                  <button className="pd-user-dropdown__item" onClick={() => { setUserDropdown(false); }}>
+                  <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-appointments')}>
                     <i className="fas fa-calendar-check"></i> Appointments
                   </button>
-                  <button className="pd-user-dropdown__item" onClick={() => { setUserDropdown(false); }}>
+                  <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-prescriptions')}>
                     <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
                   </button>
                   <div className="pd-user-dropdown__divider" />
@@ -195,13 +191,13 @@ export default function PatientDashboard() {
             <div className="pd-nav-item active" onClick={() => setSidebarOpen(false)}>
               <i className="fas fa-home"></i> Dashboard
             </div>
-            <div className="pd-nav-item" onClick={() => setSidebarOpen(false)}>
+            <div className="pd-nav-item" onClick={() => goTo('/patient-appointments')}>
               <i className="fas fa-calendar-check"></i> My Appointments
             </div>
-            <div className="pd-nav-item" onClick={() => setSidebarOpen(false)}>
+            <div className="pd-nav-item" onClick={() => goTo('/patient-prescriptions')}>
               <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
             </div>
-            <div className="pd-nav-item" onClick={() => setSidebarOpen(false)}>
+            <div className="pd-nav-item" onClick={() => goTo('/patient-profile')}>
               <i className="fas fa-user-circle"></i> Profile
             </div>
             <div className="pd-nav-divider" />
@@ -238,10 +234,10 @@ export default function PatientDashboard() {
             {/* Quick Stats */}
             <div className="pd-stats">
               {[
-                { icon: 'fa-calendar-check', label: 'Upcoming', value: stats.upcomingAppointments, color: '#2d6be4' },
-                { icon: 'fa-prescription-bottle', label: 'Prescriptions', value: stats.prescriptionsCount, color: '#00b386' },
-                { icon: 'fa-file-medical', label: 'Total Appointments', value: stats.totalAppointments, color: '#f59e0b' },
-                { icon: 'fa-user-md', label: 'Doctors Consulted', value: stats.doctorsConsulted, color: '#7c3aed' },
+                { icon: 'fa-calendar-check',      label: 'Upcoming',           value: stats.upcomingAppointments, color: '#2d6be4' },
+                { icon: 'fa-prescription-bottle', label: 'Prescriptions',      value: stats.prescriptionsCount,   color: '#00b386' },
+                { icon: 'fa-file-medical',        label: 'Total Appointments', value: stats.totalAppointments,    color: '#f59e0b' },
+                { icon: 'fa-user-md',             label: 'Doctors Consulted',  value: stats.doctorsConsulted,     color: '#7c3aed' },
               ].map(s => (
                 <div className="pd-stat-card" key={s.label}>
                   <div className="pd-stat-card__icon" style={{ background: s.color + '18', color: s.color }}>
@@ -287,9 +283,9 @@ export default function PatientDashboard() {
                   })}
                 </div>
                 <div className="pd-card__footer">
-                  <button 
+                  <button
                     className="pd-btn pd-btn--primary pd-btn--full"
-                    onClick={() => alert('Book appointment feature coming soon!')}
+                    onClick={() => navigate('/patient-appointments')}
                   >
                     <i className="fas fa-calendar-plus"></i> Book New Appointment
                   </button>
@@ -318,9 +314,9 @@ export default function PatientDashboard() {
                   ))}
                 </div>
                 <div className="pd-card__footer">
-                  <button 
+                  <button
                     className="pd-btn pd-btn--outline pd-btn--full"
-                    onClick={() => alert('View all prescriptions coming soon!')}
+                    onClick={() => navigate('/patient-prescriptions')}
                   >
                     <i className="fas fa-eye"></i> View All Prescriptions
                   </button>
@@ -329,17 +325,17 @@ export default function PatientDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div style={{ 
-              marginTop: '24px', 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '14px' 
+            <div style={{
+              marginTop: '24px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '14px',
             }}>
               {[
-                { icon: 'fa-video', label: 'Video Consultation', color: '#2d6be4', action: () => alert('Video consultation coming soon!') },
-                { icon: 'fa-user-md', label: 'Find Doctors', color: '#00b386', action: () => alert('Find doctors coming soon!') },
-                { icon: 'fa-flask', label: 'Lab Tests', color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
-                { icon: 'fa-comment-dots', label: 'Feedback', color: '#7c3aed', action: () => alert('Feedback coming soon!') },
+                { icon: 'fa-video',       label: 'Video Consultation', color: '#2d6be4', action: () => alert('Video consultation coming soon!') },
+                { icon: 'fa-user-md',     label: 'Find Doctors',       color: '#00b386', action: () => alert('Find doctors coming soon!') },
+                { icon: 'fa-flask',       label: 'Lab Tests',          color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
+                { icon: 'fa-comment-dots',label: 'Feedback',           color: '#7c3aed', action: () => alert('Feedback coming soon!') },
               ].map(item => (
                 <button
                   key={item.label}

@@ -22,6 +22,7 @@ import Emergency from './pages/Emergency';
 import PatientDashboard from './pages/PatientDashboard';
 import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
+import PatientAppointments from './pages/PatientAppointments';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 const PrivateRoute = ({ children }) => {
@@ -34,7 +35,6 @@ const PublicRoute = ({ children }) => {
   return !user ? children : <Navigate to="/" />;
 };
 
-// ✅ Patient route guard - only patients can access
 const PatientRoute = ({ children }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/patient-login" />;
@@ -42,7 +42,6 @@ const PatientRoute = ({ children }) => {
   return children;
 };
 
-// ✅ Staff route guard - redirects patients away from staff routes
 const StaffRoute = ({ children }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" />;
@@ -70,8 +69,8 @@ function App() {
           <Route path="/patient-register" element={<PublicRoute><PatientRegister /></PublicRoute>} />
 
           {/* ── Staff Routes (with Layout) ────────────────────── */}
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <PrivateRoute>
                 <StaffRoute>
@@ -82,112 +81,70 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
-            
-            <Route 
-              path="patients" 
-              element={
-                <PermRoute permKey="patients">
-                  <Patients />
-                </PermRoute>
-              } 
+
+            <Route
+              path="patients"
+              element={<PermRoute permKey="patients"><Patients /></PermRoute>}
             />
-            
-            <Route 
-              path="billing" 
-              element={
-                <PermRoute permKey="billing">
-                  <Billing />
-                </PermRoute>
-              } 
+
+            <Route
+              path="billing"
+              element={<PermRoute permKey="billing"><Billing /></PermRoute>}
             />
-            
-            <Route 
-              path="billing-requests" 
-              element={
-                <PermRoute permKey="billing">
-                  <BillingRequests />
-                </PermRoute>
-              } 
+
+            <Route
+              path="billing-requests"
+              element={<PermRoute permKey="billing"><BillingRequests /></PermRoute>}
             />
-            
-            <Route 
-              path="ipd" 
-              element={
-                <PermRoute permKey="ipd">
-                  <IPD />
-                </PermRoute>
-              } 
+
+            <Route
+              path="ipd"
+              element={<PermRoute permKey="ipd"><IPD /></PermRoute>}
             />
-            
-            <Route 
-              path="room-settings" 
-              element={
-                <PermRoute permKey="room-settings">
-                  <RoomSettings />
-                </PermRoute>
-              } 
+
+            <Route
+              path="room-settings"
+              element={<PermRoute permKey="room-settings"><RoomSettings /></PermRoute>}
             />
-            
-            <Route 
-              path="pharmacy/*" 
-              element={
-                <PermRoute permKey="pharmacy">
-                  <IMSApp />
-                </PermRoute>
-              } 
+
+            <Route
+              path="pharmacy/*"
+              element={<PermRoute permKey="pharmacy"><IMSApp /></PermRoute>}
             />
-            
-            <Route 
-              path="lab" 
-              element={
-                <PermRoute permKey="lab">
-                  <Lab />
-                </PermRoute>
-              } 
+
+            <Route
+              path="lab"
+              element={<PermRoute permKey="lab"><Lab /></PermRoute>}
             />
-            
-            <Route 
-              path="inventory" 
-              element={
-                <PermRoute permKey="inventory">
-                  <Inventory />
-                </PermRoute>
-              } 
+
+            <Route
+              path="inventory"
+              element={<PermRoute permKey="inventory"><Inventory /></PermRoute>}
             />
-            
-            <Route 
-              path="staff" 
-              element={
-                <PermRoute permKey="staff">
-                  <Staff />
-                </PermRoute>
-              } 
+
+            <Route
+              path="staff"
+              element={<PermRoute permKey="staff"><Staff /></PermRoute>}
             />
-            
-            <Route 
-              path="tokens" 
-              element={
-                <PermRoute permKey="patients">
-                  <TokenPanel />
-                </PermRoute>
-              } 
+
+            <Route
+              path="tokens"
+              element={<PermRoute permKey="patients"><TokenPanel /></PermRoute>}
             />
-            
-            <Route 
-              path="emergency" 
-              element={<Emergency />} 
-            />
+
+            <Route path="emergency" element={<Emergency />} />
           </Route>
 
-          {/* ── Patient Dashboard ──────────────────────────────── */}
-          <Route 
-            path="/patient-dashboard" 
-            element={
-              <PatientRoute>
-                <PatientDashboard />
-              </PatientRoute>
-            } 
+          {/* ── Patient Routes ─────────────────────────────────── */}
+          <Route
+            path="/patient-dashboard"
+            element={<PatientRoute><PatientDashboard /></PatientRoute>}
           />
+          <Route
+            path="/patient-appointments"
+            element={<PatientRoute><PatientAppointments /></PatientRoute>}
+          />
+        
 
           {/* ── Catch all ──────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" />} />

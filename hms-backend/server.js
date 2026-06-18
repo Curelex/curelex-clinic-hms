@@ -58,6 +58,7 @@ app.use('/api/staff-work',      require('./routes/staffWork'));
 app.use('/api/room-settings',   require('./routes/room'));
 app.use('/api/emergency',       emergencyRoutes);
 app.use('/api/patient-portal',  require('./routes/patientPortal'));
+app.use('/api/clinics', require('./routes/clinics'));
 
 // ── Serve uploaded files statically ──────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
