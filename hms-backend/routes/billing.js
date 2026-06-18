@@ -3,7 +3,7 @@ const router   = require('express').Router();
 const Billing  = require('../models/Billing');
 const Pharmacy = require('../models/Pharmacy');
 const Lab      = require('../models/Lab');
-const auth     = require('../middleware/auth');
+const {auth}     = require('../middleware/auth');
 
 const ROOM_RATES = {
   'General Ward': 800,

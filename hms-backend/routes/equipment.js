@@ -1,7 +1,7 @@
 // hms-backend/routes/equipment.js
 const router    = require('express').Router();
 const Inventory = require('../models/Inventory');
-const auth      = require('../middleware/auth');
+const {auth}      = require('../middleware/auth');
 
 /**
  * Resolves clinicId from (in priority order):

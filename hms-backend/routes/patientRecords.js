@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const PatientRecord = require('../models/PatientRecord');
-const auth = require('../middleware/auth');
+const {auth} = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
 // ── Multer config ─────────────────────────────────────────────────────────────

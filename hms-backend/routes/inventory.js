@@ -1,7 +1,7 @@
 // hms-backend/routes/inventory.js
 const router = require('express').Router();
 const Inventory = require('../models/Inventory');
-const auth = require('../middleware/auth');
+const {auth} = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
 // ── GET all inventory items (with filters) ──

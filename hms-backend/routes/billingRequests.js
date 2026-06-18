@@ -7,7 +7,7 @@ const express        = require('express');
 const router         = express.Router();
 const BillingRequest = require('../models/BillingRequest');
 const Billing        = require('../models/Billing');
-const auth           = require('../middleware/auth');
+const {auth}           = require('../middleware/auth');
 
 // ── GET all billing requests — scoped to clinic ───────────────────────────
 router.get('/', auth, async (req, res) => {

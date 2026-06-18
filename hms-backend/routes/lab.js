@@ -3,7 +3,7 @@ const router         = require('express').Router();
 const Lab            = require('../models/Lab');
 const BillingRequest = require('../models/BillingRequest');
 const Patient        = require('../models/Patient');
-const auth           = require('../middleware/auth');
+const {auth}           = require('../middleware/auth');
 
 // ── GET all lab tests — scoped to clinic ──────────────────────────────────
 router.get('/', auth, async (req, res) => {

@@ -5,7 +5,7 @@ const Inventory      = require('../models/Inventory');
 const Billing        = require('../models/Billing');
 const BillingRequest = require('../models/BillingRequest');
 const Admission      = require('../models/Admission');
-const auth           = require('../middleware/auth');
+const {auth}           = require('../middleware/auth');
 
 // ── GET /pharmacy/inventory/search?q=  ───────────────────────────────────────
 // MUST be before /:id route to avoid conflict

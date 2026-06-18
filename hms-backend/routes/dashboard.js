@@ -1,7 +1,7 @@
 // hms-backend/routes/dashboard.js
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const {auth} = require('../middleware/auth');
 
 const Patient = require('../models/Patient');
 const Billing = require('../models/Billing');

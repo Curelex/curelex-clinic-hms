@@ -2,7 +2,7 @@
 const router    = require('express').Router();
 const Vendor    = require('../models/Vendor');
 const Inventory = require('../models/Inventory');
-const auth      = require('../middleware/auth');
+const {auth}      = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
 // ── GET vendor stats summary ─────────────────────────────────────
