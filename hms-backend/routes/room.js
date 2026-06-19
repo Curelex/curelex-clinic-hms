@@ -5,10 +5,11 @@ import bcrypt from "bcryptjs";
 // hms-backend/routes/roomSettings.js
 
 import express from 'express';
-const router  = express.Router();
-const {auth}    = require('../middleware/auth');
-const ClinicRoomConfig = require('../models/ClinicRoomConfig');
 
+import { auth } from '../middleware/auth.js';
+import ClinicRoomConfig from '../models/ClinicRoomConfig.js';
+
+const router = express.Router();
 /**
  * Resolves clinicId from (in priority order):
  *  1. req.body.clinicId   — POST/PUT requests pass it in the body

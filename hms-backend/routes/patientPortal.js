@@ -1,9 +1,11 @@
-const express = require('express');
+import express from 'express';
+
+import { patientAuth } from '../middleware/auth.js';
+import Patient from '../models/Patient.js';
+import Token from '../models/Token.js';
+import User from '../models/User.js';
+
 const router = express.Router();
-const { patientAuth } = require('../middleware/auth');
-const Patient = require('../models/Patient');
-const Token = require('../models/Token');
-const User = require('../models/User');
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function todayStr() {
@@ -229,4 +231,4 @@ router.get('/:id/prescriptions', patientAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

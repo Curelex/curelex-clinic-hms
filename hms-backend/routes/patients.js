@@ -3,10 +3,13 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import bcrypt from "bcryptjs";
 // hms-backend/routes/patients.js
-const router = require('express').Router();
-const Patient = require('../models/Patient');
-const User = require('../models/User');
-const { auth } = require('../middleware/auth');
+import express from 'express';
+
+import Patient from '../models/Patient.js';
+import User from '../models/User.js';
+import { auth } from '../middleware/auth.js';
+
+const router = express.Router();
 
 // ── Get all patients ──────────────────────────────────────────────────────
 router.get('/', auth, async (req, res) => {

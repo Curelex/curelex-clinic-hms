@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 
 // ── Staff / Admin Authentication ─────────────────────────────────────────
 // Used by clinic staff routes. Requires clinicId inside the JWT.
-const auth = function (req, res, next) {
+export const auth = function (req, res, next) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
@@ -28,7 +28,7 @@ const auth = function (req, res, next) {
 
 // ── Clinic middleware ─────────────────────────────────────────────────────
 // Resolves clinicId from multiple possible sources (header, query, body, JWT).
-const clinic = function (req, res, next) {
+export const clinic = function (req, res, next) {
   const clinicId =
     req.header('X-Clinic-Id') ||
     req.query.clinicId ||
@@ -49,7 +49,7 @@ const clinic = function (req, res, next) {
 // ── Patient Authentication ────────────────────────────────────────────────
 // Used by patient portal routes. Does NOT require clinicId in the JWT
 // because patients' clinicId is resolved from their Patient DB record instead.
-const patientAuth = function (req, res, next) {
+export const patientAuth = function (req, res, next) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
@@ -68,4 +68,3 @@ const patientAuth = function (req, res, next) {
   }
 };
 
-module.exports = { auth, clinic, patientAuth };

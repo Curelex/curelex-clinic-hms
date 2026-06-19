@@ -6,10 +6,12 @@ import bcrypt from "bcryptjs";
 // In server.js add: app.use('/api/staff', require('./routes/staff'));
 
 import express   from 'express';
-const router    = express.Router();
-const {auth}      = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
-const User      = require('../models/User');
+
+import { auth } from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
+import User from '../models/User.js';
+
+const router = express.Router();
 
 /**
  * Resolves clinicId from (in priority order):

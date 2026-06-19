@@ -23,6 +23,7 @@ import PatientDashboard from './pages/PatientDashboard';
 import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
 import PatientAppointments from './pages/PatientAppointments';
+import TaskAllocation from './pages/TaskAllocation';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 const PrivateRoute = ({ children }) => {

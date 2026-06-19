@@ -1,7 +1,7 @@
 // hms-backend/routes/clinics.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const Clinic = require('../models/Clinic');
+import Clinic from '../models/Clinic.js';
 
 // ── GET /api/clinics - Fetch all registered clinics ───────────────────────
 router.get('/', async (req, res) => {
@@ -14,4 +14,4 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

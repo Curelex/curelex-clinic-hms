@@ -1,14 +1,17 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import bcrypt from "bcryptjs";
-// hms-backend/routes/admissions.js
-import express          from 'express';
-const router           = express.Router();
-const {auth}             = require('../middleware/auth');
-const Admission        = require('../models/Admission');
-const Patient          = require('../models/Patient');
-const ClinicRoomConfig = require('../models/ClinicRoomConfig');
+import express from 'express';
+import bcrypt from 'bcryptjs';
+
+import { auth } from '../middleware/auth.js';
+import Admission from '../models/Admission.js';
+import Patient from '../models/Patient.js';
+import ClinicRoomConfig from '../models/ClinicRoomConfig.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const router = express.Router();
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function computeDays(admissionDate, dischargeDate) {

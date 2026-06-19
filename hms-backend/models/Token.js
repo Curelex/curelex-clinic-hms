@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const TokenSchema = new mongoose.Schema({
   clinicId:     { type: String, required: true, index: true, default: 'default' },

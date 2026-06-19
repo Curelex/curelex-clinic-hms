@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import Task from '../models/Task.js';
 import TaskLog from '../models/TaskLog.js';
 import Notification from '../models/Notification.js';
-import auth from '../middleware/auth.js';
+import {auth} from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import upload from '../middleware/upload.js';
 

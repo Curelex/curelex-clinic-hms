@@ -1,13 +1,17 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import bcrypt from "bcryptjs";
-// hms-backend/routes/billing.js
-const router   = require('express').Router();
-const Billing  = require('../models/Billing');
-const Pharmacy = require('../models/Pharmacy');
-const Lab      = require('../models/Lab');
-const {auth}     = require('../middleware/auth');
+import bcrypt from 'bcryptjs';
+import express from 'express';
+
+import Billing from '../models/Billing.js';
+import Pharmacy from '../models/Pharmacy.js';
+import Lab from '../models/Lab.js';
+import { auth } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const router = express.Router();
 
 const ROOM_RATES = {
   'General Ward': 800,

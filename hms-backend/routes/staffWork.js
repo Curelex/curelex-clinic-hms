@@ -8,7 +8,7 @@ import bcrypt from "bcryptjs";
 
 import express from 'express';
 const router  = express.Router();
-const {auth}    = require('../middleware/auth');
+import {auth}   from '../middleware/auth.js';
 
 import Billing  from '../models/Billing.js';
 import Lab      from '../models/Lab.js';

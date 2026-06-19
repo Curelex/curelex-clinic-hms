@@ -4,13 +4,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import bcrypt from "bcryptjs";
 // routes/patientRecords.js
 import express from 'express';
+import multer from 'multer';
+
+import fs from 'fs';
+
+import PatientRecord from '../models/PatientRecord.js';
+import { auth } from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
+
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const PatientRecord = require('../models/PatientRecord');
-const {auth} = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
 
 // ── Multer config ─────────────────────────────────────────────────────────────
 const uploadDir = path.join(__dirname, '..', 'uploads', 'patient-records');

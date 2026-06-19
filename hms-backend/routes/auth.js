@@ -1,18 +1,21 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import bcrypt from "bcryptjs";
-// hms-backend/routes/auth.js
+import bcrypt from 'bcryptjs';
 import express from 'express';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import mongoose from 'mongoose';
+
+import User from '../models/User.js';
+import Clinic from '../models/Clinic.js';
+import Patient from '../models/Patient.js';
+import { auth } from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const mongoose = require('mongoose');
-const User = require('../models/User');
-const Clinic = require('../models/Clinic');
-const Patient = require('../models/Patient');
-const { auth } = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
 
 // ── SSO Token Schema ──────────────────────────────────────────────────────
 const ssoTokenSchema = new mongoose.Schema({
