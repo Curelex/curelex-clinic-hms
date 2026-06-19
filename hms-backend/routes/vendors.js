@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/vendors.js
 const router    = require('express').Router();
 const Vendor    = require('../models/Vendor');
@@ -143,4 +147,4 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
 // hms-backend/models/Pharmacy.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const PharmacySchema = new mongoose.Schema({
   prescriptionId: { type: String, unique: true },
@@ -47,4 +47,4 @@ PharmacySchema.pre('save', async function (next) {
   next();
 });
 
-module.exports = mongoose.model('Pharmacy', PharmacySchema);
+export default mongoose.model('Pharmacy', PharmacySchema);

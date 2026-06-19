@@ -1,7 +1,11 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/tokens.js
 // Add to server.js:  app.use('/api/tokens', require('./routes/tokens'));
 
-const express = require('express');
+import express from 'express';
 const router  = express.Router();
 const {auth}    = require('../middleware/auth');
 const Token   = require('../models/Token');
@@ -177,4 +181,4 @@ router.patch('/:id/status', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,9 +1,13 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/billingRequests.js
 //
 // Mount in server.js:
 //   app.use('/api/billing-requests', require('./routes/billingRequests'));
 
-const express        = require('express');
+import express        from 'express';
 const router         = express.Router();
 const BillingRequest = require('../models/BillingRequest');
 const Billing        = require('../models/Billing');
@@ -120,4 +124,4 @@ router.post('/:id/reject', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

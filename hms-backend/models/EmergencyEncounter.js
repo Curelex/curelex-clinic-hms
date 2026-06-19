@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const emergencyEncounterSchema = new mongoose.Schema({
     patientName: { type: String, required: true },
@@ -33,4 +33,4 @@ const emergencyEncounterSchema = new mongoose.Schema({
     notifiedAt: { type: Date },
 }, { timestamps: true });
 
-module.exports = mongoose.model('EmergencyEncounter', emergencyEncounterSchema);
+export default mongoose.model('EmergencyEncounter', emergencyEncounterSchema);

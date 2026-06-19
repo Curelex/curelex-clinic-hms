@@ -1,15 +1,19 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/dashboard.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 const {auth} = require('../middleware/auth');
 
-const Patient = require('../models/Patient');
-const Billing = require('../models/Billing');
-const Pharmacy = require('../models/Pharmacy');
-const Lab = require('../models/Lab');
-const Inventory = require('../models/Inventory');
-const Admission = require('../models/Admission');
-const Appointment = require('../models/Appointment');
+import Patient from '../models/Patient.js';
+import Billing from '../models/Billing.js';
+import Pharmacy from '../models/Pharmacy.js';
+import Lab from '../models/Lab.js';
+import Inventory from '../models/Inventory.js';
+import Admission from '../models/Admission.js';
+import Appointment from '../models/Appointment.js';
 
 /**
  * Resolves clinicId from (in priority order):
@@ -211,4 +215,4 @@ router.get('/stats', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
 // hms-backend/middleware/auth.js
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 // ── Staff / Admin Authentication ─────────────────────────────────────────
 // Used by clinic staff routes. Requires clinicId inside the JWT.

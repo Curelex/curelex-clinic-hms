@@ -1,5 +1,5 @@
 // hms-backend/models/Billing.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const BillingSchema = new mongoose.Schema({
   billId:   { type: String, unique: true },
@@ -64,4 +64,4 @@ BillingSchema.pre('save', async function (next) {
   next();
 });
 
-module.exports = mongoose.model('Billing', BillingSchema);
+export default mongoose.model('Billing', BillingSchema);

@@ -1,4 +1,5 @@
-import connectDb from "../config/db.js";
+import mongoose from 'mongoose';
+import env from '../config/env.js';
 import User from "../models/User.js";
 import Product from "../models/Product.js";
 import Inventory from "../models/Inventory.js";
@@ -59,17 +60,20 @@ const seedProductsAndInventory = async (adminId) => {
       name: `Product ${i}`,
       category: categories[(i - 1) % categories.length],
       price,
+      mrpPrice: price + 10,
       costPrice,
       sku: `SKU${String(i).padStart(4, "0")}`,
       description: `Seeded product ${i}`,
       gstRate: [5, 12, 18][(i - 1) % 3],
-      lowStockThreshold: rand(5, 15)
+      lowStockThreshold: rand(5, 15),
+      clinicId: "default"
     });
 
     await Inventory.create({
       product: product._id,
       quantity: rand(120, 220),
-      updatedBy: adminId
+      updatedBy: adminId,
+      clinicId: "default"
     });
 
     products.push(product);
@@ -89,7 +93,8 @@ const seedCustomers = async () => {
         email: `customer${i}@test.com`,
         address: `Address block ${i}`,
         creditLimit: 50000,
-        outstandingAmount: 0
+        outstandingAmount: 0,
+        clinicId: "default"
       })
     );
   }
@@ -107,7 +112,8 @@ const seedSuppliers = async () => {
         phone: `800000${String(i).padStart(4, "0")}`,
         email: `supplier${i}@test.com`,
         address: `Supplier lane ${i}`,
-        paymentTrackingEnabled: i % 2 === 0
+        paymentTrackingEnabled: i % 2 === 0,
+        clinicId: "default"
       })
     );
   }
@@ -133,7 +139,8 @@ const seedPurchases = async ({ adminId, products, suppliers }) => {
       ],
       totalAmount: quantity * unitCost,
       notes: `Seed purchase ${i + 1}`,
-      createdBy: adminId
+      createdBy: adminId,
+      clinicId: "default"
     });
 
     await changeStock({
@@ -143,7 +150,8 @@ const seedPurchases = async ({ adminId, products, suppliers }) => {
       reason: "Seed purchase",
       referenceModel: "Purchase",
       referenceId: purchase._id,
-      userId: adminId
+      userId: adminId,
+      clinicId: "default"
     });
   }
 };
@@ -154,6 +162,7 @@ const seedSales = async ({ adminId, products, customers }) => {
     const p2 = products[(i + 7) % products.length];
 
     const sale = await createSale({
+      clinicId: "default",
       customerId: customers[i % customers.length]._id,
       items: [
         { productId: p1._id, quantity: rand(1, 4) },
@@ -183,7 +192,8 @@ const seedAdjustments = async ({ adminId, products }) => {
       reason: "Seed adjustment",
       referenceModel: "Inventory",
       referenceId: product._id,
-      userId: adminId
+      userId: adminId,
+      clinicId: "default"
     });
   }
 };
@@ -237,7 +247,7 @@ const printSummary = async () => {
 };
 
 const run = async () => {
-  await connectDb();
+  await mongoose.connect(env.mongoUri);
 
   try {
     await clearCollections();

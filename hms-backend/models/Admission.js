@@ -1,5 +1,5 @@
 // hms-backend/models/Admission.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const MedicineLogSchema = new mongoose.Schema({
   medicineName:  { type: String, required: true },
@@ -91,4 +91,4 @@ AdmissionSchema.pre('save', async function (next) {
   }
 });
 
-module.exports = mongoose.model('Admission', AdmissionSchema);
+export default mongoose.model('Admission', AdmissionSchema);

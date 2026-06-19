@@ -7,7 +7,7 @@ import TokenDashboard from '../components/TokenDashboard';
 import inventoryService from '../services/inventoryService';
 import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
-const socket = io('http://localhost:5000');
+const socket = io('/', { path: '/socket.io' });
 
 // ── Resolve clinicId from stored JWT / user object ───────────────────────────
 // Adjust the localStorage key / shape to match your app's auth storage.
@@ -711,7 +711,7 @@ export default function Dashboard() {
         {hasPerm('billing') && (
           <div className="card">
             <h3 style={{ marginBottom: 16, fontSize: 15 }}>Monthly Revenue (Last 6 Months)</h3>
-            <div className="chart-container" style={{ width: '100%', height: '250px', minWidth: 0 }}>
+            <div className="chart-container" style={{ width: '100%', height: '250px', minWidth: 0, minHeight: '250px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />

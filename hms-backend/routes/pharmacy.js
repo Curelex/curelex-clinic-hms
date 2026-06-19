@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/pharmacy.js
 const router         = require('express').Router();
 const Pharmacy       = require('../models/Pharmacy');
@@ -289,4 +293,4 @@ router.post('/:id/dispense', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

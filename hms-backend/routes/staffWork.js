@@ -1,14 +1,19 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import Pharmacy from "../models/Pharmacy.js";
+import bcrypt from "bcryptjs";
 // hms-backend/routes/staffWork.js
 // Add to server.js:  app.use('/api/staff-work', require('./routes/staffWork'));
 
-const express = require('express');
+import express from 'express';
 const router  = express.Router();
 const {auth}    = require('../middleware/auth');
 
-const Billing  = require('../models/Billing');
-const Lab      = require('../models/Lab');
-const Token    = require('../models/Token');
-const Patient  = require('../models/Patient');
+import Billing  from '../models/Billing.js';
+import Lab      from '../models/Lab.js';
+import Token    from '../models/Token.js';
+import Patient  from '../models/Patient.js';
 
 /**
  * Resolves clinicId from (in priority order):
@@ -102,7 +107,6 @@ router.get('/:userId', auth, async (req, res) => {
     let pharmacyToday   = [];
     let pharmacyRevenue = 0;
     try {
-      const Pharmacy  = require('../models/Pharmacy');
       pharmacyToday   = await Pharmacy.find({
         clinicId,
         dispensedBy: userId,
@@ -159,4 +163,4 @@ router.get('/:userId', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,8 +1,10 @@
 // hms-react/src/components/Layout.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import taskService from '../services/taskService';
+import { useSocket } from '../hooks/useSocket';
 
 // ── Nav definition ─────────────────────────────────────────────
 const NAV_SECTIONS = [
@@ -30,6 +32,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
       { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
+      { path: '/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard' },
       { path: '/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
     ],
   },
@@ -47,6 +50,41 @@ const ROLE_META = {
 
 export default function Layout() {
   const { user, logout, hasPerm } = useAuth();
+  const [taskCount, setTaskCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const socket = useSocket();
+
+  const fetchData = async () => {
+    try {
+      const { data: countData } = await taskService.getPendingCount();
+      setTaskCount(countData.count);
+      const { data: notifData } = await taskService.getNotifications();
+      setNotifications(notifData);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchData();
+    socket.on('task:new', fetchData);
+    socket.on('task:updated', fetchData);
+    socket.on('task:sla-breach', (task) => {
+      setNotifications(prev => [{
+        _id: `sla-${Date.now()}`,
+        message: `SLA BREACHED: "${task.title}" exceeded SLA`,
+        taskId: task._id,
+        read: false,
+        createdAt: new Date().toISOString(),
+      }, ...prev]);
+    });
+    return () => {
+        socket.off('task:new', fetchData);
+        socket.off('task:updated', fetchData);
+        socket.off('task:sla-breach');
+    };
+  }, [user, socket]);
 
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -85,6 +123,71 @@ export default function Layout() {
         flexDirection: 'row',
       }}
     >
+      {/* ── Top Nav ─────────────────────────────────────────────── */}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, padding: 15, zIndex: 2000,
+        display: 'flex', gap: 15, alignItems: 'center'
+      }}>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setShowNotifications(!showNotifications)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {notifications.length > 0 && (
+              <span style={{
+                position: 'absolute', top: 0, right: 0,
+                background: '#ef4444', color: '#fff',
+                borderRadius: '50%', minWidth: 16, height: 16,
+                fontSize: 9, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 3px',
+              }}>
+                {notifications.length}
+              </span>
+            )}
+          </button>
+          
+          {showNotifications && (
+            <div style={{
+              position: 'absolute', top: 35, right: 0, width: 320,
+              background: '#fff', color: '#1e293b',
+              borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+              border: '1px solid #e2e8f0', zIndex: 3000,
+              maxHeight: 400, overflowY: 'auto',
+            }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0', fontWeight: 700, fontSize: 13 }}>
+                Notifications
+              </div>
+              {notifications.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>
+                  No notifications
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div key={n._id} style={{
+                    padding: '10px 14px', borderBottom: '1px solid #f1f5f9',
+                    background: n.read ? 'transparent' : '#eff6ff',
+                    fontSize: 12, cursor: 'pointer',
+                  }}
+                    onClick={async () => {
+                      if (!n.read && n._id && !n._id.startsWith('sla-')) {
+                        try { await taskService.markNotificationRead(n._id); } catch {}
+                      }
+                      if (n.taskId) navigate(`/tasks`);
+                    }}
+                  >
+                    <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                      {n.createdAt ? new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside
@@ -152,7 +255,7 @@ export default function Layout() {
                   })}
                 >
                   <span style={{ fontSize: 15 }}>{icon}</span>
-                  <span>{label}</span>
+                  <span>{label === 'Task Allocation' && taskCount > 0 ? `Task Allocation [${taskCount}]` : label}</span>
                 </NavLink>
               ))}
             </div>

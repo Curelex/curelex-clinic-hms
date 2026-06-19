@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/admissions.js
-const express          = require('express');
+import express          from 'express';
 const router           = express.Router();
 const {auth}             = require('../middleware/auth');
 const Admission        = require('../models/Admission');
@@ -301,4 +305,4 @@ router.get('/:id/bill-summary', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

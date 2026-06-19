@@ -1,5 +1,5 @@
 // hms-backend/models/ClinicRoomConfig.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ClinicRoomConfig = new mongoose.Schema({
   clinicId: { 
@@ -20,4 +20,4 @@ const ClinicRoomConfig = new mongoose.Schema({
 // Compound unique index: one config per clinic per room type
 ClinicRoomConfig.index({ clinicId: 1, roomType: 1 }, { unique: true });
 
-module.exports = mongoose.model('ClinicRoomConfig', ClinicRoomConfig);
+export default mongoose.model('ClinicRoomConfig', ClinicRoomConfig);

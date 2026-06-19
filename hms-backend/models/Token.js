@@ -49,4 +49,4 @@ TokenSchema.index(
   { unique: true, partialFilterExpression: { doctor: { $type: 'objectId' } } }
 );
 
-module.exports = mongoose.model('Token', TokenSchema);
+export default mongoose.model('Token', TokenSchema);

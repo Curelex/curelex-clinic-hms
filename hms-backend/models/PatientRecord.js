@@ -1,5 +1,5 @@
 // models/PatientRecord.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const patientRecordSchema = new mongoose.Schema({
   patientId: {
@@ -58,4 +58,4 @@ const patientRecordSchema = new mongoose.Schema({
 patientRecordSchema.index({ patientId: 1, visitDate: -1 });
 patientRecordSchema.index({ patientCode: 1 });
 
-module.exports = mongoose.model('PatientRecord', patientRecordSchema);
+export default mongoose.model('PatientRecord', patientRecordSchema);

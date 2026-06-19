@@ -132,6 +132,8 @@ function App() {
               element={<PermRoute permKey="patients"><TokenPanel /></PermRoute>}
             />
 
+            <Route path="tasks" element={<PrivateRoute><TaskAllocation /></PrivateRoute>} />
+
             <Route path="emergency" element={<Emergency />} />
           </Route>
 

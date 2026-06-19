@@ -1,5 +1,5 @@
 // hms-backend/models/Patient.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const PatientSchema = new mongoose.Schema({
   // Reference to User for login

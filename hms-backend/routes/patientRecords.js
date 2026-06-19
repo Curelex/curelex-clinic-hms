@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // routes/patientRecords.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
@@ -200,4 +204,4 @@ router.get('/search/:patientCode', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

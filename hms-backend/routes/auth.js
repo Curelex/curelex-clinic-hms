@@ -1,5 +1,9 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import bcrypt from "bcryptjs";
 // hms-backend/routes/auth.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -417,4 +421,4 @@ router.put('/change-password', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
