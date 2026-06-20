@@ -6,6 +6,7 @@ import './index.css';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Home from './pages/Home';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
@@ -24,18 +25,23 @@ import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
 import PatientAppointments from './pages/PatientAppointments';
 import TaskAllocation from './pages/TaskAllocation';
+import About from './pages/About';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
+
+// ✅ Redirects to login if not authenticated
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
 };
 
+// ✅ Redirects to home if already authenticated (for login/register pages)
 const PublicRoute = ({ children }) => {
   const { user } = useAuth();
   return !user ? children : <Navigate to="/" />;
 };
 
+// ✅ Patient route guard - only patients can access
 const PatientRoute = ({ children }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/patient-login" />;
@@ -43,6 +49,7 @@ const PatientRoute = ({ children }) => {
   return children;
 };
 
+// ✅ Staff route guard - redirects patients away from staff routes
 const StaffRoute = ({ children }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" />;
@@ -50,7 +57,7 @@ const StaffRoute = ({ children }) => {
   return children;
 };
 
-/* ── Permission guard ─────────────────────────────────────────── */
+// ✅ Permission guard for specific permissions
 const PermRoute = ({ permKey, children }) => {
   const { hasPerm } = useAuth();
   return hasPerm(permKey) ? children : <Navigate to="/" />;
@@ -61,17 +68,23 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* ── Public Auth Routes ────────────────────────────── */}
+          {/* ── Public Routes ────────────────────────────────────── */}
+          {/* Home page - accessible to everyone (NO PublicRoute wrapper) */}
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+
+          {/* ── Staff Auth Routes ────────────────────────────────── */}
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
-          {/* ── Patient Auth Routes ───────────────────────────── */}
+          {/* ── Patient Auth Routes ─────────────────────────────── */}
           <Route path="/patient-login" element={<PublicRoute><PatientLogin /></PublicRoute>} />
           <Route path="/patient-register" element={<PublicRoute><PatientRegister /></PublicRoute>} />
 
-          {/* ── Staff Routes (with Layout) ────────────────────── */}
+          {/* ── Staff Dashboard Routes ──────────────────────────── */}
+          {/* These are nested under /dashboard to avoid conflict with home */}
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <PrivateRoute>
                 <StaffRoute>
@@ -133,23 +146,37 @@ function App() {
               element={<PermRoute permKey="patients"><TokenPanel /></PermRoute>}
             />
 
-            <Route path="tasks" element={<PrivateRoute><TaskAllocation /></PrivateRoute>} />
+            <Route
+              path="tasks"
+              element={<PrivateRoute><TaskAllocation /></PrivateRoute>}
+            />
 
-            <Route path="emergency" element={<Emergency />} />
+            <Route
+              path="emergency"
+              element={<Emergency />}
+            />
           </Route>
 
-          {/* ── Patient Routes ─────────────────────────────────── */}
+          {/* ── Patient Routes ───────────────────────────────────── */}
           <Route
             path="/patient-dashboard"
-            element={<PatientRoute><PatientDashboard /></PatientRoute>}
+            element={
+              <PatientRoute>
+                <PatientDashboard />
+              </PatientRoute>
+            }
           />
+          
           <Route
             path="/patient-appointments"
-            element={<PatientRoute><PatientAppointments /></PatientRoute>}
+            element={
+              <PatientRoute>
+                <PatientAppointments />
+              </PatientRoute>
+            }
           />
-        
 
-          {/* ── Catch all ──────────────────────────────────────── */}
+          {/* ── Catch all ────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
