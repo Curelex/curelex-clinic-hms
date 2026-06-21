@@ -24,6 +24,7 @@ import PatientDashboard from './pages/PatientDashboard';
 import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
 import PatientAppointments from './pages/PatientAppointments';
+import PatientAdmission from './pages/PatientAdmission';
 import TaskAllocation from './pages/TaskAllocation';
 import About from './pages/About';
 
@@ -166,12 +167,21 @@ function App() {
               </PatientRoute>
             }
           />
-          
+
           <Route
             path="/patient-appointments"
             element={
               <PatientRoute>
                 <PatientAppointments />
+              </PatientRoute>
+            }
+          />
+
+          <Route
+            path="/patient-admission"
+            element={
+              <PatientRoute>
+                <PatientAdmission />
               </PatientRoute>
             }
           />

@@ -14,6 +14,14 @@ const TokenSchema = new mongoose.Schema({
 
   patient:      { type: mongoose.Schema.Types.ObjectId, ref: 'Patient' },
   patientName:  { type: String },                   // denormalised for quick display
+
+  // ── NEW: contact info ───────────────────────────────────────────────────
+  // Required to auto-create a real Patient record at booking time (the
+  // Patient schema requires both email and phone). Captured here so the
+  // token-creation form is the single place staff/patients enter it.
+  phone:        { type: String },
+  email:        { type: String },
+
   generatedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // receptionist
 
   status:       { type: String, enum: ['Waiting', 'Called', 'Done', 'Skipped', 'Pending'], default: 'Waiting' },

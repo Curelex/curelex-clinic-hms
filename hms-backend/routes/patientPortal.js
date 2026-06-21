@@ -4,6 +4,7 @@ import { patientAuth } from '../middleware/auth.js';
 import Patient from '../models/Patient.js';
 import Token from '../models/Token.js';
 import User from '../models/User.js';
+import Admission from '../models/Admission.js';
 
 const router = express.Router();
 
@@ -18,6 +19,15 @@ function todayStr() {
 
 function genTransactionId() {
   return 'MOCKTXN-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+}
+
+/** Same day-counting logic used on the staff IPD page — kept identical so
+ * the patient never sees a different total than staff. */
+function computeDays(admissionDate, dischargeDate) {
+  const a    = new Date(admissionDate);
+  const d    = dischargeDate ? new Date(dischargeDate) : new Date();
+  const diff = Math.max(0, Math.round((d - a) / (1000 * 60 * 60 * 24)));
+  return diff || 1;
 }
 
 // ── GET /:id/dashboard ───────────────────────────────────────────────────
@@ -226,6 +236,96 @@ router.get('/:id/prescriptions', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
     res.json({ success: true, prescriptions: [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ── GET /:id/admission — live, transparent view of an active admission ───
+// Returns the patient's CURRENT admission (if any), with the exact same
+// room/rate/medicine/billing data the clinic staff sees on the IPD page —
+// computed with the identical day-counting logic, so totals always match.
+router.get('/:id/admission', patientAuth, async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const admission = await Admission.findOne({ patient: patient._id, status: 'Admitted' })
+      .populate('doctor', 'name department')
+      .populate('admittedBy', 'name')
+      .sort({ admissionDate: -1 });
+
+    if (!admission) {
+      return res.json({ success: true, admitted: false, admission: null });
+    }
+
+    const days          = admission.daysAdmitted || computeDays(admission.admissionDate, admission.dischargeDate);
+    const roomRent       = days * admission.roomRatePerDay;
+    const medicinesTotal = admission.medicineLog.reduce((sum, m) => sum + (m.total || 0), 0);
+    const grandTotal     = roomRent + medicinesTotal;
+
+    res.json({
+      success: true,
+      admitted: true,
+      admission: {
+        _id:            admission._id,
+        admissionId:    admission.admissionId,
+        roomType:       admission.roomType,
+        roomNumber:     admission.roomNumber,
+        roomRatePerDay: admission.roomRatePerDay,
+        admissionDate:  admission.admissionDate,
+        days,
+        roomRent,
+        medicinesTotal,
+        grandTotal,
+        doctor:         admission.doctor,
+        admittedBy:     admission.admittedBy,
+        medicineLog:    admission.medicineLog,
+        followupLog:    admission.followupLog,
+        notes:          admission.notes,
+        status:         admission.status,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ── GET /:id/admissions/history — past (discharged) admissions ───────────
+router.get('/:id/admissions/history', patientAuth, async (req, res) => {
+  try {
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const admissions = await Admission.find({ patient: patient._id, status: 'Discharged' })
+      .populate('doctor', 'name department')
+      .sort({ dischargeDate: -1 });
+
+    const history = admissions.map((adm) => {
+      const days          = adm.daysAdmitted || computeDays(adm.admissionDate, adm.dischargeDate);
+      const roomRent       = adm.roomRent || days * adm.roomRatePerDay;
+      const medicinesTotal = adm.medicineLog.reduce((sum, m) => sum + (m.total || 0), 0);
+      return {
+        _id:            adm._id,
+        admissionId:    adm.admissionId,
+        roomType:       adm.roomType,
+        roomNumber:     adm.roomNumber,
+        roomRatePerDay: adm.roomRatePerDay,
+        admissionDate:  adm.admissionDate,
+        dischargeDate:  adm.dischargeDate,
+        days,
+        roomRent,
+        medicinesTotal,
+        grandTotal: roomRent + medicinesTotal,
+        doctor: adm.doctor,
+      };
+    });
+
+    res.json({ success: true, admissions: history });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

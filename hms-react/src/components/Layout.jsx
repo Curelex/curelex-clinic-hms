@@ -11,29 +11,29 @@ const NAV_SECTIONS = [
   {
     section: 'MAIN',
     items: [
-      { path: '/', label: 'Dashboard', icon: '⊞', perm: 'dashboard', end: true },
-      { path: '/patients', label: 'Patients', icon: '👤', perm: 'patients' },
+      { path: '/dashboard', label: 'Dashboard', icon: '⊞', perm: 'dashboard', end: true },
+      { path: '/dashboard/patients', label: 'Patients', icon: '👤', perm: 'patients' },
     ],
   },
   {
     section: 'SERVICES',
     items: [
-      { path: '/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd' },
-      { path: '/billing', label: 'Billing', icon: '💳', perm: 'billing' },
-      { path: '/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing' },
-      { path: '/pharmacy', label: 'Pharmacy', icon: '💊', perm: 'pharmacy' },
-      { path: '/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab' },
-      { path: '/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
-      { path: '/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients' },
+      { path: '/dashboard/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd' },
+      { path: '/dashboard/billing', label: 'Billing', icon: '💳', perm: 'billing' },
+      { path: '/dashboard/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing' },
+      { path: '/dashboard/pharmacy', label: 'Pharmacy', icon: '💊', perm: 'pharmacy' },
+      { path: '/dashboard/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab' },
+      { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
+      { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients' },
     ],
   },
   {
     section: 'MANAGEMENT',
     items: [
-      { path: '/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
-      { path: '/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
-      { path: '/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard' },
-      { path: '/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
+      { path: '/dashboard/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
+      { path: '/dashboard/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
+      { path: '/dashboard/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard' },
+      { path: '/dashboard/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
     ],
   },
 ];
@@ -97,10 +97,10 @@ export default function Layout() {
   e.preventDefault();
   try {
     const { data } = await API.post('/auth/sso-token');
-    window.location.href = `/pharmacy?sso=${data.token}`;
+    window.location.href = `/dashboard/pharmacy?sso=${data.token}`;
   } catch (err) {
     console.error('SSO token generation failed', err);
-    window.location.href = '/pharmacy';
+    window.location.href = '/dashboard/pharmacy';
   }
 };
 
@@ -147,7 +147,7 @@ export default function Layout() {
               </span>
             )}
           </button>
-          
+
           {showNotifications && (
             <div style={{
               position: 'absolute', top: 35, right: 0, width: 320,
@@ -174,7 +174,7 @@ export default function Layout() {
                       if (!n.read && n._id && !n._id.startsWith('sla-')) {
                         try { await taskService.markNotificationRead(n._id); } catch {}
                       }
-                      if (n.taskId) navigate(`/tasks`);
+                      if (n.taskId) navigate(`/dashboard/tasks`);
                     }}
                   >
                     <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
@@ -241,7 +241,7 @@ export default function Layout() {
                   key={path} to={path} end={end}
                   onClick={(e) => {
                     setSidebarOpen(false);
-                    if (path === '/pharmacy') {
+                    if (path === '/dashboard/pharmacy') {
                       handlePharmacySSO(e);
                     }
                   }}
@@ -267,7 +267,7 @@ export default function Layout() {
           <div
             onClick={() => {
               setSidebarOpen(false);
-              navigate('/profile');
+              navigate('/dashboard/profile');
             }}
             style={{
               display: 'flex',

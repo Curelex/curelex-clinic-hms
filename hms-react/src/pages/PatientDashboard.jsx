@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import ClinicSearch from '../components/ClinicSearch';
 import '../css/PatientDashboard.css';
 
 export default function PatientDashboard() {
@@ -17,6 +18,7 @@ export default function PatientDashboard() {
   });
   const [appointments, setAppointments] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [admission, setAdmission] = useState(null); // current active admission, if any
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
@@ -62,6 +64,18 @@ export default function PatientDashboard() {
       } catch {
         console.log('Prescriptions not available yet');
       }
+
+      // ── Check for an active hospital admission (transparent IPD view) ──
+      try {
+        const admRes = await API.get(`/patient-portal/${patientId}/admission`);
+        if (admRes.data.success && admRes.data.admitted) {
+          setAdmission(admRes.data.admission);
+        } else {
+          setAdmission(null);
+        }
+      } catch {
+        console.log('Admission status not available');
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
     }
@@ -95,6 +109,7 @@ export default function PatientDashboard() {
 
   const patientName  = patient?.name  || user?.name  || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
+  const patientId    = patient?._id || patient?.id || user?.id || user?._id;
 
   const initials = patientName
     .split(' ')
@@ -136,10 +151,10 @@ export default function PatientDashboard() {
             Home
             <i className="fas fa-chevron-down" style={{ fontSize: 10 }}></i>
           </div>
-          <div className="pd-topbar__search">
-            <i className="fas fa-search"></i>
-            <input type="text" placeholder="Search doctors, clinics..." />
-          </div>
+
+          {/* ── Live clinic/doctor search with token generation ──────── */}
+          <ClinicSearch patientId={patientId} patientName={patientName} />
+
           <div className="pd-user-menu">
             <div className="pd-user-menu__trigger" onClick={() => setUserDropdown(!userDropdown)}>
               <div className="pd-user-menu__avatar">{initials}</div>
@@ -160,6 +175,9 @@ export default function PatientDashboard() {
                   </button>
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-appointments')}>
                     <i className="fas fa-calendar-check"></i> Appointments
+                  </button>
+                  <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-admission')}>
+                    <i className="fas fa-procedures"></i> Hospital Admission
                   </button>
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-prescriptions')}>
                     <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
@@ -193,6 +211,17 @@ export default function PatientDashboard() {
             </div>
             <div className="pd-nav-item" onClick={() => goTo('/patient-appointments')}>
               <i className="fas fa-calendar-check"></i> My Appointments
+            </div>
+            <div className="pd-nav-item" onClick={() => goTo('/patient-admission')} style={{ display: 'flex', alignItems: 'center' }}>
+              <i className="fas fa-procedures"></i> Hospital Admission
+              {admission && (
+                <span style={{
+                  marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#fff',
+                  background: '#16a34a', borderRadius: 20, padding: '2px 7px',
+                }}>
+                  LIVE
+                </span>
+              )}
             </div>
             <div className="pd-nav-item" onClick={() => goTo('/patient-prescriptions')}>
               <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
@@ -230,6 +259,49 @@ export default function PatientDashboard() {
                 Here's a summary of your health journey
               </p>
             </div>
+
+            {/* ── Currently Admitted banner — transparent IPD summary ── */}
+            {admission && (
+              <div
+                onClick={() => navigate('/patient-admission')}
+                style={{
+                  background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
+                  border: '1px solid #6ee7b7',
+                  borderRadius: 16,
+                  padding: '18px 22px',
+                  marginBottom: 24,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 14,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{
+                    width: 46, height: 46, borderRadius: '50%', background: '#16a34a',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: '#fff', flexShrink: 0,
+                  }}>
+                    🏥
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#065f46' }}>
+                      You're currently admitted — {admission.roomType} {admission.roomNumber ? `#${admission.roomNumber}` : ''}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#15803d', marginTop: 2 }}>
+                      Day {admission.days} · ₹{admission.roomRatePerDay}/day · Running total ₹{admission.grandTotal.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 12, fontWeight: 700, color: '#fff', background: '#16a34a',
+                  padding: '8px 16px', borderRadius: 8, whiteSpace: 'nowrap',
+                }}>
+                  View Live Details →
+                </span>
+              </div>
+            )}
 
             {/* Quick Stats */}
             <div className="pd-stats">

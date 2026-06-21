@@ -1,5 +1,6 @@
 // hms-backend/models/Patient.js
 import mongoose from 'mongoose';
+import Counter from './Counter.js';
 
 const PatientSchema = new mongoose.Schema({
   userId: {
@@ -8,7 +9,7 @@ const PatientSchema = new mongoose.Schema({
     index: true,
   },
 
-  patientId: { type: String, unique: true },
+  patientId: { type: String },
   name: { type: String, required: true },
   email: { type: String, required: true },
   phone: { type: String, required: true },
@@ -73,19 +74,42 @@ const PatientSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Auto-generate patientId
+// ── Auto-generate patientId ────────────────────────────────────────
+// Uses an atomic per-clinic counter (separate Counter collection) instead
+// of scanning/sorting Patient documents. findByIdAndUpdate + $inc is a
+// single atomic MongoDB operation, so two concurrent registrations can
+// never receive the same number — no race condition, no retry loop needed.
+//
+// IMPORTANT: this only runs when patientId is NOT already set on the
+// document. If you are seeing duplicate IDs (e.g. everyone getting
+// PAT00001), check your controller / frontend for code that explicitly
+// sets `patientId` before calling .save() (e.g. a hardcoded default in
+// a form or seed script) — that will bypass this hook entirely.
 PatientSchema.pre('save', async function (next) {
-  if (!this.patientId) {
-    const Patient = mongoose.model('Patient');
-    const count = await Patient.countDocuments({ clinicId: this.clinicId });
-    const padded = String(count + 1).padStart(5, '0');
-    this.patientId = `PAT${padded}`;
+  if (this.patientId) return next(); // already set explicitly, skip
+
+  if (!this.clinicId) {
+    return next(new Error('clinicId is required to generate a patientId'));
   }
-  next();
+
+  try {
+    const counterId = `patient_${this.clinicId}`;
+
+    const counter = await Counter.findByIdAndUpdate(
+      counterId,
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+
+    this.patientId = `PAT${String(counter.seq).padStart(5, '0')}`;
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Indexes
-PatientSchema.index({ clinicId: 1, patientId: 1 });
+PatientSchema.index({ clinicId: 1, patientId: 1 }, { unique: true });
 PatientSchema.index({ clinicId: 1, email: 1 });
 PatientSchema.index({ clinicId: 1, phone: 1 });
 
