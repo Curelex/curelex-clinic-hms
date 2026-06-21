@@ -37,6 +37,8 @@ import taskRoutes from './routes/tasks.js';
 import fileRoutes from './routes/files.js';
 import emergencyRoutesFactory from './routes/emergency.js';
 import taskRoutesFactory from './routes/tasks.js';
+import prescriptionRoutes from './routes/prescriptions.js';
+import medicineRoutes from './routes/medicines.js';
 
 dotenv.config();
 
@@ -155,6 +157,8 @@ app.use('/api/clinics', clinicRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/medicines', medicineRoutes);
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

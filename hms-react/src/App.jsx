@@ -27,6 +27,8 @@ import PatientAppointments from './pages/PatientAppointments';
 import PatientAdmission from './pages/PatientAdmission';
 import TaskAllocation from './pages/TaskAllocation';
 import About from './pages/About';
+import DoctorPrescriptions from './pages/DoctorPrescriptions';
+import PatientPrescriptions from './pages/PatientPrescriptions';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
@@ -156,6 +158,11 @@ function App() {
               path="emergency"
               element={<Emergency />}
             />
+
+            <Route
+  path="prescriptions"
+  element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>}
+/>
           </Route>
 
           {/* ── Patient Routes ───────────────────────────────────── */}
@@ -185,6 +192,14 @@ function App() {
               </PatientRoute>
             }
           />
+          <Route
+  path="/patient-prescriptions"
+  element={
+    <PatientRoute>
+      <PatientPrescriptions />
+    </PatientRoute>
+  }
+/>
 
           {/* ── Catch all ────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" />} />

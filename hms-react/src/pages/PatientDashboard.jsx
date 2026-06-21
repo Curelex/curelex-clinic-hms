@@ -13,12 +13,12 @@ export default function PatientDashboard() {
   const [stats, setStats] = useState({
     totalAppointments: 0,
     upcomingAppointments: 0,
-    prescriptionsCount: 0,
+    prescriptionsCount: 0,  // ✅ Will be populated
     doctorsConsulted: 0,
   });
   const [appointments, setAppointments] = useState([]);
-  const [prescriptions, setPrescriptions] = useState([]);
-  const [admission, setAdmission] = useState(null); // current active admission, if any
+  const [prescriptions, setPrescriptions] = useState([]); // ✅ Store prescriptions
+  const [admission, setAdmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
@@ -46,26 +46,35 @@ export default function PatientDashboard() {
         return;
       }
 
+      // ── Dashboard Stats ──
       const statsRes = await API.get(`/patient-portal/${patientId}/dashboard`);
       if (statsRes.data.success) {
         setStats(statsRes.data.data);
       }
 
+      // ── Appointments ──
       const apptRes = await API.get(`/patient-portal/${patientId}/appointments`);
       if (apptRes.data.success) {
         setAppointments(apptRes.data.appointments || []);
       }
 
+      // ── ✅ PRESCRIPTIONS (NEW) ──
       try {
-        const rxRes = await API.get(`/patient-portal/${patientId}/prescriptions`);
+        const rxRes = await API.get(`/prescriptions/patient/${patientId}`);
         if (rxRes.data.success) {
           setPrescriptions(rxRes.data.prescriptions || []);
+          // Update stats with actual count
+          setStats(prev => ({
+            ...prev,
+            prescriptionsCount: rxRes.data.prescriptions?.length || 0
+          }));
         }
-      } catch {
+      } catch (rxErr) {
         console.log('Prescriptions not available yet');
+        // Keep the placeholder count
       }
 
-      // ── Check for an active hospital admission (transparent IPD view) ──
+      // ── Admission Status ──
       try {
         const admRes = await API.get(`/patient-portal/${patientId}/admission`);
         if (admRes.data.success && admRes.data.admitted) {
@@ -122,6 +131,15 @@ export default function PatientDashboard() {
     a => new Date(a.appointmentTime) > new Date()
   );
 
+  // ── Status colors for prescriptions ──
+  const statusColors = {
+    draft: { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
+    active: { bg: '#dbeafe', color: '#1e40af', label: 'Active' },
+    dispensed: { bg: '#fef3c7', color: '#92400e', label: 'Dispensed' },
+    completed: { bg: '#d1fae5', color: '#065f46', label: 'Completed' },
+    cancelled: { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -152,7 +170,6 @@ export default function PatientDashboard() {
             <i className="fas fa-chevron-down" style={{ fontSize: 10 }}></i>
           </div>
 
-          {/* ── Live clinic/doctor search with token generation ──────── */}
           <ClinicSearch patientId={patientId} patientName={patientName} />
 
           <div className="pd-user-menu">
@@ -179,6 +196,7 @@ export default function PatientDashboard() {
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-admission')}>
                     <i className="fas fa-procedures"></i> Hospital Admission
                   </button>
+                  {/* ✅ Prescriptions link */}
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-prescriptions')}>
                     <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
                   </button>
@@ -223,6 +241,7 @@ export default function PatientDashboard() {
                 </span>
               )}
             </div>
+            {/* ✅ Prescriptions sidebar link */}
             <div className="pd-nav-item" onClick={() => goTo('/patient-prescriptions')}>
               <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
             </div>
@@ -260,7 +279,7 @@ export default function PatientDashboard() {
               </p>
             </div>
 
-            {/* ── Currently Admitted banner — transparent IPD summary ── */}
+            {/* ── Currently Admitted banner ── */}
             {admission && (
               <div
                 onClick={() => navigate('/patient-admission')}
@@ -364,7 +383,7 @@ export default function PatientDashboard() {
                 </div>
               </div>
 
-              {/* Recent Prescriptions */}
+              {/* ✅ Recent Prescriptions - Updated with real data */}
               <div className="pd-card">
                 <div className="pd-card__head">
                   <div className="pd-card__head-icon"><i className="fas fa-prescription-bottle-alt"></i></div>
@@ -374,16 +393,30 @@ export default function PatientDashboard() {
                   {prescriptions.length === 0 && (
                     <div className="pd-empty"><i className="fas fa-file-prescription"></i> No prescriptions yet</div>
                   )}
-                  {prescriptions.slice(0, 3).map((rx, i) => (
-                    <div className="pd-rx-item" key={i}>
-                      <div className="pd-rx-avatar"><i className="fas fa-user-md"></i></div>
-                      <div className="pd-rx-info">
-                        <h4>{rx.doctorId?.name || 'Doctor'}</h4>
-                        <p>{rx.doctorId?.specialization || 'General'}</p>
+                  {prescriptions.slice(0, 3).map((rx, i) => {
+                    const sc = statusColors[rx.status] || statusColors.draft;
+                    return (
+                      <div className="pd-rx-item" key={i} style={{ cursor: 'pointer' }} onClick={() => navigate('/patient-prescriptions')}>
+                        <div className="pd-rx-avatar"><i className="fas fa-user-md"></i></div>
+                        <div className="pd-rx-info">
+                          <h4>{rx.doctorId?.name || rx.doctorName || 'Doctor'}</h4>
+                          <p>
+                            {rx.medicines?.length || 0} medicine{rx.medicines?.length !== 1 ? 's' : ''}
+                            {rx.diagnosis && ` · ${rx.diagnosis.substring(0, 30)}${rx.diagnosis.length > 30 ? '...' : ''}`}
+                          </p>
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{
+                              padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 600,
+                              background: sc.bg, color: sc.color,
+                            }}>
+                              {sc.label}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="pd-rx-date">{formatDate(rx.createdAt)}</span>
                       </div>
-                      <span className="pd-rx-date">{formatDate(rx.createdAt)}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="pd-card__footer">
                   <button
@@ -407,6 +440,7 @@ export default function PatientDashboard() {
                 { icon: 'fa-video',       label: 'Video Consultation', color: '#2d6be4', action: () => alert('Video consultation coming soon!') },
                 { icon: 'fa-user-md',     label: 'Find Doctors',       color: '#00b386', action: () => alert('Find doctors coming soon!') },
                 { icon: 'fa-flask',       label: 'Lab Tests',          color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
+                { icon: 'fa-prescription-bottle-alt', label: 'View Prescriptions', color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
                 { icon: 'fa-comment-dots',label: 'Feedback',           color: '#7c3aed', action: () => alert('Feedback coming soon!') },
               ].map(item => (
                 <button
