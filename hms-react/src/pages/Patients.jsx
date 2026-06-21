@@ -1,3 +1,4 @@
+// hms-react/src/pages/Patients.jsx
 import React, { useEffect, useState } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -36,12 +37,16 @@ export default function Patients() {
   const [viewPatient,   setViewPatient]   = useState(null);
   const [doctors,       setDoctors]       = useState([]);
   const [historyPatient,setHistoryPatient]= useState(null);
+  
+  // ── NEW: Token/Appointment status tracking ──
+  const [tokenStatusMap, setTokenStatusMap] = useState({}); // patientId -> latest token status
 
   // ── Filters ────────────────────────────────────────────────────
   const [filterStatus,  setFilterStatus]  = useState('');
   const [filterDoctor,  setFilterDoctor]  = useState('');
   const [filterGender,  setFilterGender]  = useState('');
   const [filterBlood,   setFilterBlood]   = useState('');
+  const [filterTokenStatus, setFilterTokenStatus] = useState(''); // NEW: filter by token status
 
   // ── Token state ────────────────────────────────────────────────
   const [tokenModal,    setTokenModal]    = useState(false);
@@ -62,8 +67,34 @@ export default function Patients() {
       );
       setPatients(data.patients);
       setTotal(data.total);
+      
+      // ── NEW: Fetch token statuses for all patients ──
+      await fetchTokenStatuses(data.patients);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── NEW: Fetch token status for patients ──
+  const fetchTokenStatuses = async (patientList) => {
+    if (!patientList || patientList.length === 0) return;
+    
+    try {
+      const patientIds = patientList.map(p => p._id);
+      const { data } = await API.post('/tokens/statuses', { patientIds });
+      
+      // Build a map: patientId -> latest token status
+      const statusMap = {};
+      data.tokens.forEach(token => {
+        // Keep only the latest token per patient
+        if (!statusMap[token.patient] || 
+            new Date(token.createdAt) > new Date(statusMap[token.patient].createdAt)) {
+          statusMap[token.patient] = token;
+        }
+      });
+      setTokenStatusMap(statusMap);
+    } catch (err) {
+      console.error('Failed to fetch token statuses:', err);
     }
   };
 
@@ -82,10 +113,33 @@ export default function Patients() {
       .then(r => setDoctors(r.data.filter(u => u.role === 'doctor')));
   }, [clinicId]);                                              // eslint-disable-line
 
+  // ── Get token status badge ──
+  const getTokenStatusBadge = (patientId) => {
+    const token = tokenStatusMap[patientId];
+    if (!token) return null;
+    
+    const statusMap = {
+      'Pending': { label: '⏳ Pending', color: '#f59e0b', bg: '#fef3c7' },
+      'Waiting': { label: '🟡 Waiting', color: '#f59e0b', bg: '#fef3c7' },
+      'Called': { label: '📞 Called', color: '#3b82f6', bg: '#dbeafe' },
+      'Done': { label: '✅ Done', color: '#10b981', bg: '#d1fae5' },
+      'Skipped': { label: '⏭️ Skipped', color: '#6b7280', bg: '#f3f4f6' },
+    };
+    
+    const status = statusMap[token.status] || { label: token.status, color: '#6b7280', bg: '#f3f4f6' };
+    return {
+      ...status,
+      doctorName: token.doctor?.name || '',
+      tokenNumber: token.tokenNumber,
+      consultationType: token.consultationType || 'in-person',
+    };
+  };
+
   // ── Client-side filter logic ───────────────────────────────────
   const filteredPatients = patients.filter(p => {
     const isAdmitted = admittedIds.has(String(p._id));
     const effectiveStatus = isAdmitted ? 'Admitted' : p.status;
+    const tokenInfo = getTokenStatusBadge(p._id);
 
     if (filterStatus) {
       if (filterStatus === 'Admitted' && !isAdmitted) return false;
@@ -94,16 +148,24 @@ export default function Patients() {
     if (filterDoctor && String(p.assignedDoctor?._id || p.assignedDoctor) !== filterDoctor) return false;
     if (filterGender  && p.gender !== filterGender)  return false;
     if (filterBlood   && p.bloodGroup !== filterBlood) return false;
+    
+    // ── NEW: Filter by token status ──
+    if (filterTokenStatus) {
+      if (!tokenInfo) return false;
+      if (tokenInfo.label !== filterTokenStatus) return false;
+    }
+    
     return true;
   });
 
-  const activeFiltersCount = [filterStatus, filterDoctor, filterGender, filterBlood].filter(Boolean).length;
+  const activeFiltersCount = [filterStatus, filterDoctor, filterGender, filterBlood, filterTokenStatus].filter(Boolean).length;
 
   const clearFilters = () => {
     setFilterStatus('');
     setFilterDoctor('');
     setFilterGender('');
     setFilterBlood('');
+    setFilterTokenStatus('');
   };
 
   // ── Submit new / edit patient ──────────────────────────────────
@@ -134,6 +196,7 @@ export default function Patients() {
         patientName: newPatient.name, clinicId,
       });
       setTokenReceipt(data); setTokenModal(false);
+      fetchPatients(); // Refresh to update token status
     } catch (err) {
       alert(err.response?.data?.message || 'Token generation failed');
     } finally { setTokenLoading(false); }
@@ -267,6 +330,21 @@ export default function Patients() {
               ))}
             </select>
 
+            {/* ── NEW: Token Status filter ── */}
+            <select
+              className="form-control"
+              style={{ width: 150, fontSize: 12 }}
+              value={filterTokenStatus}
+              onChange={e => setFilterTokenStatus(e.target.value)}
+            >
+              <option value="">All Tokens</option>
+              <option value="⏳ Pending">⏳ Pending</option>
+              <option value="🟡 Waiting">🟡 Waiting</option>
+              <option value="📞 Called">📞 Called</option>
+              <option value="✅ Done">✅ Done</option>
+              <option value="⏭️ Skipped">⏭️ Skipped</option>
+            </select>
+
             {/* Clear filters button */}
             {activeFiltersCount > 0 && (
               <button
@@ -291,18 +369,22 @@ export default function Patients() {
               <thead>
                 <tr>
                   <th>Patient ID</th><th>Name</th><th>Age/Gender</th><th>Phone</th>
-                  <th>Blood Group</th><th>Doctor</th><th>Status</th><th>Actions</th>
+                  <th>Blood Group</th><th>Doctor</th>
+                  <th>Token Status</th> {/* ── NEW: Token Status column ── */}
+                  <th>Status</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredPatients.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="empty-state">
+                    <td colSpan="9" className="empty-state">
                       {activeFiltersCount > 0 ? 'No patients match the selected filters' : 'No patients found'}
                     </td>
                   </tr>
                 ) : filteredPatients.map(p => {
                   const isAdmitted = admittedIds.has(String(p._id));
+                  const tokenInfo = getTokenStatusBadge(p._id);
+                  
                   return (
                     <tr key={p._id}>
                       <td>
@@ -316,6 +398,30 @@ export default function Patients() {
                       <td>{p.phone}</td>
                       <td><span className="badge badge-info">{p.bloodGroup || '—'}</span></td>
                       <td>{p.assignedDoctor?.name || '—'}</td>
+                      
+                      {/* ── Token Status Column ── */}
+                      <td>
+                        {tokenInfo ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 12,
+                              background: tokenInfo.bg, color: tokenInfo.color,
+                              fontWeight: 600, whiteSpace: 'nowrap',
+                              border: `1px solid ${tokenInfo.color}40`,
+                            }}>
+                              {tokenInfo.label}
+                            </span>
+                            {tokenInfo.doctorName && (
+                              <span style={{ fontSize: 10, color: '#64748b' }}>
+                                Dr. {tokenInfo.doctorName} · #{tokenInfo.tokenNumber}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                      
                       <td>
                         {isAdmitted ? (
                           <span style={{
@@ -365,6 +471,9 @@ export default function Patients() {
         )}
       </div>
 
+      {/* ── Rest of the modals (unchanged) ── */}
+      {/* Add/Edit Modal, Token Modal, Receipt Modal, View Modal, History Modal remain the same */}
+      
       {/* ── Add / Edit Patient Modal ── */}
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(false)}>

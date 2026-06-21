@@ -1,7 +1,3 @@
-import { fileURLToPath } from 'url';
-import path from 'path';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import bcrypt from "bcryptjs";
 // hms-backend/routes/tokens.js
 // Add to server.js:  app.use('/api/tokens', require('./routes/tokens'));
 
@@ -42,11 +38,6 @@ function resolveClinicId(req) {
 
 /**
  * Creates a real Patient document from token-booking data.
- * Patient.clinicId is an ObjectId ref to Clinic — if clinicId doesn't
- * resolve to a valid ObjectId (e.g. the 'default' string fallback),
- * we fail loudly instead of letting Mongoose throw an opaque cast error.
- * patientId (PATxxxxx) is generated automatically by the Patient model's
- * pre('save') hook — do not set it here.
  */
 async function createPatientFromToken({ clinicId, doctorId, name, phone, email, age, gender, registeredBy }) {
   if (!mongoose.Types.ObjectId.isValid(clinicId)) {
@@ -73,29 +64,6 @@ async function createPatientFromToken({ clinicId, doctorId, name, phone, email, 
 }
 
 // ── POST /api/tokens/generate ────────────────────────────────────────────────
-// Body: {
-//   clinicId, doctorId, patientId?, patientName?,
-//   phone?, email?,            // required when patientId is NOT provided
-//   age?, gender?, symptoms?,
-//   consultationType?  ('online' | 'in-person'),
-//   paymentMethod?     ('card' | 'upi' | 'netbanking')
-// }
-//
-// Behaviour:
-//  - If patientId is provided, the token links to that existing Patient.
-//  - If patientId is NOT provided (new walk-in), phone + email are now
-//    REQUIRED — a real Patient record is created immediately (using the
-//    same atomic PATxxxxx generator as manual registration) and linked to
-//    the token. This guarantees every token that reaches "Done" already
-//    has a real patient behind it, visible in the Patients section with
-//    working Admit/Edit/History actions.
-//  - If the requester's role is 'patient' (booked from the patient portal),
-//    the token is created with status "Pending" and source "patient" —
-//    staff must Accept it from the Token Queue before it joins the
-//    walk-in waiting line. This matches the Accept/Reject flow already
-//    built into TokenPanel.jsx.
-//  - If a staff member creates it (receptionist/admin/etc.), behaviour is
-//    unchanged: status defaults to "Waiting" and source is "staff".
 router.post('/generate', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
@@ -116,11 +84,9 @@ router.post('/generate', auth, async (req, res) => {
 
     const date = todayStr();
 
-    // Snapshot the doctor's current consultation fee at booking time
     const doctor = await User.findById(doctorId).select('consultationFee name department');
     if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
-    // ── Resolve / create the patient ──────────────────────────────────────
     let patientDoc = null;
 
     if (patientId) {
@@ -148,7 +114,6 @@ router.post('/generate', auth, async (req, res) => {
       }
     }
 
-    // Find highest token number for this doctor today — scoped to clinic
     const last = await Token.findOne({ clinicId, doctor: doctorId, date })
       .sort({ tokenNumber: -1 })
       .select('tokenNumber');
@@ -196,8 +161,6 @@ router.post('/generate', auth, async (req, res) => {
 });
 
 // ── GET /api/tokens/today ────────────────────────────────────────────────────
-// Returns all tokens for today, optionally filtered by doctorId.
-// Query: ?clinicId=xxx&doctorId=xxx
 router.get('/today', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
@@ -219,8 +182,6 @@ router.get('/today', auth, async (req, res) => {
 });
 
 // ── GET /api/tokens/summary ──────────────────────────────────────────────────
-// Returns per-doctor token counts for today — used in dashboard widgets.
-// Query: ?clinicId=xxx
 router.get('/summary', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
@@ -270,7 +231,6 @@ router.get('/summary', auth, async (req, res) => {
 });
 
 // ── PATCH /api/tokens/:id/status ────────────────────────────────────────────
-// Body: { clinicId, status: 'Waiting' | 'Called' | 'Done' | 'Skipped' | 'Pending' }
 router.patch('/:id/status', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
@@ -282,7 +242,6 @@ router.patch('/:id/status', auth, async (req, res) => {
     const update = { status };
     if (status === 'Called') update.calledAt = new Date();
 
-    // Scope update to clinic so cross-clinic mutations are impossible
     const token = await Token.findOneAndUpdate(
       { _id: req.params.id, clinicId },
       update,
@@ -294,11 +253,6 @@ router.patch('/:id/status', auth, async (req, res) => {
 
     if (!token) return res.status(404).json({ message: 'Token not found' });
 
-    // Safety net: tokens created before patient auto-creation was added
-    // (or any token that somehow has no linked patient) won't have a
-    // Patients-section entry. We don't auto-create here because we don't
-    // have phone/email for them — instead flag it so the frontend can
-    // prompt staff to use PATCH /api/tokens/:id/link-patient.
     const needsPatientLink = status === 'Done' && !token.patient;
 
     res.json({ ...token.toObject(), needsPatientLink });
@@ -308,13 +262,6 @@ router.patch('/:id/status', auth, async (req, res) => {
 });
 
 // ── PATCH /api/tokens/:id/link-patient ──────────────────────────────────────
-// Body: { clinicId, phone, email, name?, age?, gender? }
-//
-// For tokens that exist WITHOUT a linked Patient (e.g. created before this
-// feature, or any other gap). Creates a real Patient record from the
-// supplied contact info + whatever the token already has, links it to the
-// token, and syncs patientName/phone/email back onto the token. After this,
-// the patient appears in the Patients section with full Admit/Edit/History.
 router.patch('/:id/link-patient', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
@@ -365,8 +312,6 @@ router.patch('/:id/link-patient', auth, async (req, res) => {
 });
 
 // ── GET /api/tokens/mine ─────────────────────────────────────────────────────
-// Returns tokens booked by the currently logged-in patient (any date),
-// most recent first. Used by the patient portal's "My Appointments" page.
 router.get('/mine', auth, async (req, res) => {
   try {
     if (req.user?.role !== 'patient') {
@@ -380,6 +325,159 @@ router.get('/mine', auth, async (req, res) => {
     res.json({ success: true, tokens });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// ── ✅ NEW: POST /api/tokens/statuses ──────────────────────────────────────
+router.post('/statuses', auth, async (req, res) => {
+  try {
+    const { patientIds } = req.body;
+    const clinicId = resolveClinicId(req);
+    
+    if (!patientIds || !Array.isArray(patientIds) || patientIds.length === 0) {
+      return res.json({ success: true, tokens: [] });
+    }
+    
+    const validIds = patientIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+    
+    if (validIds.length === 0) {
+      return res.json({ success: true, tokens: [] });
+    }
+    
+    const tokens = await Token.aggregate([
+      {
+        $match: {
+          clinicId: clinicId,
+          patient: { $in: validIds.map(id => new mongoose.Types.ObjectId(id)) }
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$patient',
+          token: { $first: '$$ROOT' }
+        }
+      },
+      {
+        $replaceRoot: { newRoot: '$token' }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'doctor',
+          foreignField: '_id',
+          as: 'doctor'
+        }
+      },
+      {
+        $unwind: {
+          path: '$doctor',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          patient: 1,
+          patientName: 1,
+          tokenNumber: 1,
+          status: 1,
+          consultationType: 1,
+          consultationFee: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          'doctor._id': 1,
+          'doctor.name': 1,
+          'doctor.department': 1,
+          'doctor.consultationFee': 1
+        }
+      }
+    ]);
+    
+    res.json({ success: true, tokens });
+  } catch (err) {
+    console.error('Error fetching token statuses:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── ✅ NEW: GET /api/tokens/patient/:patientId/latest ──────────────────────
+router.get('/patient/:patientId/latest', auth, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const clinicId = resolveClinicId(req);
+    
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(400).json({ success: false, message: 'Invalid patient ID' });
+    }
+    
+    const token = await Token.findOne({ 
+      clinicId, 
+      patient: patientId 
+    })
+      .sort({ createdAt: -1 })
+      .populate('doctor', 'name department consultationFee')
+      .populate('patient', 'name patientId');
+    
+    res.json({ success: true, token });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── ✅ NEW: GET /api/tokens/patient/:patientId/all ──────────────────────────
+router.get('/patient/:patientId/all', auth, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const clinicId = resolveClinicId(req);
+    
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(400).json({ success: false, message: 'Invalid patient ID' });
+    }
+    
+    const tokens = await Token.find({ 
+      clinicId, 
+      patient: patientId 
+    })
+      .sort({ createdAt: -1 })
+      .populate('doctor', 'name department consultationFee')
+      .populate('patient', 'name patientId');
+    
+    res.json({ success: true, tokens });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── ✅ NEW: GET /api/tokens/stats ──────────────────────────────────────────
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const clinicId = resolveClinicId(req);
+    const date = todayStr();
+    
+    const [totalToday, pending, waiting, called, done, skipped] = await Promise.all([
+      Token.countDocuments({ clinicId, date }),
+      Token.countDocuments({ clinicId, date, status: 'Pending' }),
+      Token.countDocuments({ clinicId, date, status: 'Waiting' }),
+      Token.countDocuments({ clinicId, date, status: 'Called' }),
+      Token.countDocuments({ clinicId, date, status: 'Done' }),
+      Token.countDocuments({ clinicId, date, status: 'Skipped' }),
+    ]);
+    
+    res.json({
+      success: true,
+      stats: {
+        totalToday,
+        pending,
+        waiting,
+        called,
+        done,
+        skipped,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
