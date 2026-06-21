@@ -288,12 +288,16 @@ export default function TokenPanel() {
   const handleRegisterPatient = async (formData) => {
     setRegisterBusy(true); setRegisterError('');
     try {
-      const { data: patient } = await API.post('/patients', {
+      const { data: registerResponse } = await API.post('/patients', {
         name: formData.name, age: parseInt(formData.age) || 0,
         gender: formData.gender, phone: formData.phone,
         email: formData.email || '', address: formData.address || '',
         assignedDoctor: formData.doctorId,
       });
+      // ✅ POST /patients returns { success, message, patient, user } —
+      // the actual patient record is nested under `.patient`, not at
+      // the top level.
+      const patient = registerResponse.patient;
       const { data: token } = await API.post('/tokens/generate', {
         doctorId: formData.doctorId,
         patientId: patient._id,

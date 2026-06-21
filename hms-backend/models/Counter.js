@@ -1,13 +1,26 @@
 // hms-backend/models/Counter.js
 import mongoose from 'mongoose';
 
-// Generic atomic counter collection.
-// _id is a namespaced key, e.g. `patient_<clinicId>`, so each clinic
-// (and each entity type, if you reuse this for invoices/tokens/etc.)
-// gets its own independent, gapless-under-concurrency sequence.
 const CounterSchema = new mongoose.Schema({
-  _id: { type: String, required: true },
+  // e.g. "patient_<clinicId>"
+  id: { type: String, required: true, unique: true },
   seq: { type: Number, default: 0 },
 });
+
+/**
+ * Atomically increments and returns the next sequence number for `id`.
+ * Uses findOneAndUpdate with $inc + upsert, which MongoDB executes as a
+ * single atomic operation — so concurrent calls (e.g. two patients being
+ * registered at the same instant) can never read the same "next" value.
+ * Works correctly whether the counter document exists yet or not.
+ */
+CounterSchema.statics.getNextSequence = async function (id) {
+  const counter = await this.findOneAndUpdate(
+    { id },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return counter.seq;
+};
 
 export default mongoose.model('Counter', CounterSchema);
