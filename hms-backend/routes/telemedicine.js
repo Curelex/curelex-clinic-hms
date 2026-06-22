@@ -10,12 +10,13 @@ const router = express.Router();
 // All routes require authentication
 router.use(auth);
 
-// ── New: Get online doctors ──
+// ── Online doctors ──
 router.get('/online-doctors', telemedicineController.getOnlineDoctors);
 
 // ── Patient routes ──
 router.post('/request', roleCheck('patient'), telemedicineController.requestTelemedicine);
 router.get('/patient/:id', telemedicineController.getPatientTelemedicine);
+router.post('/:id/pay', roleCheck('patient'), telemedicineController.processPayment);
 
 // ── Doctor routes ──
 router.get('/doctor/:id', roleCheck('doctor', 'admin'), telemedicineController.getDoctorTelemedicine);
@@ -23,6 +24,13 @@ router.patch('/:id/approve', roleCheck('doctor', 'admin'), telemedicineControlle
 router.patch('/:id/reject', roleCheck('doctor', 'admin'), telemedicineController.rejectTelemedicine);
 router.patch('/:id/start', roleCheck('doctor', 'admin'), telemedicineController.startTelemedicine);
 router.patch('/:id/end', roleCheck('doctor', 'admin'), telemedicineController.endTelemedicine);
+router.post('/:id/request-payout', roleCheck('doctor'), telemedicineController.requestPayout);
+router.get('/earnings/:doctorId', telemedicineController.getDoctorEarnings);
+router.put('/bank-details', roleCheck('doctor'), telemedicineController.updateBankDetails);
+
+// ── Admin routes ──
+router.get('/pending-payouts', roleCheck('admin'), telemedicineController.getPendingPayouts);
+router.patch('/:id/approve-payout', roleCheck('admin'), telemedicineController.approvePayout);
 
 // ── Shared routes ──
 router.get('/stats', telemedicineController.getTelemedicineStats);

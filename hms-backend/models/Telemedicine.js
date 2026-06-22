@@ -1,10 +1,16 @@
 // hms-backend/models/Telemedicine.js
+
 import mongoose from 'mongoose';
 
 const TelemedicineSchema = new mongoose.Schema({
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Patient',
+    required: true,
+  },
+  patientUserId : {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   },
   doctorId: {
@@ -35,7 +41,7 @@ const TelemedicineSchema = new mongoose.Schema({
   // Status flow
   status: {
     type: String,
-    enum: ['requested', 'approved', 'scheduled', 'ready', 'ongoing', 'completed', 'cancelled', 'rejected'],
+    enum: ['requested', 'approved', 'payment_pending', 'payment_completed', 'scheduled', 'ready', 'ongoing', 'completed', 'cancelled', 'rejected'],
     default: 'requested',
   },
   
@@ -59,12 +65,44 @@ const TelemedicineSchema = new mongoose.Schema({
   doctorName: { type: String },
   doctorSpecialization: { type: String },
   
-  // Payment
+  // ── Payment Fields ──
   consultationFee: { type: Number, default: 0 },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'failed'],
+    enum: ['pending', 'paid', 'failed', 'refunded'],
     default: 'pending',
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['card', 'upi', 'netbanking', 'wallet', 'mock'],
+  },
+  transactionId: {
+    type: String,
+    sparse: true,
+  },
+  paymentDetails: {
+    type: mongoose.Schema.Types.Mixed,
+  },
+  paidAt: {
+    type: Date,
+  },
+  
+  // ── Payout Fields ──
+  doctorPayoutStatus: {
+    type: String,
+    enum: ['pending', 'processing', 'completed', 'failed'],
+    default: 'pending',
+  },
+  doctorPayoutAmount: {
+    type: Number,
+  },
+  clinicCommissionAmount: {
+    type: Number,
+    default: 0,
+  },
+  payoutId: {
+    type: String,
+    sparse: true,
   },
   
 }, { timestamps: true });
@@ -74,15 +112,14 @@ TelemedicineSchema.index({ patientId: 1, status: 1 });
 TelemedicineSchema.index({ doctorId: 1, status: 1 });
 TelemedicineSchema.index({ clinicId: 1, status: 1 });
 TelemedicineSchema.index({ status: 1, createdAt: -1 });
+TelemedicineSchema.index({ paymentStatus: 1, doctorPayoutStatus: 1 });
 
-// Virtual for isUrgent
 TelemedicineSchema.virtual('isUrgent').get(function() {
   return this.urgency === 'urgent' || this.urgency === 'emergency';
 });
 
-// Virtual for isActive
 TelemedicineSchema.virtual('isActive').get(function() {
-  return ['requested', 'approved', 'scheduled', 'ready', 'ongoing'].includes(this.status);
+  return ['requested', 'approved', 'payment_pending', 'payment_completed', 'scheduled', 'ready', 'ongoing'].includes(this.status);
 });
 
 TelemedicineSchema.set('toJSON', { virtuals: true });

@@ -117,19 +117,15 @@ io.on('connection', (socket) => {
     if (!doctorId) return;
     
     global.doctorStatus.set(doctorId, {
-      status: status, // 'online' or 'offline'
+      status: status,
       lastSeen: new Date(),
       clinicId: clinicId,
       socketId: socket.id
     });
     
-    // Join doctor's room
     socket.join(`doctor_${doctorId}`);
-    
-    // Store socket to doctor mapping
     global.socketToDoctor.set(socket.id, doctorId);
     
-    // Broadcast to patients in the same clinic
     if (clinicId) {
       io.to(`clinic_${clinicId}_patients`).emit('doctor:status-change', {
         doctorId,
@@ -141,13 +137,11 @@ io.on('connection', (socket) => {
     console.log(`👨‍⚕️ Doctor ${doctorId} is now ${status}`);
   });
 
-  // Doctor registers socket
   socket.on('doctor:register-socket', ({ doctorId }) => {
     global.socketToDoctor.set(socket.id, doctorId);
     console.log(`📝 Registered socket ${socket.id} to doctor ${doctorId}`);
   });
 
-  // Patient joins clinic room for real-time updates
   socket.on('patient:join-clinic', ({ clinicId, patientId }) => {
     if (clinicId) {
       socket.join(`clinic_${clinicId}_patients`);
@@ -158,7 +152,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Get all online doctors
   socket.on('doctor:get-online', ({ clinicId }, callback) => {
     const onlineDoctors = [];
     for (const [docId, data] of global.doctorStatus.entries()) {
@@ -178,27 +171,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Doctor typing indicator
-  socket.on('doctor:typing', ({ doctorId, patientId, isTyping }) => {
-    io.to(`patient_${patientId}`).emit('doctor:typing', {
-      doctorId,
-      isTyping,
-      timestamp: new Date()
-    });
-  });
-
-  // Patient typing indicator
-  socket.on('patient:typing', ({ patientId, doctorId, isTyping }) => {
-    io.to(`doctor_${doctorId}`).emit('patient:typing', {
-      patientId,
-      isTyping,
-      timestamp: new Date()
-    });
-  });
-
-  // Handle telemedicine request notification
+  // Telemedicine specific events
   socket.on('telemedicine:request-sent', ({ doctorId, patientId, requestId, patientName, urgency }) => {
-    // Notify the doctor
     io.to(`doctor_${doctorId}`).emit('telemedicine:new-request', {
       requestId,
       patientId,
@@ -207,27 +181,15 @@ io.on('connection', (socket) => {
       timestamp: new Date(),
       message: `📱 New telemedicine request from ${patientName}`
     });
-    
-    // Notify the patient that request was sent
-    io.to(`patient_${patientId}`).emit('telemedicine:request-sent', {
-      requestId,
-      doctorId,
-      status: 'requested',
-      timestamp: new Date()
-    });
   });
 
-  // Handle telemedicine status updates
   socket.on('telemedicine:status-update', ({ requestId, patientId, doctorId, status, notes }) => {
-    // Notify patient
     io.to(`patient_${patientId}`).emit('telemedicine:status-update', {
       requestId,
       status,
       notes,
       timestamp: new Date()
     });
-    
-    // Notify doctor
     io.to(`doctor_${doctorId}`).emit('telemedicine:status-update', {
       requestId,
       status,
@@ -236,9 +198,51 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Handle meeting started
+  // ── NEW: Payment related socket events ──
+  socket.on('telemedicine:payment-required', ({ requestId, patientId, doctorId, consultationFee }) => {
+    io.to(`patient_${patientId}`).emit('telemedicine:payment-required', {
+      requestId,
+      doctorId,
+      consultationFee,
+      timestamp: new Date(),
+      message: `💳 Payment required: ₹${consultationFee}`
+    });
+  });
+
+  socket.on('telemedicine:payment-success', ({ requestId, patientId, doctorId, meetingLink }) => {
+    io.to(`patient_${patientId}`).emit('telemedicine:payment-success', {
+      requestId,
+      meetingLink,
+      timestamp: new Date(),
+      message: '✅ Payment successful! Consultation confirmed.'
+    });
+    io.to(`doctor_${doctorId}`).emit('telemedicine:payment-received', {
+      requestId,
+      patientId,
+      timestamp: new Date(),
+      message: '✅ Payment received'
+    });
+  });
+
+  socket.on('telemedicine:payout-requested', ({ requestId, doctorId, amount }) => {
+    io.to(`doctor_${doctorId}`).emit('telemedicine:payout-requested', {
+      requestId,
+      amount,
+      timestamp: new Date(),
+      message: `💰 Payout requested: ₹${amount}`
+    });
+  });
+
+  socket.on('telemedicine:payout-approved', ({ requestId, doctorId, amount }) => {
+    io.to(`doctor_${doctorId}`).emit('telemedicine:payout-approved', {
+      requestId,
+      amount,
+      timestamp: new Date(),
+      message: `✅ Payout approved: ₹${amount}`
+    });
+  });
+
   socket.on('telemedicine:meeting-started', ({ requestId, patientId, doctorId, meetingLink }) => {
-    // Notify patient to join
     io.to(`patient_${patientId}`).emit('telemedicine:meeting-started', {
       requestId,
       meetingLink,
@@ -247,7 +251,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Handle meeting ended
   socket.on('telemedicine:meeting-ended', ({ requestId, patientId, doctorId, duration }) => {
     io.to(`patient_${patientId}`).emit('telemedicine:meeting-ended', {
       requestId,
@@ -263,10 +266,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Handle disconnect - mark doctor as offline
   socket.on('disconnect', () => {
     console.log('🔌 Socket disconnected:', socket.id);
-    
     const doctorId = global.socketToDoctor.get(socket.id);
     if (doctorId && global.doctorStatus) {
       const status = global.doctorStatus.get(doctorId);
@@ -275,7 +276,6 @@ io.on('connection', (socket) => {
         status.lastSeen = new Date();
         global.doctorStatus.set(doctorId, status);
         
-        // Broadcast offline status
         if (status.clinicId) {
           io.to(`clinic_${status.clinicId}_patients`).emit('doctor:status-change', {
             doctorId,

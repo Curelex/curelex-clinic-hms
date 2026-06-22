@@ -32,6 +32,8 @@ import PatientPrescriptions from './pages/PatientPrescriptions';
 import PatientDocuments from './pages/PatientDocuments'; // ── NEW ──
 import DoctorTelemedicine from './pages/DoctorTelemedicine';
 import PatientTelemedicine from './pages/PatientTelemedicine';
+import DoctorEarnings from './pages/DoctorEarnings';
+import DoctorBankDetails from './pages/DoctorBankDetails';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
@@ -170,6 +172,14 @@ function App() {
   path="telemedicine"
   element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>}
 />
+<Route
+              path="doctor-earnings"
+              element={<PrivateRoute><DoctorEarnings /></PrivateRoute>}
+            />
+            <Route
+              path="doctor-bank-details"
+              element={<PrivateRoute><DoctorBankDetails /></PrivateRoute>}
+            />
           </Route>
 
           {/* ── Patient Routes ───────────────────────────────────── */}

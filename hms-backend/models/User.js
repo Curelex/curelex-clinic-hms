@@ -36,6 +36,24 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  bankDetails: {
+    accountHolderName: { type: String },
+    accountNumber: { type: String },
+    bankName: { type: String },
+    ifscCode: { type: String },
+    upiId: { type: String },
+    isVerified: { type: Boolean, default: false },
+  },
+  // ── NEW: Payout Settings ──
+  payoutSettings: {
+    autoPayout: { type: Boolean, default: false },
+    minimumPayoutAmount: { type: Number, default: 500 },
+    payoutFrequency: { 
+      type: String, 
+      enum: ['immediate', 'daily', 'weekly', 'monthly'],
+      default: 'weekly'
+    },
+  },
 
 }, { timestamps: true });
 

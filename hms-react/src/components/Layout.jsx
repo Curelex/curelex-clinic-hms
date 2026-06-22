@@ -38,6 +38,13 @@ const NAV_SECTIONS = [
       { path: '/dashboard/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
     ],
   },
+  {
+    section: 'DOCTOR',
+    items: [
+      { path: '/dashboard/doctor-earnings', label: 'Earnings', icon: '💰', perm: 'dashboard' },
+      { path: '/dashboard/doctor-bank-details', label: 'Bank Details', icon: '🏦', perm: 'dashboard' },
+    ],
+  },
 ];
 
 // ── Role badge config ──────────────────────────────────────────

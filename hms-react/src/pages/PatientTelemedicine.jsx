@@ -10,6 +10,8 @@ import PatientSidebar from '../components/PatientSidebar';
 const STATUS_COLORS = {
   requested: { bg: '#fef3c7', color: '#92400e', label: '⏳ Requested' },
   approved: { bg: '#dbeafe', color: '#1e40af', label: '✅ Approved' },
+  payment_pending: { bg: '#fef3c7', color: '#92400e', label: '💳 Payment Pending' },
+  payment_completed: { bg: '#dbeafe', color: '#1e40af', label: '✅ Payment Done' },
   scheduled: { bg: '#dbeafe', color: '#1e40af', label: '📅 Scheduled' },
   ready: { bg: '#d1fae5', color: '#065f46', label: '🟢 Ready' },
   ongoing: { bg: '#f97316', color: '#fff', label: '🔴 Ongoing' },
@@ -36,6 +38,11 @@ export default function PatientTelemedicine() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusUpdate, setStatusUpdate] = useState(null);
   const [meetingStarted, setMeetingStarted] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentRequest, setPaymentRequest] = useState(null);
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('mock');
 
   const patientId = patient?._id || patient?.id || user?._id || user?.id;
   const patientName = patient?.name || user?.name || 'Patient';
@@ -91,14 +98,45 @@ export default function PatientTelemedicine() {
       setTimeout(() => setStatusUpdate(null), 5000);
     };
 
+    // ── NEW: Listen for payment required ──
+    const handlePaymentRequired = (data) => {
+      console.log('💳 Payment required event received:', data);
+      setPaymentRequest(data);
+      setShowPaymentModal(true);
+      setStatusUpdate({
+        type: 'payment_required',
+        message: `💳 Payment required: ₹${data.consultationFee} for Dr. ${data.doctorName}`,
+        requestId: data.requestId
+      });
+      loadRequests();
+      setTimeout(() => setStatusUpdate(null), 8000);
+    };
+
+    // ── NEW: Listen for payment success ──
+    const handlePaymentSuccess = (data) => {
+      console.log('✅ Payment success event received:', data);
+      setStatusUpdate({
+        type: 'payment_success',
+        message: `✅ Payment successful! Your consultation with is confirmed. Click "Join Meeting" when doctor starts.`,
+        meetingLink: data.meetingLink,
+        requestId: data.requestId
+      });
+      loadRequests();
+      setTimeout(() => setStatusUpdate(null), 10000);
+    };
+
     on('telemedicine:status-update', handleStatusUpdate);
     on('telemedicine:meeting-started', handleMeetingStarted);
     on('telemedicine:meeting-ended', handleMeetingEnded);
+    on('telemedicine:payment-required', handlePaymentRequired);
+    on('telemedicine:payment-success', handlePaymentSuccess);
 
     return () => {
       off('telemedicine:status-update', handleStatusUpdate);
       off('telemedicine:meeting-started', handleMeetingStarted);
       off('telemedicine:meeting-ended', handleMeetingEnded);
+      off('telemedicine:payment-required', handlePaymentRequired);
+      off('telemedicine:payment-success', handlePaymentSuccess);
     };
   }, [isConnected, on, off]);
 
@@ -133,49 +171,81 @@ export default function PatientTelemedicine() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSubmitting(true);
-
-    if (!form.doctorId) {
-      setError('Please select a doctor');
-      setSubmitting(false);
-      return;
-    }
-
-    try {
-      const response = await API.post('/telemedicine/request', {
-        patientId,
-        doctorId: form.doctorId,
-        symptoms: form.symptoms,
-        preferredTime: form.preferredTime || null,
-        urgency: form.urgency,
-      });
-
-      // ── Emit socket event for real-time notification ──
-      if (isConnected) {
-        const selectedDoctor = doctors.find(d => d._id === form.doctorId);
-        emit('telemedicine:request-sent', {
-          doctorId: form.doctorId,
-          patientId,
-          requestId: response.data.telemedicine._id,
-          patientName: patientName,
-          urgency: form.urgency,
-          symptoms: form.symptoms
-        });
+const handlePayment = async () => {
+  if (!paymentRequest) return;
+  
+  setPaying(true);
+  setPaymentError('');
+  
+  try {
+    console.log('💳 Processing payment for request:', paymentRequest.requestId);
+    
+    const { data } = await API.post(`/telemedicine/${paymentRequest.requestId}/pay`, {
+      paymentMethod: paymentMethod,
+      paymentDetails: {
+        method: paymentMethod,
+        timestamp: new Date().toISOString(),
       }
+    });
+    
+    if (data.success) {
+      setShowPaymentModal(false);
+      setPaymentRequest(null);
+      
+      // Show success message with meeting link
+      setStatusUpdate({
+        type: 'payment_success',
+        message: `✅ Payment successful! Your consultation is confirmed. Meeting link: ${data.telemedicine?.meetingLink || 'Will be available when doctor starts'}`,
+        meetingLink: data.telemedicine?.meetingLink,
+      });
+      
+      // Reload requests to update status
+      await loadRequests();
+      
+      // Auto-dismiss after 10 seconds
+      setTimeout(() => setStatusUpdate(null), 10000);
+    }
+  } catch (err) {
+    console.error('Payment error:', err);
+    setPaymentError(err.response?.data?.message || 'Payment failed');
+  }
+  setPaying(false);
+};
 
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setSubmitting(true);
+
+  if (!form.doctorId) {
+    setError('Please select a doctor');
+    setSubmitting(false);
+    return;
+  }
+
+  try {
+    // ── FIX: Don't send patientId from frontend ──
+    // The backend will use req.user.id to find the patient
+    const response = await API.post('/telemedicine/request', {
+      // Remove patientId - let backend derive it from the logged-in user
+      doctorId: form.doctorId,
+      symptoms: form.symptoms,
+      preferredTime: form.preferredTime || null,
+      urgency: form.urgency,
+    });
+
+    if (response.data.success) {
       setShowRequestForm(false);
       setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
       loadRequests();
-      
       alert('✅ Telemedicine request sent successfully! The doctor will be notified.');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send request');
     }
-    setSubmitting(false);
-  };
+  } catch (err) {
+    setError(err.response?.data?.message || 'Failed to send request');
+  }
+  setSubmitting(false);
+};
 
   const handleCancel = async (id) => {
     if (!window.confirm('Cancel this request?')) return;
@@ -262,10 +332,14 @@ export default function PatientTelemedicine() {
             {statusUpdate && (
               <div className="status-alert" style={{
                 background: statusUpdate.type === 'meeting_started' ? '#dbeafe' :
+                           statusUpdate.type === 'payment_required' ? '#fef3c7' :
+                           statusUpdate.type === 'payment_success' ? '#dcfce7' :
                            statusUpdate.type === 'meeting_ended' ? '#dcfce7' :
                            statusUpdate.type === 'rejected' ? '#fee2e2' : '#fef3c7',
                 border: `1px solid ${
                   statusUpdate.type === 'meeting_started' ? '#3b82f6' :
+                  statusUpdate.type === 'payment_required' ? '#f59e0b' :
+                  statusUpdate.type === 'payment_success' ? '#22c55e' :
                   statusUpdate.type === 'meeting_ended' ? '#22c55e' :
                   statusUpdate.type === 'rejected' ? '#ef4444' : '#f59e0b'
                 }`,
@@ -291,12 +365,134 @@ export default function PatientTelemedicine() {
                       🔗 Join Now
                     </a>
                   )}
+                  {statusUpdate.type === 'payment_required' && (
+                    <button 
+                      className="btn btn-sm btn-primary"
+                      style={{ marginRight: 8 }}
+                      onClick={() => setShowPaymentModal(true)}
+                    >
+                      💳 Pay Now
+                    </button>
+                  )}
                   <button 
                     className="btn btn-sm btn-ghost" 
                     onClick={() => setStatusUpdate(null)}
                   >
                     Dismiss
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Payment Modal ── */}
+            {showPaymentModal && paymentRequest && (
+              <div style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '16px'
+              }} onClick={() => setShowPaymentModal(false)}>
+                <div style={{
+                  background: 'white',
+                  borderRadius: 16,
+                  padding: '24px',
+                  maxWidth: '400px',
+                  width: '100%',
+                  maxHeight: '90vh',
+                  overflowY: 'auto'
+                }} onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>💳 Payment Required</h3>
+                    <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: '#6b7a99' }}>Doctor</span>
+                      <span style={{ fontWeight: 600 }}>Dr. {paymentRequest.doctorName}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: '#6b7a99' }}>Amount</span>
+                      <span style={{ fontWeight: 700, color: '#2d6be4', fontSize: 18 }}>₹{paymentRequest.consultationFee}</span>
+                    </div>
+                    {paymentRequest.scheduledTime && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#6b7a99' }}>Scheduled</span>
+                        <span>{new Date(paymentRequest.scheduledTime).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                      Payment Method
+                    </label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        border: '1px solid #d1d5db',
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <option value="mock">💳 Mock Payment</option>
+                      <option value="upi">📱 UPI</option>
+                      <option value="card">💳 Card</option>
+                    </select>
+                  </div>
+
+                  {paymentError && (
+                    <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 12px', borderRadius: 8, marginBottom: 16 }}>
+                      ⚠️ {paymentError}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={() => setShowPaymentModal(false)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        background: '#f1f3f6',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handlePayment}
+                      disabled={paying}
+                      style={{
+                        flex: 2,
+                        padding: '10px',
+                        background: paying ? '#94a3b8' : '#2d6be4',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: paying ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {paying ? 'Processing...' : `Pay ₹${paymentRequest.consultationFee}`}
+                    </button>
+                  </div>
+
+                  <div style={{ marginTop: 12, fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
+                    This is a demo payment. No real money will be charged.
+                  </div>
                 </div>
               </div>
             )}
@@ -429,6 +625,7 @@ export default function PatientTelemedicine() {
                         <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Doctor</th>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Symptoms</th>
+                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Fee</th>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Status</th>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Actions</th>
                         </tr>
@@ -437,8 +634,10 @@ export default function PatientTelemedicine() {
                         {requests.map((req) => {
                           const sc = STATUS_COLORS[req.status] || STATUS_COLORS.requested;
                           const isActive = ['ongoing', 'ready'].includes(req.status);
-                          const isPending = ['requested', 'approved', 'scheduled'].includes(req.status);
+                          const isPending = ['requested', 'approved', 'scheduled', 'payment_pending'].includes(req.status);
                           const isOnline = isDoctorOnline(req.doctorId);
+                          const isPaymentPending = req.status === 'payment_pending';
+                          
                           return (
                             <tr key={req._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
                               <td style={{ padding: '12px 16px' }}>
@@ -462,6 +661,14 @@ export default function PatientTelemedicine() {
                                 )}
                               </td>
                               <td style={{ padding: '12px 16px' }}>
+                                <span style={{ fontWeight: 600, color: '#0f4c81' }}>
+                                  ₹{req.consultationFee || 0}
+                                </span>
+                                {req.paymentStatus === 'paid' && (
+                                  <span style={{ marginLeft: 6, fontSize: 10, color: '#22c55e' }}>✅ Paid</span>
+                                )}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
                                 <span style={{
                                   padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                                   background: sc.bg, color: sc.color,
@@ -481,16 +688,46 @@ export default function PatientTelemedicine() {
                                       🔗 Join Meeting
                                     </a>
                                   )}
-                                  {isPending && (
+                                  
+                                  {isPaymentPending && (
+                                    <button 
+                                      className="btn btn-sm btn-warning"
+                                      onClick={() => {
+                                        setPaymentRequest({
+                                          requestId: req._id,
+                                          doctorName: req.doctorName,
+                                          consultationFee: req.consultationFee,
+                                          scheduledTime: req.scheduledTime
+                                        });
+                                        setShowPaymentModal(true);
+                                      }}
+                                      style={{
+                                        padding: '4px 10px',
+                                        background: '#f59e0b',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        cursor: 'pointer',
+                                        fontSize: 11,
+                                        fontWeight: 600
+                                      }}
+                                    >
+                                      💳 Pay Now
+                                    </button>
+                                  )}
+                                  
+                                  {isPending && req.status !== 'payment_pending' && (
                                     <button className="btn btn-sm btn-danger" onClick={() => handleCancel(req._id)}>
                                       Cancel
                                     </button>
                                   )}
+                                  
                                   {req.status === 'completed' && (
                                     <span style={{ fontSize: 12, color: '#64748b' }}>
                                       Duration: {req.durationMinutes || 0} min
                                     </span>
                                   )}
+                                  
                                   {req.status === 'ongoing' && req.meetingLink && (
                                     <a href={req.meetingLink} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-success">
                                       🔴 Join Now

@@ -370,7 +370,12 @@ export default function Dashboard() {
         )}
       </div>
 
-
+{user?.role === 'doctor' && (
+  <>
+    <DoctorTelemedicineQuickStats />
+    <DoctorEarningsWidget />
+  </>
+)}
 
       {user?.role === 'pharmacist' && (
         <div>
@@ -589,6 +594,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {user?.role === 'admin' && <AdminPayoutManagement />}
       {/* ── Room summary ── */}
       {showRoomSummary && <RoomSummary clinicId={clinicId} />}
 
@@ -828,6 +834,444 @@ function DoctorEmergencyAlerts() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function DoctorEarningsWidget() {
+  const { user } = useAuth();
+  const [earnings, setEarnings] = useState({
+    total: 0,
+    pending: 0,
+    processing: 0,
+    completed: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  const loadEarnings = async () => {
+    try {
+      const doctorId = user?._id || user?.id;
+      const { data } = await API.get(`/telemedicine/earnings/${doctorId}`);
+      if (data.success) {
+        setEarnings({
+          total: data.earnings.total || 0,
+          pending: data.earnings.pending || 0,
+          processing: data.earnings.processing || 0,
+          completed: data.earnings.completed || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load earnings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role !== 'doctor') return;
+    loadEarnings();
+
+    // ── FIX: Re-fetch earnings when admin approves a payout ──
+    // The socket emits 'telemedicine:payout-approved' to doctor_<doctorId>
+    // when approvePayout runs, so we refresh here to clear the pending banner.
+    const handlePayoutApproved = () => {
+      loadEarnings();
+    };
+
+    socket.on('telemedicine:payout-approved', handlePayoutApproved);
+
+    return () => {
+      socket.off('telemedicine:payout-approved', handlePayoutApproved);
+    };
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="card" style={{ marginTop: 20 }}>
+        <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+          <i className="fas fa-spinner fa-spin"></i> Loading earnings...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ fontSize: 15, margin: 0 }}>💰 Telemedicine Earnings</h3>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => window.location.href = '/dashboard/doctor-earnings'}
+            className="btn btn-sm btn-primary"
+            style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: 'none', background: '#0f4c81', color: '#fff', cursor: 'pointer' }}
+          >
+            View Details →
+          </button>
+          <button
+            onClick={() => window.location.href = '/dashboard/doctor-bank-details'}
+            className="btn btn-sm btn-outline"
+            style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: '1px solid #0f4c81', background: 'transparent', color: '#0f4c81', cursor: 'pointer' }}
+          >
+            🏦 Bank Details
+          </button>
+        </div>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: window.innerWidth <= 768 ? '1fr 1fr' : 'repeat(4, 1fr)',
+        gap: 16,
+      }}>
+        <div className="stat-card" style={{ background: '#f0fdf4', padding: 12, borderRadius: 8 }}>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Total Earned</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#16a34a' }}>₹{earnings.total}</div>
+        </div>
+        <div className="stat-card" style={{ background: '#fef3c7', padding: 12, borderRadius: 8 }}>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Pending Payout</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#f59e0b' }}>₹{earnings.pending}</div>
+        </div>
+        <div className="stat-card" style={{ background: '#dbeafe', padding: 12, borderRadius: 8 }}>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Processing</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#3b82f6' }}>₹{earnings.processing}</div>
+        </div>
+        <div className="stat-card" style={{ background: '#dcfce7', padding: 12, borderRadius: 8 }}>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Completed Payout</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#10b981' }}>₹{earnings.completed}</div>
+        </div>
+      </div>
+
+      {/* ── FIX: Only show pending banner when there are actually pending payouts ── */}
+      {earnings.pending > 0 && (
+        <div style={{
+          marginTop: 12,
+          padding: '10px 14px',
+          background: '#fef3c7',
+          borderRadius: 8,
+          fontSize: 13,
+          color: '#92400e',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}>
+          <span>💡</span>
+          You have <strong>₹{earnings.pending}</strong> pending payouts.
+          <button
+            onClick={() => window.location.href = '/dashboard/doctor-earnings'}
+            style={{
+              marginLeft: 'auto',
+              padding: '4px 12px',
+              background: '#f59e0b',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Request Now
+          </button>
+        </div>
+      )}
+
+      {/* ── FIX: Show confirmation banner when all payouts are completed ── */}
+      {earnings.pending === 0 && earnings.completed > 0 && (
+        <div style={{
+          marginTop: 12,
+          padding: '10px 14px',
+          background: '#f0fdf4',
+          borderRadius: 8,
+          fontSize: 13,
+          color: '#166534',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span>✅</span>
+          All payouts have been completed. Total received: <strong>₹{earnings.completed}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Add Doctor Quick Stats component ──
+function DoctorTelemedicineQuickStats() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState({ total: 0, pending: 0, ongoing: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.role === 'doctor') {
+      loadStats();
+    }
+  }, [user]);
+
+  const loadStats = async () => {
+    try {
+      const { data } = await API.get('/telemedicine/stats');
+      if (data.success) {
+        setStats({
+          total: data.stats.total || 0,
+          pending: data.stats.requested || 0,
+          ongoing: data.stats.ongoing || 0,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load telemedicine stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading || user?.role !== 'doctor') return null;
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <h3 style={{ fontSize: 15, marginBottom: 12 }}>🩺 Your Telemedicine Practice</h3>
+      <div className="stat-grid">
+        <StatCard label="Total Consultations" value={stats.total} icon="🩺" color="#dbeafe" />
+        <StatCard label="Pending Requests" value={stats.pending} icon="⏳" color="#fef3c7" />
+        <StatCard label="Ongoing" value={stats.ongoing} icon="🔄" color="#d1fae5" />
+      </div>
+    </div>
+  );
+}
+
+function AdminPayoutManagement() {
+  const { user, hasPerm } = useAuth();
+  const [pendingPayouts, setPendingPayouts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [totalAmount, setTotalAmount] = useState(0);
+
+  // Only show for admin
+  if (user?.role !== 'admin') return null;
+
+  useEffect(() => {
+    loadPendingPayouts();
+
+    // Listen for new payout requests via socket
+    socket.on('telemedicine:payout-requested', () => {
+      loadPendingPayouts();
+    });
+
+    return () => {
+      socket.off('telemedicine:payout-requested');
+    };
+  }, []);
+
+  const loadPendingPayouts = async () => {
+    setLoading(true);
+    try {
+      const { data } = await API.get('/telemedicine/pending-payouts');
+      if (data.success) {
+        setPendingPayouts(data.pendingPayouts || []);
+        setTotalAmount(data.totalAmount || 0);
+      }
+    } catch (err) {
+      console.error('Failed to load pending payouts:', err);
+    }
+    setLoading(false);
+  };
+
+  const handleApprovePayout = async (id) => {
+    if (!confirm('Approve this payout request?')) return;
+    
+    setProcessing(true);
+    try {
+      const { data } = await API.patch(`/telemedicine/${id}/approve-payout`, {
+        payoutId: `PAY-${Date.now()}`,
+        payoutMethod: 'bank_transfer',
+        notes: 'Payout approved by admin'
+      });
+      
+      if (data.success) {
+        alert('✅ Payout approved successfully!');
+        // ── FIX: Refresh the list immediately after approval so it disappears ──
+        loadPendingPayouts();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to approve payout');
+    }
+    setProcessing(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="card" style={{ marginTop: 20 }}>
+        <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+          <i className="fas fa-spinner fa-spin"></i> Loading payout requests...
+        </div>
+      </div>
+    );
+  }
+
+  if (pendingPayouts.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 20, border: '2px solid #f59e0b' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: 16,
+        flexWrap: 'wrap',
+        gap: 8
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 24 }}>💰</span>
+          <div>
+            <h3 style={{ fontSize: 15, margin: 0, color: '#92400e' }}>
+              Pending Payout Requests
+            </h3>
+            <p style={{ fontSize: 12, margin: '2px 0 0', color: '#64748b' }}>
+              {pendingPayouts.length} requests · Total: ₹{totalAmount}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={loadPendingPayouts}
+          className="btn btn-sm btn-outline"
+          style={{ fontSize: 11 }}
+          disabled={loading}
+        >
+          🔄 Refresh
+        </button>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b' }}>Doctor</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b' }}>Patient</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b' }}>Amount</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b' }}>Bank Details</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b' }}>Requested</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b' }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pendingPayouts.map((req) => (
+              <tr key={req._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+                <td style={{ padding: '10px 12px' }}>
+                  <div style={{ fontWeight: 600 }}>Dr. {req.doctorId?.name}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>{req.doctorId?.email}</div>
+                </td>
+                <td style={{ padding: '10px 12px' }}>
+                  <div>{req.patientName}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>{req.patientEmail}</div>
+                </td>
+                <td style={{ padding: '10px 12px' }}>
+                  <span style={{ fontWeight: 700, color: '#0f4c81', fontSize: 15 }}>
+                    ₹{req.doctorPayoutAmount}
+                  </span>
+                </td>
+                <td style={{ padding: '10px 12px', fontSize: 12 }}>
+                  {req.doctorId?.bankDetails ? (
+                    <div>
+                      <div>{req.doctorId.bankDetails.accountHolderName}</div>
+                      <div style={{ color: '#64748b' }}>
+                        {req.doctorId.bankDetails.accountNumber} · {req.doctorId.bankDetails.bankName}
+                      </div>
+                      <div style={{ color: '#64748b', fontSize: 11 }}>
+                        IFSC: {req.doctorId.bankDetails.ifscCode}
+                      </div>
+                    </div>
+                  ) : (
+                    <span style={{ color: '#ef4444', fontSize: 11 }}>
+                      ⚠️ No bank details
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>
+                  {new Date(req.createdAt).toLocaleDateString()}
+                  <br />
+                  <span style={{ fontSize: 10 }}>
+                    {new Date(req.createdAt).toLocaleTimeString()}
+                  </span>
+                </td>
+                <td style={{ padding: '10px 12px' }}>
+                  <button
+                    onClick={() => handleApprovePayout(req._id)}
+                    disabled={processing}
+                    style={{
+                      padding: '4px 14px',
+                      background: processing ? '#94a3b8' : '#10b981',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: processing ? 'not-allowed' : 'pointer',
+                      fontSize: 12,
+                      fontWeight: 600
+                    }}
+                  >
+                    {processing ? 'Processing...' : '✅ Approve'}
+                  </button>
+                  <button
+                    onClick={() => window.open(`/dashboard/doctor-bank-details?doctorId=${req.doctorId?._id}`, '_blank')}
+                    style={{
+                      marginLeft: 6,
+                      padding: '4px 8px',
+                      background: 'transparent',
+                      color: '#3b82f6',
+                      border: '1px solid #3b82f6',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontSize: 11
+                    }}
+                  >
+                    View Details
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {pendingPayouts.length > 0 && (
+        <div style={{
+          marginTop: 12,
+          padding: '10px 14px',
+          background: '#fef3c7',
+          borderRadius: 8,
+          fontSize: 12,
+          color: '#92400e',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8
+        }}>
+          <span>
+            💡 Total pending payout: <strong>₹{totalAmount}</strong> for {pendingPayouts.length} consultation(s)
+          </span>
+          <button
+            onClick={() => {
+              if (confirm('Approve all pending payouts?')) {
+                pendingPayouts.forEach(req => handleApprovePayout(req._id));
+              }
+            }}
+            style={{
+              padding: '4px 14px',
+              background: '#f59e0b',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600
+            }}
+          >
+            Approve All
+          </button>
+        </div>
+      )}
     </div>
   );
 }
