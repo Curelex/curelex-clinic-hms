@@ -39,6 +39,7 @@ import emergencyRoutesFactory from './routes/emergency.js';
 import taskRoutesFactory from './routes/tasks.js';
 import prescriptionRoutes from './routes/prescriptions.js';
 import medicineRoutes from './routes/medicines.js';
+import documentRoutes from './routes/documents.js'; // ── NEW: patient document uploads ──
 
 dotenv.config();
 
@@ -159,6 +160,7 @@ app.use('/api/files', fileRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medicines', medicineRoutes);
+app.use('/api/documents', documentRoutes); // ── NEW ──
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

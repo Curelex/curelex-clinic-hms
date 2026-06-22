@@ -104,6 +104,9 @@ export default function PatientPrescriptions() {
             <div className="pd-nav-item active" onClick={() => setSidebarOpen(false)}>
               <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
             </div>
+            <div className="pd-nav-item" onClick={() => goTo('/patient-documents')}>
+              <i className="fas fa-folder-open"></i> My Documents
+            </div>
             <div className="pd-nav-item" onClick={() => goTo('/patient-profile')}>
               <i className="fas fa-user-circle"></i> Profile
             </div>

@@ -21,6 +21,14 @@ function computeDays(admissionDate, dischargeDate) {
   return diff || 1;
 }
 
+// Default room config, shared by both seed-fallback paths below.
+const ROOM_DEFAULTS = {
+  'General Ward': { dailyRate: 800,  totalRooms: 5 },
+  'Semi-Private': { dailyRate: 1500, totalRooms: 4 },
+  'Private Room': { dailyRate: 2500, totalRooms: 3 },
+  'ICU':          { dailyRate: 4000, totalRooms: 4 },
+};
+
 // ── GET /api/admissions  — list (with filters, clinic-scoped) ─────────────
 router.get('/', auth, async (req, res) => {
   try {
@@ -61,19 +69,23 @@ router.get('/active', auth, async (req, res) => {
 });
 
 // ── GET /api/admissions/config/room-types  — dynamic room config ──────────
+// FIX: previously this only used defaults when configs.length === 0. Once a
+// single ClinicRoomConfig doc exists for the clinic (e.g. only "Semi-Private"
+// after an admit), the other room types would silently disappear from the
+// response. Now we merge: for each known room type, use the DB doc if it
+// exists, otherwise fall back to that type's default — so all 4 types
+// always appear, and any type that already has real DB data shows correctly.
 router.get('/config/room-types', auth, async (req, res) => {
   try {
-    const clinicId = req.user.clinicId || 'default';
-    let configs    = await ClinicRoomConfig.find({ clinicId });
+    const clinicId  = req.user.clinicId || 'default';
+    const dbConfigs = await ClinicRoomConfig.find({ clinicId });
 
-    if (configs.length === 0) {
-      configs = [
-        { roomType: 'General Ward', dailyRate: 800,  totalRooms: 5, availableRooms: 5 },
-        { roomType: 'Semi-Private', dailyRate: 1500, totalRooms: 4, availableRooms: 4 },
-        { roomType: 'Private Room', dailyRate: 2500, totalRooms: 3, availableRooms: 3 },
-        { roomType: 'ICU',          dailyRate: 4000, totalRooms: 4, availableRooms: 4 },
-      ];
-    }
+    const configs = Object.keys(ROOM_DEFAULTS).map(roomType => {
+      const existing = dbConfigs.find(c => c.roomType === roomType);
+      if (existing) return existing;
+      const def = ROOM_DEFAULTS[roomType];
+      return { roomType, dailyRate: def.dailyRate, totalRooms: def.totalRooms, availableRooms: def.totalRooms };
+    });
 
     res.json(configs);
   } catch (err) {
@@ -98,6 +110,15 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // ── POST /api/admissions  — admit a patient ───────────────────────────────
+// FIX: roomConfig is now actually created in the DB (upsert) the first time
+// a given roomType is used for a clinic, so the later $inc decrement has a
+// real document to update. Previously, if no ClinicRoomConfig doc existed,
+// the in-memory fallback object was used only for the availableRooms <= 0
+// check, then `ClinicRoomConfig.updateOne(...)` (no upsert) matched ZERO
+// documents and silently did nothing — so availableRooms in the DB never
+// changed, and the room-types/room-settings endpoints kept returning the
+// same untouched hardcoded defaults forever (100% free, regardless of
+// admissions).
 router.post('/', auth, async (req, res) => {
   try {
     const clinicId = req.user.clinicId || 'default';
@@ -113,20 +134,25 @@ router.post('/', auth, async (req, res) => {
     const existing = await Admission.findOne({ patient: patientId, status: 'Admitted', clinicId });
     if (existing) return res.status(400).json({ message: 'Patient is already admitted' });
 
-    // Get room config for this clinic
-    let roomConfig = await ClinicRoomConfig.findOne({ clinicId, roomType });
+    const finalRoomType = roomType || 'General Ward';
+
+    // Get (or create) room config for this clinic + roomType.
+    // upsert ensures a real DB document exists from this point on, so the
+    // later $inc decrement always has a document to apply to.
+    let roomConfig = await ClinicRoomConfig.findOne({ clinicId, roomType: finalRoomType });
     if (!roomConfig) {
-      const defaults = {
-        'General Ward': 800,
-        'Semi-Private': 1500,
-        'Private Room': 2500,
-        'ICU':          4000,
-      };
-      roomConfig = { dailyRate: defaults[roomType] || 800, availableRooms: 5 };
+      const def = ROOM_DEFAULTS[finalRoomType] || { dailyRate: 800, totalRooms: 5 };
+      roomConfig = await ClinicRoomConfig.create({
+        clinicId,
+        roomType:       finalRoomType,
+        dailyRate:      def.dailyRate,
+        totalRooms:     def.totalRooms,
+        availableRooms: def.totalRooms, // starts full, about to be decremented below
+      });
     }
 
     if (roomConfig.availableRooms <= 0) {
-      return res.status(400).json({ message: `No ${roomType} rooms available` });
+      return res.status(400).json({ message: `No ${finalRoomType} rooms available` });
     }
 
     const admission = await Admission.create({
@@ -135,15 +161,15 @@ router.post('/', auth, async (req, res) => {
       doctor:         doctorId || undefined,
       admittedBy:     req.user.id,
       admittedByName: req.user.name,
-      roomType:       roomType || 'General Ward',
+      roomType:       finalRoomType,
       roomNumber:     roomNumber || '',
       roomRatePerDay: roomConfig.dailyRate,
       notes:          notes || '',
     });
 
-    // Decrease available rooms
+    // Decrease available rooms (document is guaranteed to exist now)
     await ClinicRoomConfig.updateOne(
-      { clinicId, roomType },
+      { clinicId, roomType: finalRoomType },
       { $inc: { availableRooms: -1 } }
     );
 

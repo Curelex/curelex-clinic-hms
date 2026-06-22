@@ -29,21 +29,36 @@ function resolveClinicId(req) {
 const hasPerm = (user, permKey) =>
   Array.isArray(user.permissions) && user.permissions.includes(permKey);
 
+// Default room config, shared by both seed-fallback paths below. Keep this
+// in sync with routes/admissions.js ROOM_DEFAULTS.
+const ROOM_DEFAULTS = {
+  'General Ward': { dailyRate: 800,  totalRooms: 5 },
+  'Semi-Private': { dailyRate: 1500, totalRooms: 4 },
+  'Private Room': { dailyRate: 2500, totalRooms: 3 },
+  'ICU':          { dailyRate: 4000, totalRooms: 4 },
+};
+
 // ── GET room config (any authenticated user) ──
+// FIX: previously this only fell back to hardcoded defaults when configs
+// had ZERO docs at all. Once a single ClinicRoomConfig doc existed for the
+// clinic (e.g. only "Semi-Private", created after an admit), the response
+// would contain ONLY that one room type — the Dashboard's Hospital Room
+// Summary table would silently drop General Ward / Private Room / ICU.
+// Now we merge per-type: each known room type uses its real DB doc if one
+// exists, otherwise its default — so all room types always show up, and
+// any type with live data (e.g. decremented availableRooms after an admit)
+// reflects correctly.
 router.get('/', auth, async (req, res) => {
   try {
-    const clinicId = resolveClinicId(req);
-    const configs  = await ClinicRoomConfig.find({ clinicId });
+    const clinicId  = resolveClinicId(req);
+    const dbConfigs = await ClinicRoomConfig.find({ clinicId });
 
-    if (configs.length === 0) {
-      const defaults = [
-        { roomType: 'General Ward', dailyRate: 800,  totalRooms: 5, availableRooms: 5 },
-        { roomType: 'Semi-Private', dailyRate: 1500, totalRooms: 4, availableRooms: 4 },
-        { roomType: 'Private Room', dailyRate: 2500, totalRooms: 3, availableRooms: 3 },
-        { roomType: 'ICU',          dailyRate: 4000, totalRooms: 4, availableRooms: 4 },
-      ];
-      return res.json(defaults);
-    }
+    const configs = Object.keys(ROOM_DEFAULTS).map(roomType => {
+      const existing = dbConfigs.find(c => c.roomType === roomType);
+      if (existing) return existing;
+      const def = ROOM_DEFAULTS[roomType];
+      return { roomType, dailyRate: def.dailyRate, totalRooms: def.totalRooms, availableRooms: def.totalRooms };
+    });
 
     res.json(configs);
   } catch (err) {

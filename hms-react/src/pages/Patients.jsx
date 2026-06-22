@@ -204,12 +204,15 @@ export default function Patients() {
 
   const skipToken = () => { setTokenModal(false); setNewPatient(null); setTokenDoctorId(''); };
 
+  // ── FIX: was navigate('/ipd') — IPD is nested under /dashboard,
+  // so the real route is /dashboard/ipd. Navigating to '/ipd' didn't
+  // match any route and fell through to the catch-all -> Navigate to "/" .
   const handleQuickAdmit = (p) => {
     sessionStorage.setItem('ipd_admit_patient', JSON.stringify({
       _id: p._id, name: p.name, patientId: p.patientId,
       phone: p.phone, assignedDoctor: p.assignedDoctor?._id || p.assignedDoctor || '',
     }));
-    navigate('/ipd');
+    navigate('/dashboard/ipd');
   };
 
   const handleEdit = (p) => {
@@ -446,7 +449,7 @@ export default function Patients() {
                           {canAdmit && isAdmitted && (
                             <button className="btn btn-sm"
                               style={{ background: '#92400e', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-                              onClick={() => navigate('/ipd')}>View IPD</button>
+                              onClick={() => navigate('/dashboard/ipd')}>View IPD</button>
                           )}
                           <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p._id)}>Del</button>
                         </div>
@@ -666,7 +669,7 @@ export default function Patients() {
               </div>
               {admittedIds.has(String(viewPatient._id)) && canAdmit && (
                 <div style={{ marginTop: 16 }}>
-                  <button className="btn btn-primary" onClick={() => { setViewPatient(null); navigate('/ipd'); }}>
+                  <button className="btn btn-primary" onClick={() => { setViewPatient(null); navigate('/dashboard/ipd'); }}>
                     🏥 Go to IPD — View Admission Details
                   </button>
                 </div>

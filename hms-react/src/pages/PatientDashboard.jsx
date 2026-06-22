@@ -200,6 +200,10 @@ export default function PatientDashboard() {
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-prescriptions')}>
                     <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
                   </button>
+                  {/* ── NEW: Documents link ── */}
+                  <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-documents')}>
+                    <i className="fas fa-folder-open"></i> My Documents
+                  </button>
                   <div className="pd-user-dropdown__divider" />
                   <button className="pd-user-dropdown__item pd-user-dropdown__item--danger" onClick={handleLogout}>
                     <i className="fas fa-sign-out-alt"></i> Logout
@@ -244,6 +248,10 @@ export default function PatientDashboard() {
             {/* ✅ Prescriptions sidebar link */}
             <div className="pd-nav-item" onClick={() => goTo('/patient-prescriptions')}>
               <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
+            </div>
+            {/* ── NEW: My Documents sidebar link ── */}
+            <div className="pd-nav-item" onClick={() => goTo('/patient-documents')}>
+              <i className="fas fa-folder-open"></i> My Documents
             </div>
             <div className="pd-nav-item" onClick={() => goTo('/patient-profile')}>
               <i className="fas fa-user-circle"></i> Profile
@@ -441,6 +449,7 @@ export default function PatientDashboard() {
                 { icon: 'fa-user-md',     label: 'Find Doctors',       color: '#00b386', action: () => alert('Find doctors coming soon!') },
                 { icon: 'fa-flask',       label: 'Lab Tests',          color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
                 { icon: 'fa-prescription-bottle-alt', label: 'View Prescriptions', color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
+                { icon: 'fa-folder-open', label: 'My Documents', color: '#0f4c81', action: () => navigate('/patient-documents') },
                 { icon: 'fa-comment-dots',label: 'Feedback',           color: '#7c3aed', action: () => alert('Feedback coming soon!') },
               ].map(item => (
                 <button

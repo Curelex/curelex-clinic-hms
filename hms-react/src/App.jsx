@@ -29,6 +29,7 @@ import TaskAllocation from './pages/TaskAllocation';
 import About from './pages/About';
 import DoctorPrescriptions from './pages/DoctorPrescriptions';
 import PatientPrescriptions from './pages/PatientPrescriptions';
+import PatientDocuments from './pages/PatientDocuments'; // ── NEW ──
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
@@ -200,6 +201,16 @@ function App() {
     </PatientRoute>
   }
 />
+
+          {/* ── NEW: Patient Documents ─────────────────────────── */}
+          <Route
+            path="/patient-documents"
+            element={
+              <PatientRoute>
+                <PatientDocuments />
+              </PatientRoute>
+            }
+          />
 
           {/* ── Catch all ────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" />} />

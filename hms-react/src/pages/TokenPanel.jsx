@@ -4,6 +4,7 @@ import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import TokenActionButtons from '../components/TokenActionButtons';
 import PatientHistoryModal from '../components/PatientHistoryModal';
+import PatientDocumentsModal from '../components/PatientDocumentsModal'; // ── NEW ──
 
 // ── Helpers ──────────────────────────────────────────────────────
 function daysUntil(dateStr) {
@@ -210,6 +211,7 @@ export default function TokenPanel() {
   const [summary,  setSummary]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [historyPatient, setHistoryPatient] = useState(null);
+  const [docsToken, setDocsToken] = useState(null); // ── NEW: token whose documents are being viewed ──
 
   const [filterDoc,    setFilterDoc]    = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -340,6 +342,11 @@ export default function TokenPanel() {
   const waitingCount = tokens.filter(t => t.status === 'Waiting').length;
 
   const canUpdate = ['admin', 'doctor', 'receptionist'].includes(user?.role);
+
+  // ── NEW: resolve the patient _id from a token row, handling both
+  // populated-object and raw-id shapes ──
+  const getPatientIdFromToken = (t) =>
+    typeof t.patient === 'object' && t.patient !== null ? t.patient._id : t.patient;
 
   return (
     <div>
@@ -624,6 +631,19 @@ export default function TokenPanel() {
                               {t.symptoms.length > 40 ? t.symptoms.slice(0, 40) + '…' : t.symptoms}
                             </div>
                           )}
+                          {/* ── NEW: Docs button ── */}
+                          {getPatientIdFromToken(t) && (
+                            <button
+                              onClick={() => setDocsToken(t)}
+                              style={{
+                                marginTop: 4, fontSize: 11, fontWeight: 600, color: '#0f4c81',
+                                background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6,
+                                padding: '2px 8px', cursor: 'pointer',
+                              }}
+                            >
+                              📁 Docs
+                            </button>
+                          )}
                         </td>
                         <td style={{ padding: '12px 14px', fontSize: 13 }}>
                           Dr. {t.doctor?.name || '—'}
@@ -692,6 +712,16 @@ export default function TokenPanel() {
 
       {historyPatient && (
         <PatientHistoryModal patient={historyPatient} onClose={() => setHistoryPatient(null)} />
+      )}
+
+      {/* ── NEW: Patient Documents Modal ── */}
+      {docsToken && (
+        <PatientDocumentsModal
+          patientId={getPatientIdFromToken(docsToken)}
+          patientName={docsToken.patientName || docsToken.patient?.name || 'Patient'}
+          visitDate={docsToken.createdAt}
+          onClose={() => setDocsToken(null)}
+        />
       )}
     </div>
   );
