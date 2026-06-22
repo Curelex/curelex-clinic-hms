@@ -61,7 +61,9 @@ const UserSchema = new mongoose.Schema({
 UserSchema.index({ email: 1, clinicId: 1 }, { unique: true });
 
 UserSchema.pre('save', async function (next) {
+  // Only hash if password was explicitly modified AND is not already a bcrypt hash
   if (!this.isModified('password')) return next();
+  if (this.password?.startsWith('$2')) return next(); // already hashed, skip
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });

@@ -38,6 +38,10 @@ const NAV_SECTIONS = [
       { path: '/dashboard/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
     ],
   },
+];
+
+// ── DOCTOR SECTION - Only shown to doctors ──
+const DOCTOR_SECTIONS = [
   {
     section: 'DOCTOR',
     items: [
@@ -65,6 +69,10 @@ export default function Layout() {
   // ── Grab the raw singleton socket once — never changes identity ──
   const { socket: rawSocket } = useSocket();
   const socketRef = useRef(rawSocket);
+
+  // ── Determine user role ──
+  const isDoctor = user?.role?.toLowerCase() === 'doctor';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   // ── Stable fetch — identity only changes on login/logout ──────
   const fetchData = useCallback(async () => {
@@ -144,11 +152,21 @@ export default function Layout() {
     label: user?.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.15)',
   };
 
-  // Filter nav by permission — hasPerm() handles admin (always true)
+  // ── Filter nav by permission ──
+  // Hide telemedicine from admin
   const visibleSections = NAV_SECTIONS.map(section => ({
     ...section,
-    items: section.items.filter(item => hasPerm(item.perm)),
+    items: section.items.filter(item => {
+      // ── Hide telemedicine from admin ──
+      if (item.perm === 'telemedicine' && isAdmin) return false;
+      return hasPerm(item.perm);
+    }),
   })).filter(s => s.items.length > 0);
+
+  // ── Add DOCTOR section only for doctors ──
+  const finalSections = isDoctor 
+    ? [...visibleSections, ...DOCTOR_SECTIONS]
+    : visibleSections;
 
   return (
     <div
@@ -264,7 +282,7 @@ export default function Layout() {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '6px 0' }}>
-          {visibleSections.map(({ section, items }) => (
+          {finalSections.map(({ section, items }) => (
             <div key={section}>
               <div style={{
                 padding: '10px 20px 4px', fontSize: 10,

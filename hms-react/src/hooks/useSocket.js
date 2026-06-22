@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
 // ── Singleton socket — created once, lives for the app lifetime ──────────────
-// Defined outside the hook so it survives component remounts.
 let socketInstance = null;
 
 function getSocket() {
@@ -23,9 +22,19 @@ function getSocket() {
   return socketInstance;
 }
 
+// ── FIX: Export a reset helper so AuthContext can force the socket to
+//    disconnect and reconnect after login/logout (clears stale room state
+//    on the server when the DB is wiped and new user IDs are issued). ────────
+export function resetSocket() {
+  if (socketInstance) {
+    socketInstance.removeAllListeners();
+    socketInstance.disconnect();
+    socketInstance = null;
+  }
+  return getSocket(); // creates a fresh connected instance
+}
+
 export const useSocket = () => {
-  // Initialise from actual socket state so components that mount after
-  // the socket is already connected get true immediately (no flicker).
   const socket = getSocket();
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [connectionError, setConnectionError] = useState(null);
@@ -55,12 +64,11 @@ export const useSocket = () => {
     s.on('connect_error', onConnectError);
 
     return () => {
-      // Never disconnect — just remove this component's status listeners.
       s.off('connect', onConnect);
       s.off('disconnect', onDisconnect);
       s.off('connect_error', onConnectError);
     };
-  }, []); // empty — socket singleton never changes
+  }, []);
 
   const emit = useCallback((event, data, callback) => {
     const s = getSocket();
@@ -68,7 +76,7 @@ export const useSocket = () => {
       if (callback) s.emit(event, data, callback);
       else s.emit(event, data);
     } else {
-      console.warn(`Cannot emit ${event} — socket not connected`);
+      console.warn(`⚠️ Cannot emit "${event}" — socket not connected`);
     }
   }, []);
 

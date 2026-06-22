@@ -1,8 +1,9 @@
 // hms-react/src/pages/DoctorTelemedicine.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import { useSocket } from '../hooks/useSocket';
 
 const STATUS_COLORS = {
   requested: { bg: '#fef3c7', color: '#92400e', label: '⏳ Requested' },
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
 };
 
 export default function DoctorTelemedicine() {
-  const { user, isConnected, doctorStatus, setDoctorOnline, emit, on, off } = useAuth();
+  const { user, socket, isConnected, doctorStatus, setDoctorOnline, emit, on, off } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -32,14 +33,15 @@ export default function DoctorTelemedicine() {
   const [statusAlert, setStatusAlert] = useState(null);
 
   const doctorId = user?._id || user?.id;
-  const wentOnlineRef = useRef(false);
 
   // ── Socket: Listen for events ──
   useEffect(() => {
-    if (!isConnected) {
-      wentOnlineRef.current = false;
-      return;
-    }
+    if (!isConnected) return;
+
+    // FIX: Always re-register as online whenever socket connects/reconnects.
+    // The old wentOnlineRef guard silently blocked re-registration after a
+    // DB wipe (new _id = server has no record of this doctor).
+    setDoctorOnline('online');
 
     const handleNewRequest = (data) => {
       setNewRequestAlert(data);
@@ -53,6 +55,7 @@ export default function DoctorTelemedicine() {
       loadRequests();
       loadStats();
     };
+    
 
     const handlePaymentReceived = (data) => {
       console.log('💳 Payment received:', data);
@@ -92,11 +95,6 @@ export default function DoctorTelemedicine() {
     on('telemedicine:payout-requested', handlePayoutRequested);
     on('telemedicine:payout-approved', handlePayoutApproved);
 
-    if (!wentOnlineRef.current) {
-      wentOnlineRef.current = true;
-      setDoctorOnline('online');
-    }
-
     return () => {
       off('telemedicine:new-request', handleNewRequest);
       off('telemedicine:status-update', handleStatusUpdate);
@@ -105,6 +103,13 @@ export default function DoctorTelemedicine() {
       off('telemedicine:payout-approved', handlePayoutApproved);
     };
   }, [isConnected]);
+  useEffect(() => {
+  console.log('🔍 DoctorTelemedicine Mounted:');
+  console.log('  - isConnected:', isConnected);
+  console.log('  - doctorId:', doctorId);
+  console.log('  - user:', user);
+  console.log('  - socket exists:', !!socket);
+}, []);
 
   // ── Load data ──
   useEffect(() => {

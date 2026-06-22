@@ -10,10 +10,9 @@ import { useNavigate } from 'react-router-dom';
 const socket = io('/', { path: '/socket.io' });
 
 // ── Resolve clinicId from stored JWT / user object ───────────────────────────
-// Adjust the localStorage key / shape to match your app's auth storage.
 function getClinicId() {
   try {
-    const raw = localStorage.getItem('user');        // change key if needed
+    const raw = localStorage.getItem('user');
     if (!raw) return 'default';
     const parsed = JSON.parse(raw);
     return (
@@ -258,6 +257,9 @@ export default function Dashboard() {
   const { user, hasPerm } = useAuth();
   const navigate = useNavigate();
 
+  const isDoctor = user?.role?.toLowerCase() === 'doctor';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
   // ── Fetch dashboard stats ─────────────────────────────────────────────────
   useEffect(() => {
     API.get(`/dashboard/stats?clinicId=${clinicId}`)
@@ -319,7 +321,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      {user?.role === 'doctor' && <DoctorEmergencyAlerts />}
+      {isDoctor && <DoctorEmergencyAlerts />}
       {/* ── Page header ── */}
       <div className="page-header">
         <div>
@@ -370,19 +372,19 @@ export default function Dashboard() {
         )}
       </div>
 
-{user?.role === 'doctor' && (
-  <>
-    <DoctorTelemedicineQuickStats />
-    <DoctorEarningsWidget />
-  </>
-)}
+      {/* ── Doctor sections - Only show for DOCTORS ── */}
+      {isDoctor && (
+        <>
+          <DoctorTelemedicineQuickStats />
+          <DoctorEarningsWidget />
+        </>
+      )}
 
+      {/* ── Pharmacist section ── */}
       {user?.role === 'pharmacist' && (
         <div>
-
           <div className="card" style={{ marginBottom: 20 }}>
             <h3 style={{ marginBottom: 16 }}>📊 Today's Overview</h3>
-
             <div
               style={{
                 display: 'grid',
@@ -403,29 +405,12 @@ export default function Dashboard() {
                     height: '100%',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Total Medicines
-                  </span>
-
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: 32,
-                      fontWeight: 700,
-                      color: '#0f4c81',
-                    }}
-                  >
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>Total Medicines</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 32, fontWeight: 700, color: '#0f4c81' }}>
                     {stats.totalMeds || 0}
                   </span>
                 </div>
               </div>
-
-
               <div className="stat-card">
                 <div
                   style={{
@@ -436,23 +421,8 @@ export default function Dashboard() {
                     height: '100%',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Low Stock
-                  </span>
-
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: 32,
-                      fontWeight: 700,
-                      color: '#f59e0b',
-                    }}
-                  >
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>Low Stock</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 32, fontWeight: 700, color: '#f59e0b' }}>
                     {stats.lowStockItems || 0}
                   </span>
                 </div>
@@ -467,28 +437,12 @@ export default function Dashboard() {
                     height: '100%',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Out of Stock
-                  </span>
-
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: 32,
-                      fontWeight: 700,
-                      color: '#ef4444',
-                    }}
-                  >
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>Out of Stock</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 32, fontWeight: 700, color: '#ef4444' }}>
                     {stats.outOfStock || 0}
                   </span>
                 </div>
               </div>
-
               <div className="stat-card">
                 <div
                   style={{
@@ -499,23 +453,8 @@ export default function Dashboard() {
                     height: '100%',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Pending Orders
-                  </span>
-
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: 32,
-                      fontWeight: 700,
-                      color: '#0f4c81',
-                    }}
-                  >
+                  <span style={{ fontSize: 18, fontWeight: 600 }}>Pending Orders</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 32, fontWeight: 700, color: '#0f4c81' }}>
                     {stats.pendingOrders || 0}
                   </span>
                 </div>
@@ -525,10 +464,7 @@ export default function Dashboard() {
 
           {/* ── Recent Activity ── */}
           <div className="card" style={{ marginBottom: 20 }}>
-            <h3 style={{ marginBottom: 16 }}>
-              🕒 Recent Inventory Activity
-            </h3>
-
+            <h3 style={{ marginBottom: 16 }}>🕒 Recent Inventory Activity</h3>
             {stats?.lowStockMeds
               ?.filter((item) => item.category === 'Medicine')
               ?.slice(0, 5)
@@ -545,28 +481,13 @@ export default function Dashboard() {
                 >
                   <div>
                     <strong>💊 {item.name}</strong>
-
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: '#64748b',
-                        marginTop: 4,
-                      }}
-                    >
+                    <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
                       📦 Available Units: {item.quantity}
                     </div>
-
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: '#94a3b8',
-                        marginTop: 4,
-                      }}
-                    >
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
                       🕒 Updated: {new Date(item.updatedAt).toLocaleDateString()}
                     </div>
                   </div>
-
                   <span
                     style={{
                       padding: '6px 12px',
@@ -594,7 +515,10 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      {user?.role === 'admin' && <AdminPayoutManagement />}
+
+      {/* ── Admin Payout Management - Only show for ADMIN ── */}
+      {isAdmin && <AdminPayoutManagement />}
+
       {/* ── Room summary ── */}
       {showRoomSummary && <RoomSummary clinicId={clinicId} />}
 
@@ -746,8 +670,7 @@ export default function Dashboard() {
   );
 }
 
-// components/DoctorEmergencyAlerts.jsx - NEW COMPONENT
-
+// ── DoctorEmergencyAlerts Component ──────────────────────────────────────────
 function DoctorEmergencyAlerts() {
   const { user } = useAuth();
   const [alerts, setAlerts] = useState([]);
@@ -756,15 +679,12 @@ function DoctorEmergencyAlerts() {
   useEffect(() => {
     if (user?.role !== 'doctor') return;
 
-    // Join doctor's room
     socket.emit('doctor:join', user._id);
 
-    // Listen for emergency assignments
     socket.on('emergencyAssigned', (notification) => {
       setAlerts(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
 
-      // Browser notification
       if (Notification.permission === 'granted') {
         new Notification(notification.message, {
           body: `${notification.patientName} - ${notification.chiefComplaint}`,
@@ -838,6 +758,7 @@ function DoctorEmergencyAlerts() {
   );
 }
 
+// ── DoctorEarningsWidget ──────────────────────────────────────────────────────
 function DoctorEarningsWidget() {
   const { user } = useAuth();
   const [earnings, setEarnings] = useState({
@@ -871,17 +792,9 @@ function DoctorEarningsWidget() {
     if (user?.role !== 'doctor') return;
     loadEarnings();
 
-    // ── FIX: Re-fetch earnings when admin approves a payout ──
-    // The socket emits 'telemedicine:payout-approved' to doctor_<doctorId>
-    // when approvePayout runs, so we refresh here to clear the pending banner.
-    const handlePayoutApproved = () => {
-      loadEarnings();
-    };
-
-    socket.on('telemedicine:payout-approved', handlePayoutApproved);
-
+    socket.on('telemedicine:payout-approved', loadEarnings);
     return () => {
-      socket.off('telemedicine:payout-approved', handlePayoutApproved);
+      socket.off('telemedicine:payout-approved', loadEarnings);
     };
   }, [user]);
 
@@ -912,7 +825,7 @@ function DoctorEarningsWidget() {
             className="btn btn-sm btn-outline"
             style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: '1px solid #0f4c81', background: 'transparent', color: '#0f4c81', cursor: 'pointer' }}
           >
-            🏦 Bank Details
+            Bank Details
           </button>
         </div>
       </div>
@@ -940,7 +853,6 @@ function DoctorEarningsWidget() {
         </div>
       </div>
 
-      {/* ── FIX: Only show pending banner when there are actually pending payouts ── */}
       {earnings.pending > 0 && (
         <div style={{
           marginTop: 12,
@@ -975,7 +887,6 @@ function DoctorEarningsWidget() {
         </div>
       )}
 
-      {/* ── FIX: Show confirmation banner when all payouts are completed ── */}
       {earnings.pending === 0 && earnings.completed > 0 && (
         <div style={{
           marginTop: 12,
@@ -996,7 +907,7 @@ function DoctorEarningsWidget() {
   );
 }
 
-// ── Add Doctor Quick Stats component ──
+// ── DoctorTelemedicineQuickStats ─────────────────────────────────────────────
 function DoctorTelemedicineQuickStats() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ total: 0, pending: 0, ongoing: 0 });
@@ -1039,8 +950,9 @@ function DoctorTelemedicineQuickStats() {
   );
 }
 
+// ── AdminPayoutManagement ─────────────────────────────────────────────────────
 function AdminPayoutManagement() {
-  const { user, hasPerm } = useAuth();
+  const { user } = useAuth();
   const [pendingPayouts, setPendingPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -1052,7 +964,6 @@ function AdminPayoutManagement() {
   useEffect(() => {
     loadPendingPayouts();
 
-    // Listen for new payout requests via socket
     socket.on('telemedicine:payout-requested', () => {
       loadPendingPayouts();
     });
@@ -1089,7 +1000,6 @@ function AdminPayoutManagement() {
       
       if (data.success) {
         alert('✅ Payout approved successfully!');
-        // ── FIX: Refresh the list immediately after approval so it disappears ──
         loadPendingPayouts();
       }
     } catch (err) {

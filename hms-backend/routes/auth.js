@@ -316,7 +316,7 @@ router.get('/users', auth, roleCheck('admin'), async (req, res) => {
 // ── Create Staff (admin only) ─────────────────────────────────────────────
 router.post('/users', auth, roleCheck('admin'), async (req, res) => {
   try {
-    const { name, email, password, role, department, phone, permissions } = req.body;
+    const { name, email, password, role, department, phone, permissions, consultationFee } = req.body;
 
     if (!password) return res.status(400).json({ message: 'Password is required' });
 
@@ -327,6 +327,9 @@ router.post('/users', auth, roleCheck('admin'), async (req, res) => {
       name, email, password, role,
       department, phone, permissions,
       clinicId: req.user.clinicId,
+      ...(role === 'doctor' && consultationFee !== undefined && consultationFee !== ''
+        ? { consultationFee: Number(consultationFee) }
+        : {}),
     });
 
     const { password: _, ...userOut } = user.toObject();
@@ -340,7 +343,10 @@ router.post('/users', auth, roleCheck('admin'), async (req, res) => {
 // ── Update Staff (admin only) ─────────────────────────────────────────────
 router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
+    // Destructure password separately — never let Object.assign touch it
+    // or the pre-save hook will re-hash an already-hashed value
     const { password, ...fields } = req.body;
+    delete fields.password; // belt-and-suspenders in case it leaked into fields
 
     const user = await User.findOne({ _id: req.params.id, clinicId: req.user.clinicId });
     if (!user) return res.status(404).json({ message: 'Staff member not found' });
@@ -350,7 +356,15 @@ router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
       if (conflict) return res.status(400).json({ message: 'Email already in use in this clinic' });
     }
 
+    // Cast consultationFee to a proper Number before assigning
+    if (fields.consultationFee !== undefined && fields.consultationFee !== '') {
+      fields.consultationFee = Number(fields.consultationFee);
+    }
+
     Object.assign(user, fields);
+
+    // Only set a new password when one was explicitly provided;
+    // this is the ONLY time the pre-save hook should run the hash
     if (password) user.password = password;
 
     await user.save();

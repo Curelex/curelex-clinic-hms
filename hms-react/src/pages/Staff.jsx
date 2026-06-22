@@ -17,7 +17,7 @@ const ALL_MODULES = [
 ];
 
 const ROLE_DEFAULTS = {
-  admin:          ALL_MODULES.map(m => m.key),
+  admin:          ['dashboard', 'patients', 'ipd', 'billing', 'prescriptions', 'pharmacy', 'lab', 'inventory', 'room-settings', 'staff'],
   doctor:         ['dashboard', 'patients', 'ipd', 'prescriptions', 'lab', 'telemedicine'],
   nurse:          ['dashboard', 'patients', 'ipd', 'lab'],
   receptionist:   ['dashboard', 'patients', 'ipd', 'billing', 'room-settings'],
@@ -619,7 +619,7 @@ export default function Staff() {
                         step="1"
                         placeholder="e.g. 500"
                         value={form.consultationFee}
-                        onChange={e => setForm({ ...form, consultationFee: e.target.value })}
+                        onChange={e => setForm({ ...form, consultationFee: e.target.value === '' ? '' : Number(e.target.value) })}
                         style={{ paddingLeft: 28 }}
                       />
                     </div>

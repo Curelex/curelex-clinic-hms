@@ -44,14 +44,18 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    const { name, email, password, role, phone, department } = req.body;
+    const { name, email, password, role, phone, department, consultationFee, permissions } = req.body;
 
     // Scope duplicate check to this clinic — two clinics may share an email
     const exists = await User.findOne({ email, clinicId });
     if (exists) return res.status(400).json({ message: 'Email already registered' });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user   = new User({ clinicId, name, email, password: hashed, role, phone, department });
+    const user   = new User({
+      clinicId, name, email, password: hashed, role, phone, department,
+      ...(role === 'doctor' && consultationFee !== undefined && { consultationFee: Number(consultationFee) }),
+      ...(permissions?.length && { permissions }),
+    });
     await user.save();
 
     const { password: _, ...userOut } = user.toObject();
