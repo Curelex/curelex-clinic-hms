@@ -1,4 +1,5 @@
 // hms-react/src/pages/PatientTelemedicine.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
 };
 
 export default function PatientTelemedicine() {
-  const { user, patient, logout, isPatient } = useAuth();
+  const { user, patient, logout, isPatient, isConnected, isDoctorOnline, onlineDoctors, emit, on, off } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,10 +34,73 @@ export default function PatientTelemedicine() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [statusUpdate, setStatusUpdate] = useState(null);
+  const [meetingStarted, setMeetingStarted] = useState(null);
 
-  const patientId = patient?._id || patient?.id || user?.id || user?._id;
+  const patientId = patient?._id || patient?.id || user?._id || user?.id;
   const patientName = patient?.name || user?.name || 'Patient';
   const patientEmail = patient?.email || user?.email || 'Patient';
+  const clinicId = patient?.clinicId || user?.clinicId;
+
+  // ── Socket: Listen for real-time updates ──
+  useEffect(() => {
+    if (!isConnected) return;
+
+    console.log('🔄 Setting up socket listeners for patient');
+
+    // Listen for status updates
+    const handleStatusUpdate = (data) => {
+      console.log('📊 Status update received:', data);
+      setStatusUpdate({
+        type: data.status,
+        message: data.message || `Status updated to ${data.status}`,
+        requestId: data.requestId
+      });
+      loadRequests();
+      setTimeout(() => setStatusUpdate(null), 5000);
+    };
+
+    // Listen for meeting started
+    const handleMeetingStarted = (data) => {
+      console.log('🎥 Meeting started:', data);
+      setMeetingStarted(data);
+      setStatusUpdate({
+        type: 'meeting_started',
+        message: `🔴 Dr. ${data.doctorName || 'Doctor'} has started the meeting!`,
+        meetingLink: data.meetingLink
+      });
+      
+      // Auto-open meeting link in new tab
+      if (data.meetingLink) {
+        const openMeeting = confirm('🟢 The doctor has started the meeting. Click OK to join now.');
+        if (openMeeting) {
+          window.open(data.meetingLink, '_blank');
+        }
+      }
+    };
+
+    // Listen for meeting ended
+    const handleMeetingEnded = (data) => {
+      console.log('📹 Meeting ended:', data);
+      setStatusUpdate({
+        type: 'meeting_ended',
+        message: `✅ Meeting ended. Duration: ${data.duration || 0} minutes`,
+        duration: data.duration
+      });
+      loadRequests();
+      setTimeout(() => setStatusUpdate(null), 5000);
+    };
+
+    on('telemedicine:status-update', handleStatusUpdate);
+    on('telemedicine:meeting-started', handleMeetingStarted);
+    on('telemedicine:meeting-ended', handleMeetingEnded);
+
+    return () => {
+      off('telemedicine:status-update', handleStatusUpdate);
+      off('telemedicine:meeting-started', handleMeetingStarted);
+      off('telemedicine:meeting-ended', handleMeetingEnded);
+    };
+  }, [isConnected, on, off]);
 
   useEffect(() => {
     if (!user) { navigate('/patient-login'); return; }
@@ -60,43 +124,12 @@ export default function PatientTelemedicine() {
 
   const loadDoctors = async () => {
     try {
-      // ✅ Try the new available-doctors endpoint first
       const { data } = await API.get('/auth/available-doctors');
       if (data.success) {
         setDoctors(data.doctors || []);
-        return;
       }
     } catch (err) {
-      console.error('Failed to load doctors from /auth/available-doctors:', err);
-      
-      // ✅ Fallback: try to get doctors from clinic
-      try {
-        const clinicId = patient?.clinicId || user?.clinicId;
-        if (clinicId) {
-          const { data } = await API.get(`/patient-portal/doctors/${clinicId}`);
-          if (data.success) {
-            setDoctors(data.doctors || []);
-            return;
-          }
-        }
-      } catch (fallbackErr) {
-        console.error('Fallback failed:', fallbackErr);
-      }
-      
-      // ✅ Second fallback: try /users endpoint with different approach
-      try {
-        // Try to get doctors from the clinic users
-        const clinicId = patient?.clinicId || user?.clinicId;
-        if (clinicId) {
-          const { data } = await API.get(`/clinics/${clinicId}/doctors`);
-          if (data.success) {
-            setDoctors(data.doctors || []);
-          }
-        }
-      } catch (secondFallbackErr) {
-        console.error('Second fallback failed:', secondFallbackErr);
-        setDoctors([]);
-      }
+      console.error('Failed to load doctors:', err);
     }
   };
 
@@ -112,16 +145,32 @@ export default function PatientTelemedicine() {
     }
 
     try {
-      await API.post('/telemedicine/request', {
+      const response = await API.post('/telemedicine/request', {
         patientId,
         doctorId: form.doctorId,
         symptoms: form.symptoms,
         preferredTime: form.preferredTime || null,
         urgency: form.urgency,
       });
+
+      // ── Emit socket event for real-time notification ──
+      if (isConnected) {
+        const selectedDoctor = doctors.find(d => d._id === form.doctorId);
+        emit('telemedicine:request-sent', {
+          doctorId: form.doctorId,
+          patientId,
+          requestId: response.data.telemedicine._id,
+          patientName: patientName,
+          urgency: form.urgency,
+          symptoms: form.symptoms
+        });
+      }
+
       setShowRequestForm(false);
       setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
       loadRequests();
+      
+      alert('✅ Telemedicine request sent successfully! The doctor will be notified.');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send request');
     }
@@ -132,6 +181,16 @@ export default function PatientTelemedicine() {
     if (!window.confirm('Cancel this request?')) return;
     try {
       await API.patch(`/telemedicine/${id}/cancel`);
+      
+      if (isConnected) {
+        emit('telemedicine:status-update', {
+          requestId: id,
+          patientId,
+          status: 'cancelled',
+          notes: 'Cancelled by patient'
+        });
+      }
+      
       loadRequests();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to cancel');
@@ -156,12 +215,25 @@ export default function PatientTelemedicine() {
 
   return (
     <div className="pd-layout">
+      <style>{`
+        @keyframes slideDown {
+          from { transform: translateY(-20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .status-alert {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
+
       <header className="pd-topbar">
         <div className="pd-topbar__left">
           <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
             <i className="fas fa-bars"></i>
           </button>
           <span className="pd-topbar__title">🩺 Telemedicine</span>
+          <span style={{ fontSize: 12, color: '#64748b', marginLeft: 12 }}>
+            {isConnected ? '🔗 Connected' : '⚠️ Disconnected'}
+          </span>
         </div>
         <div className="pd-topbar__right">
           <div className="pd-user-menu">
@@ -176,7 +248,7 @@ export default function PatientTelemedicine() {
       <div className="pd-below-header">
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-       <PatientSidebar
+        <PatientSidebar
           activeItem="telemedicine"
           onClose={() => setSidebarOpen(false)}
           patientName={patientName}
@@ -186,6 +258,49 @@ export default function PatientTelemedicine() {
 
         <div className="pd-main">
           <main className="pd-body">
+            {/* Status Update Alert */}
+            {statusUpdate && (
+              <div className="status-alert" style={{
+                background: statusUpdate.type === 'meeting_started' ? '#dbeafe' :
+                           statusUpdate.type === 'meeting_ended' ? '#dcfce7' :
+                           statusUpdate.type === 'rejected' ? '#fee2e2' : '#fef3c7',
+                border: `1px solid ${
+                  statusUpdate.type === 'meeting_started' ? '#3b82f6' :
+                  statusUpdate.type === 'meeting_ended' ? '#22c55e' :
+                  statusUpdate.type === 'rejected' ? '#ef4444' : '#f59e0b'
+                }`,
+                borderRadius: 8,
+                padding: '12px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <strong>{statusUpdate.message}</strong>
+                </div>
+                <div>
+                  {statusUpdate.meetingLink && (
+                    <a 
+                      href={statusUpdate.meetingLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-primary"
+                      style={{ marginRight: 8 }}
+                    >
+                      🔗 Join Now
+                    </a>
+                  )}
+                  <button 
+                    className="btn btn-sm btn-ghost" 
+                    onClick={() => setStatusUpdate(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
               <div>
@@ -194,6 +309,9 @@ export default function PatientTelemedicine() {
                 </h2>
                 <p style={{ margin: '4px 0 0', color: '#6b7a99', fontSize: '14px' }}>
                   Request and join virtual consultations with your doctor
+                </p>
+                <p style={{ margin: '4px 0 0', color: '#22c55e', fontSize: '13px' }}>
+                  {onlineDoctors.length} doctor{onlineDoctors.length !== 1 ? 's' : ''} currently online
                 </p>
               </div>
               <button className="pd-btn pd-btn--primary" onClick={() => setShowRequestForm(true)}>
@@ -224,13 +342,27 @@ export default function PatientTelemedicine() {
                           required
                         >
                           <option value="">— Select Doctor —</option>
-                          {doctors.map(doc => (
-                            <option key={doc._id} value={doc._id}>
-                              Dr. {doc.name} ({doc.department || 'General'})
-                              {doc.consultationFee > 0 && ` - ₹${doc.consultationFee}`}
-                            </option>
-                          ))}
+                          {doctors.map(doc => {
+                            const isOnline = isDoctorOnline(doc._id);
+                            return (
+                              <option key={doc._id} value={doc._id}>
+                                Dr. {doc.name} ({doc.department || 'General'})
+                                {isOnline ? ' 🟢 Online' : ' 🔴 Offline'}
+                                {doc.consultationFee > 0 && ` - ₹${doc.consultationFee}`}
+                              </option>
+                            );
+                          })}
                         </select>
+                      )}
+                      {form.doctorId && isDoctorOnline(form.doctorId) && (
+                        <div style={{ marginTop: 4, fontSize: 12, color: '#22c55e' }}>
+                          ✅ This doctor is currently online
+                        </div>
+                      )}
+                      {form.doctorId && !isDoctorOnline(form.doctorId) && (
+                        <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444' }}>
+                          ⚠️ This doctor is currently offline. They will be notified when they come online.
+                        </div>
                       )}
                     </div>
                     <div className="form-group">
@@ -306,10 +438,18 @@ export default function PatientTelemedicine() {
                           const sc = STATUS_COLORS[req.status] || STATUS_COLORS.requested;
                           const isActive = ['ongoing', 'ready'].includes(req.status);
                           const isPending = ['requested', 'approved', 'scheduled'].includes(req.status);
+                          const isOnline = isDoctorOnline(req.doctorId);
                           return (
                             <tr key={req._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
                               <td style={{ padding: '12px 16px' }}>
-                                <div style={{ fontWeight: 600 }}>Dr. {req.doctorName}</div>
+                                <div style={{ fontWeight: 600 }}>
+                                  Dr. {req.doctorName}
+                                  {isOnline && req.status === 'requested' && (
+                                    <span style={{ marginLeft: 8, fontSize: 11, color: '#22c55e' }}>
+                                      🟢 Online
+                                    </span>
+                                  )}
+                                </div>
                                 <div style={{ fontSize: 12, color: '#64748b' }}>{req.doctorSpecialization}</div>
                               </td>
                               <td style={{ padding: '12px 16px', color: '#374151', maxWidth: 200 }}>
@@ -350,6 +490,11 @@ export default function PatientTelemedicine() {
                                     <span style={{ fontSize: 12, color: '#64748b' }}>
                                       Duration: {req.durationMinutes || 0} min
                                     </span>
+                                  )}
+                                  {req.status === 'ongoing' && req.meetingLink && (
+                                    <a href={req.meetingLink} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-success">
+                                      🔴 Join Now
+                                    </a>
                                   )}
                                 </div>
                               </td>

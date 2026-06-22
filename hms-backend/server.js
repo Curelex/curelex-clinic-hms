@@ -33,13 +33,12 @@ import staffWorkRoutes from './routes/staffWork.js';
 import roomRoutes from './routes/room.js';
 import patientPortalRoutes from './routes/patientPortal.js';
 import clinicRoutes from './routes/clinics.js';
-import taskRoutes from './routes/tasks.js';
 import fileRoutes from './routes/files.js';
 import emergencyRoutesFactory from './routes/emergency.js';
 import taskRoutesFactory from './routes/tasks.js';
 import prescriptionRoutes from './routes/prescriptions.js';
 import medicineRoutes from './routes/medicines.js';
-import documentRoutes from './routes/documents.js'; // ── NEW: patient document uploads ──
+import documentRoutes from './routes/documents.js';
 import telemedicineRoutes from './routes/telemedicine.js';
 
 dotenv.config();
@@ -60,6 +59,16 @@ const io = new Server(server, {
   }
 });
 
+// Make io available globally and in routes
+global.io = io;
+app.set('io', io);
+
+// Middleware to attach io to req
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
@@ -76,14 +85,208 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.error('MongoDB Error:', err));
 
-// ---------------- SOCKET ----------------
+// ---------------- SOCKET EVENTS ----------------
 io.on('connection', (socket) => {
+  console.log('🔌 New socket connection:', socket.id);
+
+  // ── Existing events ──
   socket.on('doctor:join', (doctorId) => {
-    if (doctorId) socket.join(`doctor_${doctorId}`);
+    if (doctorId) {
+      socket.join(`doctor_${doctorId}`);
+      console.log(`👨‍⚕️ Doctor ${doctorId} joined room`);
+    }
   });
 
   socket.on('staff:join', () => {
     socket.join('emergency_staff');
+    console.log('🩺 Staff joined emergency room');
+  });
+
+  // ─── TELEMEDICINE SOCKET EVENTS ───
+  
+  // Initialize doctor status storage
+  if (!global.doctorStatus) {
+    global.doctorStatus = new Map();
+  }
+  if (!global.socketToDoctor) {
+    global.socketToDoctor = new Map();
+  }
+
+  // Doctor goes online/offline
+  socket.on('doctor:status', async ({ doctorId, status, clinicId }) => {
+    if (!doctorId) return;
+    
+    global.doctorStatus.set(doctorId, {
+      status: status, // 'online' or 'offline'
+      lastSeen: new Date(),
+      clinicId: clinicId,
+      socketId: socket.id
+    });
+    
+    // Join doctor's room
+    socket.join(`doctor_${doctorId}`);
+    
+    // Store socket to doctor mapping
+    global.socketToDoctor.set(socket.id, doctorId);
+    
+    // Broadcast to patients in the same clinic
+    if (clinicId) {
+      io.to(`clinic_${clinicId}_patients`).emit('doctor:status-change', {
+        doctorId,
+        status,
+        timestamp: new Date()
+      });
+    }
+    
+    console.log(`👨‍⚕️ Doctor ${doctorId} is now ${status}`);
+  });
+
+  // Doctor registers socket
+  socket.on('doctor:register-socket', ({ doctorId }) => {
+    global.socketToDoctor.set(socket.id, doctorId);
+    console.log(`📝 Registered socket ${socket.id} to doctor ${doctorId}`);
+  });
+
+  // Patient joins clinic room for real-time updates
+  socket.on('patient:join-clinic', ({ clinicId, patientId }) => {
+    if (clinicId) {
+      socket.join(`clinic_${clinicId}_patients`);
+      console.log(`👤 Patient ${patientId} joined clinic ${clinicId} room`);
+    }
+    if (patientId) {
+      socket.join(`patient_${patientId}`);
+    }
+  });
+
+  // Get all online doctors
+  socket.on('doctor:get-online', ({ clinicId }, callback) => {
+    const onlineDoctors = [];
+    for (const [docId, data] of global.doctorStatus.entries()) {
+      if (data.status === 'online' && data.clinicId === clinicId) {
+        onlineDoctors.push({
+          doctorId: docId,
+          lastSeen: data.lastSeen,
+          status: data.status
+        });
+      }
+    }
+    
+    if (callback && typeof callback === 'function') {
+      callback(onlineDoctors);
+    } else {
+      socket.emit('doctor:online-list', { clinicId, onlineDoctors });
+    }
+  });
+
+  // Doctor typing indicator
+  socket.on('doctor:typing', ({ doctorId, patientId, isTyping }) => {
+    io.to(`patient_${patientId}`).emit('doctor:typing', {
+      doctorId,
+      isTyping,
+      timestamp: new Date()
+    });
+  });
+
+  // Patient typing indicator
+  socket.on('patient:typing', ({ patientId, doctorId, isTyping }) => {
+    io.to(`doctor_${doctorId}`).emit('patient:typing', {
+      patientId,
+      isTyping,
+      timestamp: new Date()
+    });
+  });
+
+  // Handle telemedicine request notification
+  socket.on('telemedicine:request-sent', ({ doctorId, patientId, requestId, patientName, urgency }) => {
+    // Notify the doctor
+    io.to(`doctor_${doctorId}`).emit('telemedicine:new-request', {
+      requestId,
+      patientId,
+      patientName,
+      urgency,
+      timestamp: new Date(),
+      message: `📱 New telemedicine request from ${patientName}`
+    });
+    
+    // Notify the patient that request was sent
+    io.to(`patient_${patientId}`).emit('telemedicine:request-sent', {
+      requestId,
+      doctorId,
+      status: 'requested',
+      timestamp: new Date()
+    });
+  });
+
+  // Handle telemedicine status updates
+  socket.on('telemedicine:status-update', ({ requestId, patientId, doctorId, status, notes }) => {
+    // Notify patient
+    io.to(`patient_${patientId}`).emit('telemedicine:status-update', {
+      requestId,
+      status,
+      notes,
+      timestamp: new Date()
+    });
+    
+    // Notify doctor
+    io.to(`doctor_${doctorId}`).emit('telemedicine:status-update', {
+      requestId,
+      status,
+      notes,
+      timestamp: new Date()
+    });
+  });
+
+  // Handle meeting started
+  socket.on('telemedicine:meeting-started', ({ requestId, patientId, doctorId, meetingLink }) => {
+    // Notify patient to join
+    io.to(`patient_${patientId}`).emit('telemedicine:meeting-started', {
+      requestId,
+      meetingLink,
+      doctorId,
+      timestamp: new Date()
+    });
+  });
+
+  // Handle meeting ended
+  socket.on('telemedicine:meeting-ended', ({ requestId, patientId, doctorId, duration }) => {
+    io.to(`patient_${patientId}`).emit('telemedicine:meeting-ended', {
+      requestId,
+      duration,
+      doctorId,
+      timestamp: new Date()
+    });
+    io.to(`doctor_${doctorId}`).emit('telemedicine:meeting-ended', {
+      requestId,
+      duration,
+      patientId,
+      timestamp: new Date()
+    });
+  });
+
+  // Handle disconnect - mark doctor as offline
+  socket.on('disconnect', () => {
+    console.log('🔌 Socket disconnected:', socket.id);
+    
+    const doctorId = global.socketToDoctor.get(socket.id);
+    if (doctorId && global.doctorStatus) {
+      const status = global.doctorStatus.get(doctorId);
+      if (status) {
+        status.status = 'offline';
+        status.lastSeen = new Date();
+        global.doctorStatus.set(doctorId, status);
+        
+        // Broadcast offline status
+        if (status.clinicId) {
+          io.to(`clinic_${status.clinicId}_patients`).emit('doctor:status-change', {
+            doctorId,
+            status: 'offline',
+            timestamp: new Date()
+          });
+        }
+        console.log(`👨‍⚕️ Doctor ${doctorId} is now offline (disconnected)`);
+      }
+      global.socketToDoctor.delete(socket.id);
+    }
   });
 });
 
@@ -161,7 +364,7 @@ app.use('/api/files', fileRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medicines', medicineRoutes);
-app.use('/api/documents', documentRoutes); // ── NEW ──
+app.use('/api/documents', documentRoutes);
 app.use('/api/telemedicine', telemedicineRoutes);
 
 // Static files

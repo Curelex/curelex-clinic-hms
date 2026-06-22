@@ -1,8 +1,8 @@
 // hms-react/src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import API from '../utils/api';
 
-const AuthContext = createContext();
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import API from '../utils/api';
+import { useSocket } from '../hooks/useSocket';
 
 // ── Role → nav section permissions ───────────────────────────────────────────
 const ROLE_PERMISSIONS = {
@@ -30,13 +30,29 @@ const ROLE_PERMISSIONS = {
   ],
 };
 
+const AuthContext = createContext(null);
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  
+  // ── Socket Integration ──
+  const { socket, isConnected, emit, on, off } = useSocket();
+  const [doctorStatus, setDoctorStatus] = useState('offline');
+  const [onlineDoctors, setOnlineDoctors] = useState([]);
+  
+  // ── Ref to track if socket is already set up ──
+  const socketSetupDone = useRef(false);
+  const userRef = useRef(user);
 
-  // On app load: restore session from token
+  // ── Keep userRef updated ──
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // ── On app load: restore session from token ──
   useEffect(() => {
     const token = localStorage.getItem('hms_token');
     if (!token) {
@@ -45,12 +61,14 @@ export const AuthProvider = ({ children }) => {
     }
     API.get('/auth/profile')
       .then(({ data }) => {
+        console.log('📋 Profile loaded:', data);
         setUser(data.user || data);
         if (data.patient) {
           setPatient(data.patient);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Failed to load profile:', err);
         localStorage.removeItem('hms_token');
         localStorage.removeItem('user');
         setUser(null);
@@ -61,12 +79,108 @@ export const AuthProvider = ({ children }) => {
       });
   }, []);
 
+  // ── Setup socket events when user is loaded ─────────────────────────────────
+  // Runs once per user session. Uses the 'connect' event on the singleton socket
+  // to re-register the doctor after any reconnect, so we never depend on
+  // isConnected being in the dep array (which caused the online/offline flicker).
+  useEffect(() => {
+    if (!user || !socket) return;
+
+    const doctorId = user._id || user.id;
+
+    // ── Function that (re-)registers this user with the server ──────────────
+    // Called immediately if connected, and again after every reconnect.
+    const registerWithServer = () => {
+      if (user.role === 'doctor') {
+        socket.emit('doctor:join', doctorId);
+        socket.emit('doctor:register-socket', { doctorId });
+        socket.emit('doctor:status', {
+          doctorId,
+          status: 'online',
+          clinicId: user.clinicId,
+        });
+        setDoctorStatus('online');
+      }
+
+      if (user.role === 'patient') {
+        const clinicId = user.clinicId;
+        if (clinicId) {
+          socket.emit('patient:join-clinic', { clinicId, patientId: doctorId });
+          socket.emit('doctor:get-online', { clinicId }, (doctors) => {
+            setOnlineDoctors(doctors || []);
+          });
+        }
+      }
+    };
+
+    // Register immediately if already connected, else wait for 'connect'
+    if (socket.connected) {
+      registerWithServer();
+    }
+
+    // Re-register on every reconnect (handles network blips transparently)
+    socket.on('connect', registerWithServer);
+
+    // ── Persistent event listeners ───────────────────────────────────────────
+    const handleDoctorStatusChange = (data) => {
+      setOnlineDoctors(prev => {
+        if (data.status === 'online') {
+          const exists = prev.find(d => String(d.doctorId) === String(data.doctorId));
+          if (exists) {
+            return prev.map(d =>
+              String(d.doctorId) === String(data.doctorId)
+                ? { ...d, lastSeen: data.timestamp }
+                : d
+            );
+          }
+          return [...prev, { doctorId: data.doctorId, lastSeen: data.timestamp, status: 'online' }];
+        }
+        return prev.filter(d => String(d.doctorId) !== String(data.doctorId));
+      });
+    };
+
+    const handleOnlineList = ({ onlineDoctors: doctors }) => {
+      setOnlineDoctors(doctors || []);
+    };
+
+    socket.on('doctor:status-change', handleDoctorStatusChange);
+    socket.on('doctor:online-list', handleOnlineList);
+
+    return () => {
+      socket.off('connect', registerWithServer);
+      socket.off('doctor:status-change', handleDoctorStatusChange);
+      socket.off('doctor:online-list', handleOnlineList);
+    };
+  }, [user, socket]); // socket is stable singleton; user changes on login/logout
+
+  // ── Doctor status management ──
+  const setDoctorOnline = useCallback((status) => {
+    if (!user || user.role !== 'doctor') return;
+    
+    const doctorId = user._id || user.id;
+    console.log(`🔄 Setting doctor ${doctorId} to ${status}`);
+    
+    setDoctorStatus(status);
+    emit('doctor:status', {
+      doctorId: doctorId,
+      status: status,
+      clinicId: user.clinicId
+    });
+  }, [user, emit]);
+
+  // ── Check if a specific doctor is online ──
+  const isDoctorOnline = useCallback((doctorId) => {
+    if (!doctorId) return false;
+    const id = String(doctorId);
+    return onlineDoctors.some(d => String(d.doctorId) === id);
+  }, [onlineDoctors]);
+
   // ── Login ─────────────────────────────────────────────────────────────────
   const login = async (email, password) => {
     setLoading(true);
     try {
       const { data } = await API.post('/auth/login', { email, password });
-      console.log('LOGIN RESPONSE:', data);
+      console.log('✅ LOGIN SUCCESS:', data.user);
       
       localStorage.setItem('hms_token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -77,8 +191,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('patient', JSON.stringify(data.patient));
       }
       
+      // Reset socket setup flag so new user can set up socket
+      socketSetupDone.current = false;
+      
       return { success: true, user: data.user, patient: data.patient };
     } catch (err) {
+      console.error('❌ Login error:', err);
       return { 
         success: false, 
         message: err.response?.data?.message || 'Login failed' 
@@ -96,8 +214,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('hms_token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
+      socketSetupDone.current = false;
       return { success: true };
     } catch (err) {
+      console.error('❌ Register error:', err);
       return { success: false, message: err.response?.data?.message || 'Registration failed' };
     } finally {
       setLoading(false);
@@ -137,6 +257,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, data };
     } catch (err) {
+      console.error('❌ Patient register error:', err);
       return { 
         success: false, 
         message: err.response?.data?.message || 'Registration failed' 
@@ -148,11 +269,24 @@ export const AuthProvider = ({ children }) => {
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const logout = () => {
+    // Mark doctor as offline before logging out
+    if (user?.role === 'doctor') {
+      const doctorId = user._id || user.id;
+      console.log(`🔄 Logging out doctor ${doctorId}`);
+      emit('doctor:status', {
+        doctorId: doctorId,
+        status: 'offline',
+        clinicId: user.clinicId
+      });
+      setDoctorStatus('offline');
+    }
+    
     localStorage.removeItem('hms_token');
     localStorage.removeItem('user');
     localStorage.removeItem('patient');
     setUser(null);
     setPatient(null);
+    socketSetupDone.current = false;
   };
 
   // ── Permission check ──────────────────────────────────────────────────────
@@ -172,75 +306,67 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ── Patient helper methods ──────────────────────────────────────────────
-  const isPatient = () => {
-    return user?.role === 'patient';
-  };
-
-  const isDoctor = () => {
-    return user?.role?.toLowerCase() === 'doctor';
-  };
-
-  const isAdmin = () => {
-    return user?.role?.toLowerCase() === 'admin';
-  };
-
-  const isStaff = () => {
-    if (!user) return false;
-    return user?.role !== 'patient';
-  };
-
-  const getUserId = () => {
-    return user?.id || user?._id || null;
-  };
-
-  const getUserName = () => {
-    return user?.name || user?.fullName || 'User';
-  };
-
-  const getUserEmail = () => {
-    return user?.email || '';
-  };
-
-  const getUserRole = () => {
-    return user?.role || null;
-  };
-
-  const isAuthenticated = () => {
-    return !!user;
-  };
-
-  const getPatientData = () => {
-    return patient || null;
-  };
+  const isPatient = () => user?.role === 'patient';
+  const isDoctor = () => user?.role?.toLowerCase() === 'doctor';
+  const isAdmin = () => user?.role?.toLowerCase() === 'admin';
+  const isStaff = () => user && user?.role !== 'patient';
+  const getUserId = () => user?.id || user?._id || null;
+  const getUserName = () => user?.name || user?.fullName || 'User';
+  const getUserEmail = () => user?.email || '';
+  const getUserRole = () => user?.role || null;
+  const isAuthenticated = () => !!user;
+  const getPatientData = () => patient || null;
 
   if (!authReady) return null;
 
+  const value = {
+    user, 
+    patient,
+    login, 
+    register, 
+    logout, 
+    loading, 
+    hasPerm,
+    
+    isPatient,
+    isDoctor,
+    isAdmin,
+    isStaff,
+    getUserId,
+    getUserName,
+    getUserEmail,
+    getUserRole,
+    isAuthenticated,
+    getPatientData,
+    
+    registerPatient,
+    
+    // ── Socket related ──
+    socket,
+    isConnected,
+    doctorStatus,
+    setDoctorOnline,
+    onlineDoctors,
+    isDoctorOnline,
+    emit,
+    on,
+    off
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      patient,
-      login, 
-      register, 
-      logout, 
-      loading, 
-      hasPerm,
-      
-      isPatient,
-      isDoctor,
-      isAdmin,
-      isStaff,
-      getUserId,
-      getUserName,
-      getUserEmail,
-      getUserRole,
-      isAuthenticated,
-      getPatientData,
-      
-      registerPatient,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+// ── Custom hook to use auth context ──
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export { AuthContext };

@@ -1,4 +1,5 @@
 // hms-backend/controllers/telemedicineController.js
+
 import Telemedicine from '../models/Telemedicine.js';
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
@@ -38,6 +39,9 @@ export const requestTelemedicine = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Doctor is not available' });
     }
 
+    // Check if doctor is online
+    const isDoctorOnline = global.doctorStatus?.get(doctorId)?.status === 'online';
+
     const telemedicine = await Telemedicine.create({
       patientId: patient._id,
       patientName: patient.name,
@@ -63,10 +67,38 @@ export const requestTelemedicine = async (req, res) => {
       read: false,
     });
 
+    // ── Socket.IO: Notify doctor in real-time ──
+    const io = req.app.get('io');
+    if (io) {
+      // Send notification to doctor
+      io.to(`doctor_${doctorId}`).emit('telemedicine:new-request', {
+        requestId: telemedicine._id,
+        patientId: patient._id,
+        patientName: patient.name,
+        patientEmail: patient.email,
+        patientPhone: patient.phone,
+        symptoms: symptoms || '',
+        urgency: urgency || 'normal',
+        timestamp: new Date(),
+        message: `📱 New telemedicine request from ${patient.name}`
+      });
+
+      // Also emit to all staff if emergency
+      if (urgency === 'emergency') {
+        io.emit('telemedicine:emergency-alert', {
+          requestId: telemedicine._id,
+          patientName: patient.name,
+          doctorName: doctor.name,
+          timestamp: new Date()
+        });
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Telemedicine request sent successfully',
       telemedicine,
+      doctorAvailable: isDoctorOnline
     });
   } catch (error) {
     console.error('Request telemedicine error:', error);
@@ -115,6 +147,21 @@ export const approveTelemedicine = async (req, res) => {
       read: false,
     });
 
+    // ── Socket.IO: Notify patient ──
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:status-update', {
+        requestId: telemedicine._id,
+        status: 'approved',
+        scheduledTime: telemedicine.scheduledTime,
+        meetingLink: telemedicine.meetingLink,
+        doctorId: telemedicine.doctorId,
+        doctorName: telemedicine.doctorName,
+        timestamp: new Date(),
+        message: `✅ Your request has been approved by Dr. ${telemedicine.doctorName}`
+      });
+    }
+
     res.json({
       success: true,
       message: 'Telemedicine request approved',
@@ -159,6 +206,19 @@ export const rejectTelemedicine = async (req, res) => {
       read: false,
     });
 
+    // ── Socket.IO: Notify patient ──
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:status-update', {
+        requestId: telemedicine._id,
+        status: 'rejected',
+        doctorId: telemedicine.doctorId,
+        doctorName: telemedicine.doctorName,
+        timestamp: new Date(),
+        message: `❌ Your request was declined by Dr. ${telemedicine.doctorName}`
+      });
+    }
+
     res.json({
       success: true,
       message: 'Telemedicine request rejected',
@@ -201,6 +261,25 @@ export const startTelemedicine = async (req, res) => {
       clinicId,
       read: false,
     });
+
+    // ── Socket.IO: Notify patient ──
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:meeting-started', {
+        requestId: telemedicine._id,
+        meetingLink: telemedicine.meetingLink,
+        doctorId: telemedicine.doctorId,
+        doctorName: telemedicine.doctorName,
+        timestamp: new Date(),
+        message: `🔴 Meeting started by Dr. ${telemedicine.doctorName}`
+      });
+
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:status-update', {
+        requestId: telemedicine._id,
+        status: 'ongoing',
+        timestamp: new Date()
+      });
+    }
 
     res.json({
       success: true,
@@ -251,6 +330,26 @@ export const endTelemedicine = async (req, res) => {
       read: false,
     });
 
+    // ── Socket.IO: Notify patient ──
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:meeting-ended', {
+        requestId: telemedicine._id,
+        duration: durationMinutes,
+        doctorId: telemedicine.doctorId,
+        doctorName: telemedicine.doctorName,
+        timestamp: new Date(),
+        message: `✅ Meeting ended. Duration: ${durationMinutes} minutes`
+      });
+
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:status-update', {
+        requestId: telemedicine._id,
+        status: 'completed',
+        duration: durationMinutes,
+        timestamp: new Date()
+      });
+    }
+
     res.json({
       success: true,
       message: 'Meeting ended',
@@ -286,6 +385,23 @@ export const cancelTelemedicine = async (req, res) => {
 
     telemedicine.status = 'cancelled';
     await telemedicine.save();
+
+    // ── Socket.IO: Notify both parties ──
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`patient_${telemedicine.patientId}`).emit('telemedicine:status-update', {
+        requestId: telemedicine._id,
+        status: 'cancelled',
+        timestamp: new Date(),
+        message: '❌ Telemedicine session cancelled'
+      });
+      io.to(`doctor_${telemedicine.doctorId}`).emit('telemedicine:status-update', {
+        requestId: telemedicine._id,
+        status: 'cancelled',
+        timestamp: new Date(),
+        message: '❌ Telemedicine session cancelled'
+      });
+    }
 
     res.json({
       success: true,
@@ -415,6 +531,32 @@ export const getTelemedicineStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Get telemedicine stats error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Get online doctors ──
+export const getOnlineDoctors = async (req, res) => {
+  try {
+    const { clinicId } = req.query;
+    
+    if (!global.doctorStatus) {
+      return res.json({ success: true, onlineDoctors: [] });
+    }
+    
+    const onlineDoctors = [];
+    for (const [doctorId, data] of global.doctorStatus.entries()) {
+      if (data.status === 'online' && data.clinicId === clinicId) {
+        onlineDoctors.push({
+          doctorId,
+          lastSeen: data.lastSeen,
+          status: data.status
+        });
+      }
+    }
+    
+    res.json({ success: true, onlineDoctors });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

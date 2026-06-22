@@ -1,5 +1,5 @@
 // hms-react/src/components/Layout.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
@@ -55,24 +55,40 @@ export default function Layout() {
   const [taskCount, setTaskCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const socket = useSocket();
+  // ── Grab the raw singleton socket once — never changes identity ──
+  const { socket: rawSocket } = useSocket();
+  const socketRef = useRef(rawSocket);
 
-  const fetchData = async () => {
+  // ── Stable fetch — identity only changes on login/logout ──────
+  const fetchData = useCallback(async () => {
+    if (!user) return;
     try {
-      const { data: countData } = await taskService.getPendingCount();
+      const [{ data: countData }, { data: notifData }] = await Promise.all([
+        taskService.getPendingCount(),
+        taskService.getNotifications(),
+      ]);
       setTaskCount(countData.count);
-      const { data: notifData } = await taskService.getNotifications();
       setNotifications(notifData);
     } catch (err) {
-      console.error(err);
+      console.error('Layout fetchData error:', err);
     }
-  };
+  }, [user]);
+
+  // ── Ref so socket handlers always call latest fetchData ────────
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
 
   useEffect(() => {
-    if (user) fetchData();
-    socket.on('task:new', fetchData);
-    socket.on('task:updated', fetchData);
-    socket.on('task:sla-breach', (task) => {
+    if (!user) return;
+
+    // Initial fetch
+    fetchDataRef.current();
+
+    // 60s fallback poll — sockets handle real-time updates
+    const interval = setInterval(() => fetchDataRef.current(), 60_000);
+
+    const handleTaskChange = () => fetchDataRef.current();
+    const handleSlaBreach = (task) => {
       setNotifications(prev => [{
         _id: `sla-${Date.now()}`,
         message: `SLA BREACHED: "${task.title}" exceeded SLA`,
@@ -80,13 +96,24 @@ export default function Layout() {
         read: false,
         createdAt: new Date().toISOString(),
       }, ...prev]);
-    });
-    return () => {
-        socket.off('task:new', fetchData);
-        socket.off('task:updated', fetchData);
-        socket.off('task:sla-breach');
     };
-  }, [user, socket]);
+
+    const s = socketRef.current;
+    if (s) {
+      s.on('task:new', handleTaskChange);
+      s.on('task:updated', handleTaskChange);
+      s.on('task:sla-breach', handleSlaBreach);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (s) {
+        s.off('task:new', handleTaskChange);
+        s.off('task:updated', handleTaskChange);
+        s.off('task:sla-breach', handleSlaBreach);
+      }
+    };
+  }, [user]); // user is the only real dependency — socket is accessed via ref
 
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);

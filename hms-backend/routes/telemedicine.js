@@ -1,4 +1,5 @@
 // hms-backend/routes/telemedicine.js
+
 import express from 'express';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
@@ -8,6 +9,9 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(auth);
+
+// ── New: Get online doctors ──
+router.get('/online-doctors', telemedicineController.getOnlineDoctors);
 
 // ── Patient routes ──
 router.post('/request', roleCheck('patient'), telemedicineController.requestTelemedicine);
