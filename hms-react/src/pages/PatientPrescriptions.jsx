@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import API from '../utils/api';
 import ViewPrescription from '../components/ViewPrescription';
 import '../css/PatientDashboard.css';
+import PatientSidebar from '../components/PatientSidebar';
 
 export default function PatientPrescriptions() {
   const { user, patient, logout, isPatient } = useAuth();
@@ -83,39 +84,13 @@ export default function PatientPrescriptions() {
       <div className="pd-below-header">
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-        <aside className={`pd-sidebar${sidebarOpen ? ' open' : ''}`}>
-          <div className="pd-sidebar__profile">
-            <div className="pd-sidebar__avatar">{initials}</div>
-            <div>
-              <div className="pd-sidebar__name">{patientName}</div>
-              <div className="pd-sidebar__phone">{patientEmail}</div>
-            </div>
-          </div>
-          <nav className="pd-sidebar__nav">
-            <div className="pd-nav-item" onClick={() => goTo('/patient-dashboard')}>
-              <i className="fas fa-home"></i> Dashboard
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-appointments')}>
-              <i className="fas fa-calendar-check"></i> My Appointments
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-admission')}>
-              <i className="fas fa-procedures"></i> Hospital Admission
-            </div>
-            <div className="pd-nav-item active" onClick={() => setSidebarOpen(false)}>
-              <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-documents')}>
-              <i className="fas fa-folder-open"></i> My Documents
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-profile')}>
-              <i className="fas fa-user-circle"></i> Profile
-            </div>
-            <div className="pd-nav-divider" />
-            <div className="pd-nav-item" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt"></i> Logout
-            </div>
-          </nav>
-        </aside>
+       <PatientSidebar
+          activeItem="prescriptions"
+          onClose={() => setSidebarOpen(false)}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          initials={initials}
+        />
 
         <div className="pd-main">
           <main className="pd-body">

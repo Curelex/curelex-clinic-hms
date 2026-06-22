@@ -818,6 +818,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import '../css/PatientDashboard.css';
+import PatientSidebar from '../components/PatientSidebar';
 
 const STATUS_COLORS = {
   Pending: { bg: '#fef3c7', text: '#92400e' },
@@ -861,6 +862,7 @@ export default function PatientAppointments() {
 
   const patientId   = patient?._id || patient?.id || user?.id || user?._id;
   const patientName = patient?.name || user?.name || '';
+  const patientEmail = patient?.email || user?.email || '';
 
   const [form, setForm] = useState({
     name: patientName,
@@ -1068,33 +1070,13 @@ export default function PatientAppointments() {
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
         {/* SIDEBAR */}
-        <aside className={`pd-sidebar${sidebarOpen ? ' open' : ''}`}>
-          <div className="pd-sidebar__profile">
-            <div className="pd-sidebar__avatar">{initials}</div>
-            <div>
-              <div className="pd-sidebar__name">{patientName}</div>
-              <div className="pd-sidebar__phone">{patient?.email || user?.email}</div>
-            </div>
-          </div>
-          <nav className="pd-sidebar__nav">
-            <div className="pd-nav-item" onClick={() => goTo('/patient-dashboard')}>
-              <i className="fas fa-home"></i> Dashboard
-            </div>
-            <div className="pd-nav-item active" onClick={() => setSidebarOpen(false)}>
-              <i className="fas fa-calendar-check"></i> My Appointments
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-prescriptions')}>
-              <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-profile')}>
-              <i className="fas fa-user-circle"></i> Profile
-            </div>
-            <div className="pd-nav-divider" />
-            <div className="pd-nav-item" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt"></i> Logout
-            </div>
-          </nav>
-        </aside>
+        <PatientSidebar
+          activeItem="appointments"
+          onClose={() => setSidebarOpen(false)}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          initials={initials}
+        />
 
         {/* MAIN */}
         <div className="pd-main">

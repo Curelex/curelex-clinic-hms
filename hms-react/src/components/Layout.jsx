@@ -26,6 +26,7 @@ const NAV_SECTIONS = [
       { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
       { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients' },
       { path: '/dashboard/prescriptions', label: 'Prescriptions', icon: '📋', perm: 'prescriptions' },
+      { path: '/dashboard/telemedicine', label: 'Telemedicine', icon: '📹', perm: 'telemedicine' },
     ],
   },
   {

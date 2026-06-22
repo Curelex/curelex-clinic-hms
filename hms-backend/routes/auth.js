@@ -59,7 +59,7 @@ router.post('/register', async (req, res) => {
       permissions: [
         'dashboard', 'patients', 'ipd', 'billing',
         'prescriptions', 'pharmacy', 'lab', 'inventory',
-        'room-settings', 'staff',
+        'room-settings', 'staff', 'telemedicine'
       ],
     });
 
@@ -421,6 +421,26 @@ router.put('/change-password', auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/available-doctors', auth, async (req, res) => {
+  try {
+    const clinicId = req.user.clinicId;
+    
+    const doctors = await User.find(
+      { 
+        clinicId, 
+        role: 'doctor', 
+        isActive: true 
+      },
+      'name department consultationFee phone email avatar'
+    ).sort({ name: 1 });
+
+    res.json({ success: true, doctors });
+  } catch (err) {
+    console.error('Error fetching available doctors:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

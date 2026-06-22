@@ -8,10 +8,10 @@ const AuthContext = createContext();
 const ROLE_PERMISSIONS = {
   admin: [
     'dashboard', 'patients', 'ipd', 'billing',
-    'pharmacy', 'lab', 'inventory', 'staff', 'room-settings',
+    'pharmacy', 'lab', 'inventory', 'staff', 'room-settings', 'telemedicine', 'prescriptions'
   ],
   doctor: [
-    'dashboard', 'patients', 'ipd', 'lab', 'prescriptions'
+    'dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'
   ],
   nurse: [
     'dashboard', 'patients', 'ipd',
@@ -26,7 +26,7 @@ const ROLE_PERMISSIONS = {
     'dashboard', 'patients', 'lab',
   ],
   patient: [
-    'patient-dashboard', 'appointments', 'prescriptions', 'profile',
+    'patient-dashboard', 'appointments', 'prescriptions', 'profile', 'telemedicine'
   ],
 };
 

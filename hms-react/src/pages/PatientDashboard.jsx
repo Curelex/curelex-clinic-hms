@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import ClinicSearch from '../components/ClinicSearch';
 import '../css/PatientDashboard.css';
+import PatientSidebar from '../components/PatientSidebar';
 
 export default function PatientDashboard() {
   const { user, patient, logout, isPatient } = useAuth();
@@ -13,11 +14,11 @@ export default function PatientDashboard() {
   const [stats, setStats] = useState({
     totalAppointments: 0,
     upcomingAppointments: 0,
-    prescriptionsCount: 0,  // ✅ Will be populated
+    prescriptionsCount: 0,
     doctorsConsulted: 0,
   });
   const [appointments, setAppointments] = useState([]);
-  const [prescriptions, setPrescriptions] = useState([]); // ✅ Store prescriptions
+  const [prescriptions, setPrescriptions] = useState([]);
   const [admission, setAdmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -46,24 +47,20 @@ export default function PatientDashboard() {
         return;
       }
 
-      // ── Dashboard Stats ──
       const statsRes = await API.get(`/patient-portal/${patientId}/dashboard`);
       if (statsRes.data.success) {
         setStats(statsRes.data.data);
       }
 
-      // ── Appointments ──
       const apptRes = await API.get(`/patient-portal/${patientId}/appointments`);
       if (apptRes.data.success) {
         setAppointments(apptRes.data.appointments || []);
       }
 
-      // ── ✅ PRESCRIPTIONS (NEW) ──
       try {
         const rxRes = await API.get(`/prescriptions/patient/${patientId}`);
         if (rxRes.data.success) {
           setPrescriptions(rxRes.data.prescriptions || []);
-          // Update stats with actual count
           setStats(prev => ({
             ...prev,
             prescriptionsCount: rxRes.data.prescriptions?.length || 0
@@ -71,10 +68,8 @@ export default function PatientDashboard() {
         }
       } catch (rxErr) {
         console.log('Prescriptions not available yet');
-        // Keep the placeholder count
       }
 
-      // ── Admission Status ──
       try {
         const admRes = await API.get(`/patient-portal/${patientId}/admission`);
         if (admRes.data.success && admRes.data.admitted) {
@@ -131,7 +126,6 @@ export default function PatientDashboard() {
     a => new Date(a.appointmentTime) > new Date()
   );
 
-  // ── Status colors for prescriptions ──
   const statusColors = {
     draft: { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
     active: { bg: '#dbeafe', color: '#1e40af', label: 'Active' },
@@ -196,11 +190,12 @@ export default function PatientDashboard() {
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-admission')}>
                     <i className="fas fa-procedures"></i> Hospital Admission
                   </button>
-                  {/* ✅ Prescriptions link */}
+                  <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-telemedicine')}>
+                    <i className="fas fa-video"></i> Telemedicine
+                  </button>
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-prescriptions')}>
                     <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
                   </button>
-                  {/* ── NEW: Documents link ── */}
                   <button className="pd-user-dropdown__item" onClick={() => goTo('/patient-documents')}>
                     <i className="fas fa-folder-open"></i> My Documents
                   </button>
@@ -219,54 +214,14 @@ export default function PatientDashboard() {
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
         {/* SIDEBAR */}
-        <aside className={`pd-sidebar${sidebarOpen ? ' open' : ''}`}>
-          <div className="pd-sidebar__profile">
-            <div className="pd-sidebar__avatar">{initials}</div>
-            <div>
-              <div className="pd-sidebar__name">{patientName}</div>
-              <div className="pd-sidebar__phone">{patientEmail}</div>
-            </div>
-          </div>
-          <nav className="pd-sidebar__nav">
-            <div className="pd-nav-item active" onClick={() => setSidebarOpen(false)}>
-              <i className="fas fa-home"></i> Dashboard
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-appointments')}>
-              <i className="fas fa-calendar-check"></i> My Appointments
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-admission')} style={{ display: 'flex', alignItems: 'center' }}>
-              <i className="fas fa-procedures"></i> Hospital Admission
-              {admission && (
-                <span style={{
-                  marginLeft: 'auto', fontSize: 9, fontWeight: 700, color: '#fff',
-                  background: '#16a34a', borderRadius: 20, padding: '2px 7px',
-                }}>
-                  LIVE
-                </span>
-              )}
-            </div>
-            {/* ✅ Prescriptions sidebar link */}
-            <div className="pd-nav-item" onClick={() => goTo('/patient-prescriptions')}>
-              <i className="fas fa-prescription-bottle-alt"></i> Prescriptions
-            </div>
-            {/* ── NEW: My Documents sidebar link ── */}
-            <div className="pd-nav-item" onClick={() => goTo('/patient-documents')}>
-              <i className="fas fa-folder-open"></i> My Documents
-            </div>
-            <div className="pd-nav-item" onClick={() => goTo('/patient-profile')}>
-              <i className="fas fa-user-circle"></i> Profile
-            </div>
-            <div className="pd-nav-divider" />
-            <div className="pd-nav-item" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt"></i> Logout
-            </div>
-          </nav>
-          <div className="pd-sidebar__footer">
-            <button className="pd-logout-btn" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt"></i> Logout
-            </button>
-          </div>
-        </aside>
+        <PatientSidebar
+          activeItem="dashboard"
+          onClose={() => setSidebarOpen(false)}
+          admission={admission}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          initials={initials}
+        />
 
         {/* MAIN CONTENT */}
         <div className="pd-main">
@@ -391,7 +346,7 @@ export default function PatientDashboard() {
                 </div>
               </div>
 
-              {/* ✅ Recent Prescriptions - Updated with real data */}
+              {/* Recent Prescriptions */}
               <div className="pd-card">
                 <div className="pd-card__head">
                   <div className="pd-card__head-icon"><i className="fas fa-prescription-bottle-alt"></i></div>
@@ -445,19 +400,19 @@ export default function PatientDashboard() {
               gap: '14px',
             }}>
               {[
-                { icon: 'fa-video',       label: 'Video Consultation', color: '#2d6be4', action: () => alert('Video consultation coming soon!') },
-                { icon: 'fa-user-md',     label: 'Find Doctors',       color: '#00b386', action: () => alert('Find doctors coming soon!') },
-                { icon: 'fa-flask',       label: 'Lab Tests',          color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
+                { icon: 'fa-video', label: 'Video Consultation', color: '#2d6be4', action: () => navigate('/patient-telemedicine') },
+                { icon: 'fa-user-md', label: 'Find Doctors', color: '#00b386', action: () => alert('Find doctors coming soon!') },
+                { icon: 'fa-flask', label: 'Lab Tests', color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
                 { icon: 'fa-prescription-bottle-alt', label: 'View Prescriptions', color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
                 { icon: 'fa-folder-open', label: 'My Documents', color: '#0f4c81', action: () => navigate('/patient-documents') },
-                { icon: 'fa-comment-dots',label: 'Feedback',           color: '#7c3aed', action: () => alert('Feedback coming soon!') },
+                { icon: 'fa-comment-dots', label: 'Feedback', color: '#7c3aed', action: () => alert('Feedback coming soon!') },
               ].map(item => (
                 <button
                   key={item.label}
                   onClick={item.action}
                   style={{
                     background: 'white',
-                    border: '1px solid #e5e7eb',
+                    border: '1.5px solid #e5e7eb',
                     borderRadius: '12px',
                     padding: '18px 16px',
                     display: 'flex',
