@@ -81,9 +81,21 @@ app.use((req, res, next) => {
 });
 
 // MongoDB
+import { MongoMemoryServer } from 'mongodb-memory-server';
+
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB Error:', err));
+  .catch(async err => {
+    console.log('⚠️ MongoDB connection failed or URI missing. Starting in-memory database as fallback for testing...');
+    try {
+      const mongoServer = await MongoMemoryServer.create();
+      const mongoUri = mongoServer.getUri();
+      await mongoose.connect(mongoUri);
+      console.log('✅ MongoDB Connected to in-memory database successfully');
+    } catch (memErr) {
+      console.error('❌ Failed to start in-memory database:', memErr);
+    }
+  });
 
 // ---------------- SOCKET EVENTS ----------------
 io.on('connection', (socket) => {
