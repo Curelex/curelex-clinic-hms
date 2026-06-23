@@ -8,6 +8,7 @@ import multer from 'multer';
 import { auth } from '../middleware/auth.js';
 import Document from '../models/Document.js';
 import Patient from '../models/Patient.js';
+import Token from '../models/Token.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,16 +41,29 @@ const upload = multer({
 
 // Resolve whether the requester may act on the given patientId:
 //  - patient role  -> must own that Patient record (Patient.userId === req.user.id)
-//  - staff roles    -> any patient within the same clinic
+//  - staff roles   -> any patient within the same clinic OR associated via a visit token
 async function resolvePatientAccess(req, patientId) {
   const clinicId = req.user.clinicId || 'default';
-  const patient = await Patient.findOne({ _id: patientId, clinicId });
-  if (!patient) return { ok: false, status: 404, message: 'Patient not found' };
+  let patient = await Patient.findOne({ _id: patientId, clinicId });
+  
+  if (!patient) {
+    // If not found directly, check if the patient exists globally and is associated via a token
+    patient = await Patient.findById(patientId);
+    if (!patient) return { ok: false, status: 404, message: 'Patient not found' };
+
+    // If staff is requesting, verify they have an association via a token in this clinic
+    if (req.user.role !== 'patient') {
+      const hasToken = await Token.exists({ patient: patientId, clinicId });
+      if (!hasToken) {
+        return { ok: false, status: 403, message: 'Access denied: patient not associated with this clinic' };
+      }
+    }
+  }
 
   if (req.user.role === 'patient' && String(patient.userId) !== String(req.user.id)) {
     return { ok: false, status: 403, message: 'Access denied' };
   }
-  return { ok: true, patient, clinicId };
+  return { ok: true, patient, clinicId: patient.clinicId };
 }
 
 // ── POST /api/documents/upload ─────────────────────────────────
