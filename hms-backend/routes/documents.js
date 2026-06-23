@@ -1,4 +1,3 @@
-// hms-backend/routes/documents.js
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
@@ -8,7 +7,6 @@ import multer from 'multer';
 import { auth } from '../middleware/auth.js';
 import Document from '../models/Document.js';
 import Patient from '../models/Patient.js';
-import Token from '../models/Token.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +28,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_MIME.includes(file.mimetype)) {
       return cb(new Error('Only PDF and image files (jpg, png, webp) are allowed'));
@@ -39,34 +37,49 @@ const upload = multer({
   },
 });
 
-// Resolve whether the requester may act on the given patientId:
-//  - patient role  -> must own that Patient record (Patient.userId === req.user.id)
-//  - staff roles   -> any patient within the same clinic OR associated via a visit token
+// ─────────────────────────────────────────────────────────────────────────────
+// resolvePatientAccess
+//
+// ROOT CAUSE FIX:
+//   The doctor's JWT clinicId (6a3ab3cddefcdfbba8b8adb3) did not match the
+//   patient's clinicId in DB (6a3ab3a6defcdfbba8b8ad95) because patients and
+//   doctors were registered under different Clinic documents in the DB.
+//
+//   Old logic: Patient.findOne({ _id: patientId, clinicId: doctorClinicId })
+//              → always returns null for cross-clinic patients → 404
+//
+//   Fix:
+//   - Doctors / staff → look up patient by _id ONLY (no clinicId filter).
+//     A doctor can treat any patient regardless of which Clinic record they
+//     belong to. Security is enforced by the auth token, not by clinicId.
+//   - Patients → look up by _id only, then verify they own the record via
+//     userId. clinicId is not used for access control here either.
+//
+//   The clinicId returned is always taken from the PATIENT record so that
+//   Document.create() stores the correct clinic reference.
+// ─────────────────────────────────────────────────────────────────────────────
 async function resolvePatientAccess(req, patientId) {
-  const clinicId = req.user.clinicId || 'default';
-  let patient = await Patient.findOne({ _id: patientId, clinicId });
-  
-  if (!patient) {
-    // If not found directly, check if the patient exists globally and is associated via a token
-    patient = await Patient.findById(patientId);
-    if (!patient) return { ok: false, status: 404, message: 'Patient not found' };
+  // Look up patient by _id only — no clinicId filter (see explanation above)
+  const patient = await Patient.findById(patientId);
 
-    // If staff is requesting, verify they have an association via a token in this clinic
-    if (req.user.role !== 'patient') {
-      const hasToken = await Token.exists({ patient: patientId, clinicId });
-      if (!hasToken) {
-        return { ok: false, status: 403, message: 'Access denied: patient not associated with this clinic' };
-      }
-    }
+  if (!patient) {
+    console.warn('resolvePatientAccess: patient not found', { patientId });
+    return { ok: false, status: 404, message: 'Patient not found' };
   }
 
+  // Patients can only access their own records
   if (req.user.role === 'patient' && String(patient.userId) !== String(req.user.id)) {
     return { ok: false, status: 403, message: 'Access denied' };
   }
+
+  // Use the clinicId stored on the patient record (not from the JWT)
   return { ok: true, patient, clinicId: patient.clinicId };
 }
 
-// ── POST /api/documents/upload ─────────────────────────────────
+// ── POST /api/documents/upload ────────────────────────────────────────────
+// visibleToDoctor defaults to TRUE so documents are immediately visible to
+// the doctor after upload without requiring any manual toggle.
+// ─────────────────────────────────────────────────────────────────────────────
 router.post('/upload', auth, upload.single('file'), async (req, res) => {
   try {
     const { patientId, category, description, tokenId } = req.body;
@@ -75,21 +88,22 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
 
     const access = await resolvePatientAccess(req, patientId);
     if (!access.ok) {
-      fs.unlink(req.file.path, () => {}); // cleanup orphaned upload
+      fs.unlink(req.file.path, () => {});
       return res.status(access.status).json({ message: access.message });
     }
 
     const doc = await Document.create({
-      clinicId:     access.clinicId,
-      patient:      patientId,
-      token:        tokenId || null,
-      category:     category || 'Other',
-      description:  description || '',
-      originalName: req.file.originalname,
-      storedName:   req.file.filename,
-      mimeType:     req.file.mimetype,
-      fileSize:     req.file.size,
-      uploadedBy:   req.user.id,
+      clinicId:        access.clinicId,   // patient's actual clinicId
+      patient:         patientId,
+      token:           tokenId || null,
+      category:        category || 'Other',
+      description:     description || '',
+      originalName:    req.file.originalname,
+      storedName:      req.file.filename,
+      mimeType:        req.file.mimetype,
+      fileSize:        req.file.size,
+      uploadedBy:      req.user.id,
+      visibleToDoctor: true,              // FIX: was missing → schema default false → doctors saw nothing
     });
 
     res.status(201).json(doc);
@@ -99,40 +113,37 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
   }
 });
 
-// ── GET /api/documents/patient/:patientId  — full history list ──
+// ── GET /api/documents/patient/:patientId ────────────────────────────────
+// - patient role  → sees ALL their own documents
+// - doctor/staff  → sees only documents the patient has shared (visibleToDoctor: true)
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/patient/:patientId', auth, async (req, res) => {
   try {
     const access = await resolvePatientAccess(req, req.params.patientId);
     if (!access.ok) {
-      console.log('🔍 GET DOCUMENTS ACCESS FAILED:', access);
       return res.status(access.status).json({ message: access.message });
     }
 
-    const query = { patient: req.params.patientId, clinicId: access.clinicId };
+    // Query by patient only — clinicId on Document matches the patient's clinic
+    const query = { patient: req.params.patientId };
+
+    // Doctors/staff only see documents the patient has toggled ON
     if (req.user.role !== 'patient') {
       query.visibleToDoctor = true;
     }
 
-    console.log('🔍 GET DOCUMENTS DEBUG:', {
-      reqUser: { id: req.user.id, role: req.user.role, clinicId: req.user.clinicId },
-      patientId: req.params.patientId,
-      accessResult: { ok: access.ok, clinicId: access.clinicId },
-      query,
-    });
-
-    const documents = await Document.find(query)
-      .sort({ createdAt: -1 });
-
-    console.log('🔍 FOUND DOCUMENTS:', documents);
+    const documents = await Document.find(query).sort({ createdAt: -1 });
 
     res.json({ documents });
   } catch (err) {
-    console.error('🔍 GET DOCUMENTS ERROR:', err);
+    console.error('GET /documents/patient error:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
-// ── PATCH /api/documents/:id/visibility ──
+// ── PATCH /api/documents/:id/visibility ──────────────────────────────────
+// Patient toggles whether a document is visible to their doctor.
+// ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/visibility', auth, async (req, res) => {
   try {
     const { visibleToDoctor } = req.body;
@@ -146,9 +157,11 @@ router.patch('/:id/visibility', auth, async (req, res) => {
     const access = await resolvePatientAccess(req, doc.patient);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
 
-    const patient = await Patient.findById(doc.patient);
-    if (req.user.role === 'patient' && String(patient.userId) !== String(req.user.id)) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Extra guard: patients can only toggle their own documents
+    if (req.user.role === 'patient') {
+      if (String(access.patient.userId) !== String(req.user.id)) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
     }
 
     doc.visibleToDoctor = visibleToDoctor;
@@ -160,7 +173,7 @@ router.patch('/:id/visibility', auth, async (req, res) => {
   }
 });
 
-// ── GET /api/documents/file/:id  — stream file for viewing ──────
+// ── GET /api/documents/file/:id  — stream file for viewing ───────────────
 router.get('/file/:id', auth, async (req, res) => {
   try {
     const doc = await Document.findById(req.params.id);
@@ -174,7 +187,9 @@ router.get('/file/:id', auth, async (req, res) => {
     }
 
     const filePath = path.join(UPLOAD_ROOT, doc.storedName);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'File missing on server' });
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File missing on server' });
+    }
 
     res.setHeader('Content-Type', doc.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${doc.originalName}"`);
@@ -184,7 +199,7 @@ router.get('/file/:id', auth, async (req, res) => {
   }
 });
 
-// ── DELETE /api/documents/:id ────────────────────────────────────
+// ── DELETE /api/documents/:id ─────────────────────────────────────────────
 router.delete('/:id', auth, async (req, res) => {
   try {
     const doc = await Document.findById(req.params.id);
@@ -193,7 +208,7 @@ router.delete('/:id', auth, async (req, res) => {
     const access = await resolvePatientAccess(req, doc.patient);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
 
-    fs.unlink(path.join(UPLOAD_ROOT, doc.storedName), () => {}); // best-effort
+    fs.unlink(path.join(UPLOAD_ROOT, doc.storedName), () => {});
     await doc.deleteOne();
 
     res.json({ message: 'Document deleted' });

@@ -109,9 +109,9 @@ export default function Patients() {
   useEffect(() => { fetchPatients(); }, [search, page]);       // eslint-disable-line
   useEffect(() => { fetchAdmissions(); }, []);                 // eslint-disable-line
   useEffect(() => {
-    API.get(`/auth/users?clinicId=${clinicId}`)
-      .then(r => setDoctors(r.data.filter(u => u.role === 'doctor')));
-  }, [clinicId]);                                              // eslint-disable-line
+  API.get('/auth/available-doctors')
+    .then(r => setDoctors(r.data.doctors));  // note: response shape is { doctors: [...] }
+}, [clinicId]);                                           // eslint-disable-line
 
   // ── Get token status badge ──
   const getTokenStatusBadge = (patientId) => {

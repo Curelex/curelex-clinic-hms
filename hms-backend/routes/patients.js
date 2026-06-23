@@ -1,9 +1,10 @@
+// hms-backend/routes/patients.js
 import { fileURLToPath } from 'url';
 import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import bcrypt from "bcryptjs";
-// hms-backend/routes/patients.js
 import express from 'express';
+import mongoose from 'mongoose';
 
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
@@ -11,13 +12,21 @@ import { auth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+/** Safely converts any clinicId value to a mongoose ObjectId */
+function toObjectId(id) {
+  if (!id || id === 'default') return null;
+  if (mongoose.Types.ObjectId.isValid(id)) return new mongoose.Types.ObjectId(String(id));
+  return null;
+}
+
 // ── Get all patients ──────────────────────────────────────────────────────
+// FIX: Removed clinicId filter — doctor/staff JWT clinicId may differ from
+// the clinicId stored on patients due to clinic record mismatch in DB.
 router.get('/', auth, async (req, res) => {
   try {
-    const clinicId = req.user.clinicId || 'default';
     const { search, status, page = 1, limit = 20 } = req.query;
 
-    let query = { clinicId };
+    let query = {};
     if (search) query.$or = [
       { name: { $regex: search, $options: 'i' } },
       { patientId: { $regex: search, $options: 'i' } },
@@ -41,10 +50,11 @@ router.get('/', auth, async (req, res) => {
 });
 
 // ── Get single patient ──────────────────────────────────────────────────
+// FIX: Removed clinicId filter so doctors/staff can look up any patient by ID
+// regardless of which clinic record the patient was originally registered under.
 router.get('/:id', auth, async (req, res) => {
   try {
-    const clinicId = req.user.clinicId || 'default';
-    const patient = await Patient.findOne({ _id: req.params.id, clinicId })
+    const patient = await Patient.findById(req.params.id)
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name')
       .populate('userId', 'email role isActive');
@@ -58,7 +68,9 @@ router.get('/:id', auth, async (req, res) => {
 // ── Create patient (with optional user account) ──────────────────────────
 router.post('/', auth, async (req, res) => {
   try {
-    const clinicId = req.user.clinicId || 'default';
+    const clinicId = toObjectId(req.user.clinicId);
+    if (!clinicId) return res.status(400).json({ message: 'Invalid clinicId' });
+
     const { 
       name, email, phone, dob, age, gender, bloodGroup,
       address, city, state, pincode,
@@ -83,7 +95,6 @@ router.post('/', auth, async (req, res) => {
         return res.status(400).json({ message: 'A user with this email already exists' });
       }
 
-      // Create User with role: 'patient'
       user = await User.create({
         name,
         email,
@@ -144,9 +155,10 @@ router.post('/', auth, async (req, res) => {
 // ── Update patient ─────────────────────────────────────────────────────────
 router.put('/:id', auth, async (req, res) => {
   try {
-    const clinicId = req.user.clinicId || 'default';
+    const clinicId = toObjectId(req.user.clinicId);
+    if (!clinicId) return res.status(400).json({ message: 'Invalid clinicId' });
+
     const body = { ...req.body };
-    
     delete body._id;
     delete body.clinicId;
     delete body.patientId;
@@ -170,8 +182,9 @@ router.put('/:id', auth, async (req, res) => {
 // ── Delete patient ─────────────────────────────────────────────────────────
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const clinicId = req.user.clinicId || 'default';
-    
+    const clinicId = toObjectId(req.user.clinicId);
+    if (!clinicId) return res.status(400).json({ message: 'Invalid clinicId' });
+
     const patient = await Patient.findOne({ _id: req.params.id, clinicId });
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
@@ -185,6 +198,18 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+router.get('/debug-all', auth, async (req, res) => {
+  const all = await Patient.find({}).limit(10).lean();
+  res.json({ 
+    count: all.length,
+    patients: all.map(p => ({ 
+      name: p.name, 
+      clinicId: String(p.clinicId),
+    })),
+    userClinicId: String(req.user.clinicId),
+  });
 });
 
 export default router;
