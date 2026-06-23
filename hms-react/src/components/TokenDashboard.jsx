@@ -7,6 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import PatientDocumentsModal from './PatientDocumentsModal';
 
 const STATUS_STYLE = {
   Waiting: { bg: '#fef3c7', color: '#d97706' },
@@ -27,8 +28,11 @@ function StatusBadge({ status }) {
   );
 }
 
+const getPatientIdFromToken = (t) =>
+  typeof t.patient === 'object' && t.patient !== null ? t.patient._id : t.patient;
+
 // ── Single token row ───────────────────────────────────────────
-function TokenRow({ token, canAct, onStatusChange }) {
+function TokenRow({ token, canAct, onStatusChange, onViewDocs }) {
   const [busy, setBusy] = useState(false);
 
   const advance = async () => {
@@ -83,6 +87,18 @@ function TokenRow({ token, canAct, onStatusChange }) {
             ? ` · Called at ${new Date(token.calledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
             : ''}
         </div>
+        {getPatientIdFromToken(token) && (
+          <button
+            onClick={() => onViewDocs(token)}
+            style={{
+              marginTop: 4, fontSize: 11, fontWeight: 600, color: '#0f4c81',
+              background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6,
+              padding: '2px 8px', cursor: 'pointer',
+            }}
+          >
+            📁 Docs
+          </button>
+        )}
       </div>
 
       <StatusBadge status={token.status} />
@@ -121,7 +137,7 @@ function TokenRow({ token, canAct, onStatusChange }) {
 }
 
 // ── Per-doctor queue card ──────────────────────────────────────
-function DoctorQueue({ doctorId, doctorName, department, tokens, currentUser, isAdminView, onStatusChange }) {
+function DoctorQueue({ doctorId, doctorName, department, tokens, currentUser, isAdminView, onStatusChange, onViewDocs }) {
   const waiting = tokens.filter(t => t.status === 'Waiting').length;
   const called  = tokens.filter(t => t.status === 'Called').length;
   const done    = tokens.filter(t => t.status === 'Done').length;
@@ -185,6 +201,7 @@ function DoctorQueue({ doctorId, doctorName, department, tokens, currentUser, is
               token={t}
               canAct={canAct}
               onStatusChange={onStatusChange}
+              onViewDocs={onViewDocs}
             />
           );
         })}
@@ -212,6 +229,7 @@ export default function TokenDashboard() {
   const [loading,     setLoading]     = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [filterDoc,   setFilterDoc]   = useState('');
+  const [docsToken,   setDocsToken]   = useState(null);
 
   const isAdmin  = user?.role === 'admin';
   const isDoctor = user?.role === 'doctor';
@@ -222,7 +240,8 @@ export default function TokenDashboard() {
 
   const fetchTokens = useCallback(async () => {
     try {
-      const params = isDoctor ? `?doctorId=${user.id}` : '';
+      const doctorId = user?._id || user?.id;
+      const params = isDoctor && doctorId ? `?doctorId=${doctorId}` : '';
       const { data: res } = await API.get(`/tokens/today${params}`);
 
       // Group by doctor
@@ -331,9 +350,19 @@ export default function TokenDashboard() {
             currentUser={user}
             isAdminView={isAdmin}
             onStatusChange={fetchTokens}
+            onViewDocs={setDocsToken}
           />
         ))}
       </div>
+
+      {docsToken && (
+        <PatientDocumentsModal
+          patientId={getPatientIdFromToken(docsToken)}
+          patientName={docsToken.patientName || docsToken.patient?.name || 'Patient'}
+          visitDate={docsToken.createdAt}
+          onClose={() => setDocsToken(null)}
+        />
+      )}
     </div>
   );
 }

@@ -108,14 +108,25 @@ router.post('/register-patient', async (req, res) => {
     }
 
     // ── Find or create clinic ─────────────────────────────────────────
-    let clinic = await Clinic.findOne();
+    let targetClinicId = req.body.clinicId;
 
-    if (!clinic) {
-      clinic = await Clinic.create({ 
-        name: 'Default Clinic', 
-        email: 'admin@defaultclinic.com', 
-        phone: phone || '',
-      });
+    if (!targetClinicId && assignedDoctor) {
+      const doctorUser = await User.findById(assignedDoctor);
+      if (doctorUser && doctorUser.clinicId) {
+        targetClinicId = doctorUser.clinicId;
+      }
+    }
+
+    if (!targetClinicId) {
+      let clinic = await Clinic.findOne();
+      if (!clinic) {
+        clinic = await Clinic.create({ 
+          name: 'Default Clinic', 
+          email: 'admin@defaultclinic.com', 
+          phone: phone || '',
+        });
+      }
+      targetClinicId = clinic._id;
     }
 
     // ── STEP 1: Create User with role: 'patient' ──────────────────────
@@ -124,7 +135,7 @@ router.post('/register-patient', async (req, res) => {
       email,
       password,
       role: 'patient',
-      clinicId: clinic._id,
+      clinicId: targetClinicId,
       phone: phone || '',
       permissions: ['patient-dashboard'],
       isActive: true,
@@ -136,7 +147,7 @@ router.post('/register-patient', async (req, res) => {
       name: user.name,
       email: user.email,
       phone: user.phone || phone,
-      clinicId: clinic._id,
+      clinicId: targetClinicId,
       status: 'Active',
       registrationDate: new Date(),
       registeredBy: req.user?.id || null,
@@ -165,12 +176,14 @@ router.post('/register-patient', async (req, res) => {
 
     const { password: _, ...userOut } = user.toObject();
     
+    const finalClinic = await Clinic.findById(targetClinicId);
+
     res.status(201).json({ 
       success: true, 
       message: 'Patient registered successfully with login credentials', 
       user: userOut,
       patient: patient,
-      clinic: { id: clinic._id, name: clinic.name }
+      clinic: { id: targetClinicId, name: finalClinic ? finalClinic.name : 'Clinic' }
     });
 
   } catch (err) {

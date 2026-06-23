@@ -89,12 +89,58 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
 router.get('/patient/:patientId', auth, async (req, res) => {
   try {
     const access = await resolvePatientAccess(req, req.params.patientId);
-    if (!access.ok) return res.status(access.status).json({ message: access.message });
+    if (!access.ok) {
+      console.log('🔍 GET DOCUMENTS ACCESS FAILED:', access);
+      return res.status(access.status).json({ message: access.message });
+    }
 
-    const documents = await Document.find({ patient: req.params.patientId, clinicId: access.clinicId })
+    const query = { patient: req.params.patientId, clinicId: access.clinicId };
+    if (req.user.role !== 'patient') {
+      query.visibleToDoctor = true;
+    }
+
+    console.log('🔍 GET DOCUMENTS DEBUG:', {
+      reqUser: { id: req.user.id, role: req.user.role, clinicId: req.user.clinicId },
+      patientId: req.params.patientId,
+      accessResult: { ok: access.ok, clinicId: access.clinicId },
+      query,
+    });
+
+    const documents = await Document.find(query)
       .sort({ createdAt: -1 });
 
+    console.log('🔍 FOUND DOCUMENTS:', documents);
+
     res.json({ documents });
+  } catch (err) {
+    console.error('🔍 GET DOCUMENTS ERROR:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ── PATCH /api/documents/:id/visibility ──
+router.patch('/:id/visibility', auth, async (req, res) => {
+  try {
+    const { visibleToDoctor } = req.body;
+    if (typeof visibleToDoctor !== 'boolean') {
+      return res.status(400).json({ message: 'visibleToDoctor (boolean) is required' });
+    }
+
+    const doc = await Document.findById(req.params.id);
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+
+    const access = await resolvePatientAccess(req, doc.patient);
+    if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    const patient = await Patient.findById(doc.patient);
+    if (req.user.role === 'patient' && String(patient.userId) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    doc.visibleToDoctor = visibleToDoctor;
+    await doc.save();
+
+    res.json(doc);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -108,6 +154,10 @@ router.get('/file/:id', auth, async (req, res) => {
 
     const access = await resolvePatientAccess(req, doc.patient);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    if (req.user.role !== 'patient' && !doc.visibleToDoctor) {
+      return res.status(403).json({ message: 'Access denied: document not shared with doctor' });
+    }
 
     const filePath = path.join(UPLOAD_ROOT, doc.storedName);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'File missing on server' });

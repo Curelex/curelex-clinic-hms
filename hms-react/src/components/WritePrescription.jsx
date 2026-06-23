@@ -134,9 +134,10 @@ export default function WritePrescription({ patient, doctorId, token, appointmen
     }
 
     try {
+      const activeUserId = user?._id || user?.id;
       const payload = {
         patientId: patient._id || patient,
-        doctorId: doctorId || user.id,
+        doctorId: doctorId || activeUserId,
         appointmentId: appointment?._id || null,
         tokenId: token?._id || null,
         medicines: selectedMedicines,
@@ -147,8 +148,8 @@ export default function WritePrescription({ patient, doctorId, token, appointmen
         followUpInstructions: form.followUpInstructions,
         tests: form.tests,
         // ✅ Add created by info
-        createdBy: user.id,
-        createdByRole: user.role,
+        createdBy: activeUserId,
+        createdByRole: user?.role,
       };
 
       const { data } = await API.post('/prescriptions', payload);

@@ -133,6 +133,15 @@ export default function PatientDocuments() {
     }
   };
 
+  const handleToggleVisibility = async (docId, visibleToDoctor) => {
+    try {
+      await API.patch(`/documents/${docId}/visibility`, { visibleToDoctor });
+      setDocuments(prev => prev.map(d => d._id === docId ? { ...d, visibleToDoctor } : d));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update document visibility');
+    }
+  };
+
   const handleLogout = () => { logout(); navigate('/patient-login'); };
   const goTo = (path) => { setSidebarOpen(false); navigate(path); };
 
@@ -289,6 +298,7 @@ export default function PatientDocuments() {
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Category</th>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>File</th>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Size</th>
+                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Share with Doctor</th>
                           <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Actions</th>
                         </tr>
                       </thead>
@@ -324,6 +334,39 @@ export default function PatientDocuments() {
                               </td>
                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
                                 {formatBytes(doc.fileSize)}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <button
+                                    onClick={() => handleToggleVisibility(doc._id, !doc.visibleToDoctor)}
+                                    style={{
+                                      position: 'relative',
+                                      width: 44,
+                                      height: 22,
+                                      borderRadius: 100,
+                                      background: doc.visibleToDoctor ? '#2563eb' : '#cbd5e1',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      transition: 'background-color 0.2s',
+                                      padding: 0,
+                                    }}
+                                  >
+                                    <div style={{
+                                      position: 'absolute',
+                                      top: 2,
+                                      left: doc.visibleToDoctor ? 24 : 2,
+                                      width: 18,
+                                      height: 18,
+                                      borderRadius: '50%',
+                                      background: '#fff',
+                                      transition: 'left 0.2s',
+                                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                    }} />
+                                  </button>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: doc.visibleToDoctor ? '#2563eb' : '#64748b' }}>
+                                    {doc.visibleToDoctor ? 'ON' : 'OFF'}
+                                  </span>
+                                </div>
                               </td>
                               <td style={{ padding: '12px 16px' }}>
                                 <div style={{ display: 'flex', gap: 8 }}>

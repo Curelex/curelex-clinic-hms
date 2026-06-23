@@ -21,6 +21,7 @@ const DocumentSchema = new mongoose.Schema({
   fileSize:     { type: Number, default: 0 }, // bytes
 
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  visibleToDoctor: { type: Boolean, default: false },
 
 }, { timestamps: true });
 
