@@ -9,7 +9,6 @@ export default function PatientRegister() {
     email: '',
     password: '',
     phone: '',
-    clinicName: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -22,10 +21,6 @@ export default function PatientRegister() {
     setSuccess('');
     
     // Basic validation
-    if (!form.clinicName) {
-      setError('Clinic/Hospital name is required');
-      return;
-    }
     if (form.password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
@@ -93,20 +88,6 @@ export default function PatientRegister() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Clinic / Hospital Name *</label>
-            <input
-              className="form-control"
-              type="text"
-              placeholder="Enter clinic or hospital name"
-              value={form.clinicName}
-              onChange={e => setForm({ ...form, clinicName: e.target.value })}
-              required
-            />
-            <small style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-              This is the clinic where you are a patient
-            </small>
-          </div>
 
           <div className="form-group">
             <label className="form-label">Email Address *</label>

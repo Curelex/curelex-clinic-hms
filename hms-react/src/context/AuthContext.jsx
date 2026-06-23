@@ -238,7 +238,6 @@ export const AuthProvider = ({ children }) => {
         email: formData.email,
         password: formData.password,
         phone: formData.phone || '',
-        clinicName: formData.clinicName,
         dob: formData.dob || null,
         age: formData.age || null,
         gender: formData.gender || null,

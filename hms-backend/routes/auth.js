@@ -81,7 +81,7 @@ router.post('/register', async (req, res) => {
 router.post('/register-patient', async (req, res) => {
   try {
     const { 
-      name, email, password, phone, clinicName,
+      name, email, password, phone,
       dob, age, gender, bloodGroup, address, city, state, pincode,
       emergencyContact, emergencyName, emergencyRelation,
       allergies, chronicConditions, currentMedications, medicalHistory, notes,
@@ -89,9 +89,7 @@ router.post('/register-patient', async (req, res) => {
     } = req.body;
 
     // ── Validation ──────────────────────────────────────────────────────
-    if (!clinicName) {
-      return res.status(400).json({ message: 'Clinic/Hospital name is required' });
-    }
+
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
@@ -110,14 +108,12 @@ router.post('/register-patient', async (req, res) => {
     }
 
     // ── Find or create clinic ─────────────────────────────────────────
-    let clinic = await Clinic.findOne({ 
-      name: { $regex: new RegExp(`^${clinicName}$`, 'i') } 
-    });
+    let clinic = await Clinic.findOne();
 
     if (!clinic) {
       clinic = await Clinic.create({ 
-        name: clinicName, 
-        email, 
+        name: 'Default Clinic', 
+        email: 'admin@defaultclinic.com', 
         phone: phone || '',
       });
     }
