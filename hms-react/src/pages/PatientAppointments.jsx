@@ -823,44 +823,44 @@ import PatientSidebar from '../components/PatientSidebar';
 const STATUS_COLORS = {
   Pending: { bg: '#fef3c7', text: '#92400e' },
   Waiting: { bg: '#dbeafe', text: '#1e40af' },
-  Called:  { bg: '#dcfce7', text: '#166534' },
-  Done:    { bg: '#e5e7eb', text: '#374151' },
+  Called: { bg: '#dcfce7', text: '#166534' },
+  Done: { bg: '#e5e7eb', text: '#374151' },
   Skipped: { bg: '#fee2e2', text: '#991b1b' },
 };
 
 const PAYMENT_STATUS_COLORS = {
-  paid:    { bg: '#dcfce7', text: '#166534' },
+  paid: { bg: '#dcfce7', text: '#166534' },
   pending: { bg: '#fef3c7', text: '#92400e' },
-  failed:  { bg: '#fee2e2', text: '#991b1b' },
+  failed: { bg: '#fee2e2', text: '#991b1b' },
 };
 
 const STEP_DETAILS = 'details';
-const STEP_PAYMENT  = 'payment';
+const STEP_PAYMENT = 'payment';
 
 export default function PatientAppointments() {
   const { user, patient, logout, isPatient } = useAuth();
   const navigate = useNavigate();
 
   const [appointments, setAppointments] = useState([]);
-  const [clinics, setClinics]           = useState([]);
-  const [doctors, setDoctors]           = useState([]);
+  const [clinics, setClinics] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [doctorsLoading, setDoctorsLoading] = useState(false);
-  const [loading, setLoading]           = useState(true);
-  const [showModal, setShowModal]       = useState(false);
-  const [step, setStep]                 = useState(STEP_DETAILS);
-  const [submitting, setSubmitting]     = useState(false);
-  const [formError, setFormError]       = useState('');
-  const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [step, setStep] = useState(STEP_DETAILS);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [payMethod, setPayMethod]   = useState('card');
-  const [paying, setPaying]         = useState(false);
-  const [payError, setPayError]     = useState('');
+  const [payMethod, setPayMethod] = useState('card');
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv]       = useState('');
-  const [upiId, setUpiId]           = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [upiId, setUpiId] = useState('');
 
-  const patientId   = patient?._id || patient?.id || user?.id || user?._id;
+  const patientId = patient?._id || patient?.id || user?.id || user?._id;
   const patientName = patient?.name || user?.name || '';
   const patientEmail = patient?.email || user?.email || '';
 
@@ -1070,13 +1070,44 @@ export default function PatientAppointments() {
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
         {/* SIDEBAR */}
-        <PatientSidebar
-          activeItem="appointments"
-          onClose={() => setSidebarOpen(false)}
-          patientName={patientName}
-          patientEmail={patientEmail}
-          initials={initials}
-        />
+        {!sidebarOpen && (
+          <div
+            style={{
+              padding: "12px 20px",
+              marginBottom: "8px",
+            }}
+          >
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                background: "#0f2d52",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              }}
+            >
+              ☰ Menu
+            </button>
+          </div>
+        )}
+
+        {sidebarOpen && (
+          <PatientSidebar
+            activeItem="documents" // <-- page ke hisaab se change karna
+            onClose={() => setSidebarOpen(false)}
+            patientName={patientName}
+            patientEmail={patientEmail}
+            initials={initials}
+          />
+        )}
 
         {/* MAIN */}
         <div className="pd-main">
@@ -1114,7 +1145,7 @@ export default function PatientAppointments() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>
-                          {['Token #','Date','Clinic','Doctor','Type','Symptoms','Fee','Payment','Status'].map(h => (
+                          {['Token #', 'Date', 'Clinic', 'Doctor', 'Type', 'Symptoms', 'Fee', 'Payment', 'Status'].map(h => (
                             <th key={h} style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>{h}</th>
                           ))}
                         </tr>
@@ -1351,9 +1382,9 @@ export default function PatientAppointments() {
                   borderRadius: '10px', padding: '14px', marginBottom: '18px',
                 }}>
                   {[
-                    ['Doctor',         `Dr. ${selectedDoctor?.name}`],
+                    ['Doctor', `Dr. ${selectedDoctor?.name}`],
                     ['Specialization', selectedDoctor?.department || 'General'],
-                    ['Consultation',   form.consultationType],
+                    ['Consultation', form.consultationType],
                   ].map(([label, val]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
                       <span style={{ color: '#6b7a99' }}>{label}</span>

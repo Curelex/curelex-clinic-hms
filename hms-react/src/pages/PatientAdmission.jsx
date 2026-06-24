@@ -25,8 +25,8 @@ function fmtTime(date) {
 }
 
 const typeColors = {
-  Doctor:  { bg: '#eff6ff', border: '#bfdbfe', badge: '#1e40af', badgeBg: '#dbeafe' },
-  Nurse:   { bg: '#f0fdf4', border: '#bbf7d0', badge: '#065f46', badgeBg: '#d1fae5' },
+  Doctor: { bg: '#eff6ff', border: '#bfdbfe', badge: '#1e40af', badgeBg: '#dbeafe' },
+  Nurse: { bg: '#f0fdf4', border: '#bbf7d0', badge: '#065f46', badgeBg: '#d1fae5' },
   General: { bg: '#f8fafc', border: '#e2e8f0', badge: '#475569', badgeBg: '#f1f5f9' },
 };
 
@@ -34,10 +34,10 @@ export default function PatientAdmission() {
   const { user, patient, logout, isPatient } = useAuth();
   const navigate = useNavigate();
 
-  const [admitted, setAdmitted]   = useState(false);
+  const [admitted, setAdmitted] = useState(false);
   const [admission, setAdmission] = useState(null);
-  const [history, setHistory]     = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const patientId = patient?._id || patient?.id || user?.id || user?._id;
@@ -125,14 +125,45 @@ export default function PatientAdmission() {
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
         {/* SIDEBAR */}
-        <PatientSidebar
-          activeItem="admissions"
-          onClose={() => setSidebarOpen(false)}
-          admission={admission}
-          patientName={patientName}
-          patientEmail={patientEmail}
-          initials={initials}
-        />
+        {!sidebarOpen && (
+          <div
+            style={{
+              padding: "12px 20px",
+              marginBottom: "8px",
+            }}
+          >
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                background: "#0f2d52",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              }}
+            >
+              ☰ Menu
+            </button>
+          </div>
+        )}
+
+        {sidebarOpen && (
+          <PatientSidebar
+            activeItem="documents" // <-- page ke hisaab se change karna
+            onClose={() => setSidebarOpen(false)}
+            patientName={patientName}
+            patientEmail={patientEmail}
+            initials={initials}
+          />
+        )}
+
 
         {/* MAIN CONTENT */}
         <div className="pd-main">

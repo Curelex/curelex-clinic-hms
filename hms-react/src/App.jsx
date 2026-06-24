@@ -104,6 +104,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
 
+
             <Route
               path="patients"
               element={<PermRoute permKey="patients"><Patients /></PermRoute>}
@@ -165,14 +166,14 @@ function App() {
             />
 
             <Route
-  path="prescriptions"
-  element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>}
-/>
-<Route
-  path="telemedicine"
-  element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>}
-/>
-<Route
+              path="prescriptions"
+              element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>}
+            />
+            <Route
+              path="telemedicine"
+              element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>}
+            />
+            <Route
               path="doctor-earnings"
               element={<PrivateRoute><DoctorEarnings /></PrivateRoute>}
             />
@@ -188,6 +189,15 @@ function App() {
             element={
               <PatientRoute>
                 <PatientDashboard />
+              </PatientRoute>
+            }
+          />
+
+          <Route
+            path="/patient-profile"
+            element={
+              <PatientRoute>
+                <Profile />
               </PatientRoute>
             }
           />
@@ -210,21 +220,21 @@ function App() {
             }
           />
           <Route
-  path="/patient-prescriptions"
-  element={
-    <PatientRoute>
-      <PatientPrescriptions />
-    </PatientRoute>
-  }
-/>
-<Route
-  path="/patient-telemedicine"
-  element={
-    <PatientRoute>
-      <PatientTelemedicine />
-    </PatientRoute>
-  }
-/>
+            path="/patient-prescriptions"
+            element={
+              <PatientRoute>
+                <PatientPrescriptions />
+              </PatientRoute>
+            }
+          />
+          <Route
+            path="/patient-telemedicine"
+            element={
+              <PatientRoute>
+                <PatientTelemedicine />
+              </PatientRoute>
+            }
+          />
 
           {/* ── NEW: Patient Documents ─────────────────────────── */}
           <Route

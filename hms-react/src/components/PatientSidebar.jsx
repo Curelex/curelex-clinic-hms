@@ -3,13 +3,14 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function PatientSidebar({ 
-  activeItem, 
+export default function PatientSidebar({
+  activeItem,
+  sidebarOpen,
   onClose,
-  admission, 
+  admission,
   patientName,
   patientEmail,
-  initials 
+  initials
 }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -35,7 +36,18 @@ export default function PatientSidebar({
   ];
 
   return (
-    <aside className={`pd-sidebar`}>
+
+    <aside
+      className={`pd-sidebar ${sidebarOpen ? 'open' : ''}`}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        height: "100vh",
+        zIndex: 9999,
+        background: "#fff"
+      }}
+    >
       <div className="pd-sidebar__profile">
         <div className="pd-sidebar__avatar">{initials || 'P'}</div>
         <div>
@@ -45,25 +57,25 @@ export default function PatientSidebar({
       </div>
       <nav className="pd-sidebar__nav">
         {navItems.map((item) => (
-          <div 
+          <div
             key={item.key}
-            className={`pd-nav-item ${activeItem === item.key ? 'active' : ''}`} 
+            className={`pd-nav-item ${activeItem === item.key ? 'active' : ''}`}
             onClick={() => goTo(item.path)}
-            style={{ 
-              display: 'flex', 
+            style={{
+              display: 'flex',
               alignItems: 'center',
               ...(item.key === 'admission' && admission ? { position: 'relative' } : {})
             }}
           >
             <i className={`fas ${item.icon}`}></i> {item.label}
-            {item.key === 'admissions' && admission && (
+            {item.key === 'admission' && admission && (
               <span style={{
-                marginLeft: 'auto', 
-                fontSize: 9, 
-                fontWeight: 700, 
+                marginLeft: 'auto',
+                fontSize: 9,
+                fontWeight: 700,
                 color: '#fff',
-                background: '#16a34a', 
-                borderRadius: 20, 
+                background: '#16a34a',
+                borderRadius: 20,
                 padding: '2px 7px',
               }}>
                 LIVE

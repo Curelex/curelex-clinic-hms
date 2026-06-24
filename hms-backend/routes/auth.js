@@ -350,7 +350,7 @@ router.post('/users', auth, roleCheck('admin'), async (req, res) => {
 });
 
 // ── Update Staff (admin only) ─────────────────────────────────────────────
-router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
+router.put('/users/:id', auth, async (req, res) => {
   try {
     // Destructure password separately — never let Object.assign touch it
     // or the pre-save hook will re-hash an already-hashed value
