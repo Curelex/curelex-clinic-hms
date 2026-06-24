@@ -154,63 +154,38 @@ export default function Profile() {
 
   return (
     <>
-      {!sidebarOpen && (
-        <div
-          style={{
-            padding: "12px 20px",
-            marginBottom: "8px",
-          }}
-        >
+      <PatientSidebar
+        activeItem="profile"
+        sidebarOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        patientName={patientName}
+        patientEmail={patientEmail}
+        initials={initials}
+      />
+
+      <header className="pd-topbar">
+        <div className="pd-topbar__left">
           <button
+            className="pd-hamburger"
             onClick={() => setSidebarOpen(true)}
-            style={{
-              background: "#0f2d52",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              padding: "8px 12px",
-              fontSize: "14px",
-              fontWeight: 500,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-            }}
           >
-            ☰ Menu
+            <i className="fas fa-bars"></i>
           </button>
+
+          <span className="pd-topbar__title">
+            My Health
+          </span>
         </div>
-      )}
+      </header>
 
-      {sidebarOpen && (
-        <PatientSidebar
-          activeItem="documents" // <-- page ke hisaab se change karna
-          onClose={() => setSidebarOpen(false)}
-          patientName={patientName}
-          patientEmail={patientEmail}
-          initials={initials}
-        />
-      )}
-
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 9998
-          }}
-        />
-      )}
-
-
-
-      <div>
+      <div
+        style={{
+          marginLeft: window.innerWidth > 768 ? '250px' : '0',
+          padding: '24px',
+          paddingTop: '24px',
+          background: '#f1f5f9'
+        }}
+      >
         <div>
           {/* Header */}
           <div className="page-header">

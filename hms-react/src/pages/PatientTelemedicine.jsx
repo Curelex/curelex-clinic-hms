@@ -240,14 +240,14 @@ export default function PatientTelemedicine() {
       // ── FIX: Don't send patientId from frontend ──
       // The backend will use req.user.id to find the patient
       const clinicId = getEffectiveClinicId();
-    const response = await API.post('/telemedicine/request', {
+      const response = await API.post('/telemedicine/request', {
         // Remove patientId - let backend derive it from the logged-in user
         doctorId: form.doctorId,
         symptoms: form.symptoms,
         preferredTime: form.preferredTime || null,
         urgency: form.urgency,
         clinicId: clinicId,
-    });
+      });
 
       if (response.data.success) {
         setShowRequestForm(false);
@@ -332,44 +332,14 @@ export default function PatientTelemedicine() {
       <div className="pd-below-header">
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-        {!sidebarOpen && (
-          <div
-            style={{
-              padding: "12px 20px",
-              marginBottom: "8px",
-            }}
-          >
-            <button
-              onClick={() => setSidebarOpen(true)}
-              style={{
-                background: "#0f2d52",
-                color: "#fff",
-                border: "none",
-                borderRadius: "8px",
-                padding: "8px 12px",
-                fontSize: "14px",
-                fontWeight: 500,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-              }}
-            >
-              ☰ Menu
-            </button>
-          </div>
-        )}
-
-        {sidebarOpen && (
-          <PatientSidebar
-            activeItem="documents" // <-- page ke hisaab se change karna
-            onClose={() => setSidebarOpen(false)}
-            patientName={patientName}
-            patientEmail={patientEmail}
-            initials={initials}
-          />
-        )}
+        <PatientSidebar
+          activeItem="xxxx"
+          sidebarOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          initials={initials}
+        />
 
         <div className="pd-main">
           <main className="pd-body">

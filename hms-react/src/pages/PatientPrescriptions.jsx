@@ -84,44 +84,14 @@ export default function PatientPrescriptions() {
       <div className="pd-below-header">
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-        {!sidebarOpen && (
-          <div
-            style={{
-              padding: "12px 20px",
-              marginBottom: "8px",
-            }}
-          >
-            <button
-              onClick={() => setSidebarOpen(true)}
-              style={{
-                background: "#0f2d52",
-                color: "#fff",
-                border: "none",
-                borderRadius: "8px",
-                padding: "8px 12px",
-                fontSize: "14px",
-                fontWeight: 500,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-              }}
-            >
-              ☰ Menu
-            </button>
-          </div>
-        )}
-
-        {sidebarOpen && (
-          <PatientSidebar
-            activeItem="documents" // <-- page ke hisaab se change karna
-            onClose={() => setSidebarOpen(false)}
-            patientName={patientName}
-            patientEmail={patientEmail}
-            initials={initials}
-          />
-        )}
+        <PatientSidebar
+          activeItem="xxxx"
+          sidebarOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          initials={initials}
+        />
 
         <div className="pd-main">
           <main className="pd-body">
