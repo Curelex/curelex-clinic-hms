@@ -21,7 +21,10 @@ export default function PatientSidebar({
   };
 
   const goTo = (path) => {
-    if (onClose) onClose();
+    if (window.innerWidth <= 768 && onClose) {
+      onClose();
+    }
+
     navigate(path);
   };
 
@@ -39,14 +42,6 @@ export default function PatientSidebar({
 
     <aside
       className={`pd-sidebar ${sidebarOpen ? 'open' : ''}`}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        height: "100vh",
-        zIndex: 9999,
-        background: "#fff"
-      }}
     >
       <div className="pd-sidebar__profile">
         <div className="pd-sidebar__avatar">{initials || 'P'}</div>
@@ -83,10 +78,6 @@ export default function PatientSidebar({
             )}
           </div>
         ))}
-        <div className="pd-nav-divider" />
-        <div className="pd-nav-item" onClick={handleLogout}>
-          <i className="fas fa-sign-out-alt"></i> Logout
-        </div>
       </nav>
       <div className="pd-sidebar__footer">
         <button className="pd-logout-btn" onClick={handleLogout}>
