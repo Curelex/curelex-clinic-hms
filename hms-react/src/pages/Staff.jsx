@@ -1,6 +1,7 @@
 // hms-react/src/pages/Staff.jsx
 import React, { useEffect, useState } from 'react';
 import API from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 // ── Module definitions ────────────────────────────────────────
 const ALL_MODULES = [
@@ -175,6 +176,7 @@ const css = {
 };
 
 export default function Staff() {
+  const { user, getEffectiveClinicId } = useAuth();
   const [users,        setUsers]        = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [modal,        setModal]        = useState(false);
@@ -188,6 +190,15 @@ export default function Staff() {
   const [workPanel,    setWorkPanel]    = useState(null);
   const [workData,     setWorkData]     = useState(null);
   const [workLoading,  setWorkLoading]  = useState(false);
+  const [clinics, setClinics] = useState([]);
+
+  useEffect(() => {
+  if (user?.role === 'super_admin') {
+    API.get('/auth/clinics')
+      .then(res => setClinics(res.data.clinics || []))
+      .catch(console.error);
+  }
+}, [user]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -254,20 +265,28 @@ export default function Staff() {
     }
     setSaving(true); setError('');
     try {
+      const effectiveClinicId = getEffectiveClinicId();
+      if (!effectiveClinicId) {
+      setError('No clinic selected. Please select a clinic first.');
+      setSaving(false);
+      return;
+    }
       if (editId) {
-        const payload = { ...form };
+        
+        const payload = { ...form, clinicId: effectiveClinicId };
         if (!payload.password) delete payload.password;
         // ✅ Only send consultationFee for doctors
         if (payload.role !== 'doctor') delete payload.consultationFee;
         await API.put(`/auth/users/${editId}`, payload);
       } else {
-        const payload = { ...form };
+        const payload = { ...form, clinicId: effectiveClinicId };
         if (payload.role !== 'doctor') delete payload.consultationFee;
         await API.post('/auth/users', payload);
       }
       setModal(false); setForm(emptyForm); setEditId(null); setEmailTouched(false);
       fetchUsers();
     } catch (err) {
+      console.log(err);
       setError(err.response?.data?.message || 'Something went wrong');
     } finally {
       setSaving(false);

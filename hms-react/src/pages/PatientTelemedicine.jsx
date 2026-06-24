@@ -21,7 +21,7 @@ const STATUS_COLORS = {
 };
 
 export default function PatientTelemedicine() {
-  const { user, patient, logout, isPatient, isConnected, isDoctorOnline, onlineDoctors, emit, on, off } = useAuth();
+  const { user, patient, logout, isPatient, isConnected, isDoctorOnline, onlineDoctors, emit, on, off, getEffectiveClinicId } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [requests, setRequests] = useState([]);
@@ -239,13 +239,15 @@ export default function PatientTelemedicine() {
     try {
       // ── FIX: Don't send patientId from frontend ──
       // The backend will use req.user.id to find the patient
-      const response = await API.post('/telemedicine/request', {
+      const clinicId = getEffectiveClinicId();
+    const response = await API.post('/telemedicine/request', {
         // Remove patientId - let backend derive it from the logged-in user
         doctorId: form.doctorId,
         symptoms: form.symptoms,
         preferredTime: form.preferredTime || null,
         urgency: form.urgency,
-      });
+        clinicId: clinicId,
+    });
 
       if (response.data.success) {
         setShowRequestForm(false);

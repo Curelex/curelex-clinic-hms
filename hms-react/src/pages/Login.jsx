@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form,  setForm]  = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
@@ -13,12 +13,15 @@ export default function Login() {
     e.preventDefault();
     setError('');
     const result = await login(form.email, form.password);
-    
+
     if (result.success) {
-      if (result.user?.role === 'patient') {
+      const role = result.user?.role;
+      if (role === 'super_admin') {
+        navigate('/super-admin');
+      } else if (role === 'patient') {
         navigate('/patient-dashboard');
       } else {
-        navigate('/');
+        navigate('/dashboard');
       }
     } else {
       setError(result.message);

@@ -9,23 +9,6 @@ import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
 const socket = io('/', { path: '/socket.io' });
 
-// ── Resolve clinicId from stored JWT / user object ───────────────────────────
-function getClinicId() {
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) return 'default';
-    const parsed = JSON.parse(raw);
-    return (
-      parsed.clinicId ||
-      parsed.clinic?._id ||
-      parsed.clinic ||
-      'default'
-    );
-  } catch {
-    return 'default';
-  }
-}
-
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /* ── Shared UI helpers ───────────────────────────────────────── */
@@ -247,18 +230,22 @@ function RoomSummary({ clinicId }) {
 }
 
 export default function Dashboard() {
-  const clinicId = getClinicId();
+  const { user, hasPerm, getEffectiveClinicId, superAdminClinicId, superAdminClinicName } = useAuth();
+  const navigate = useNavigate();
+
+  const isDoctor     = user?.role?.toLowerCase() === 'doctor';
+  const isAdmin      = user?.role?.toLowerCase() === 'admin';
+  const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
+  const showDoctorWidgets = isDoctor || isSuperAdmin;
+
+  // Effective clinicId — for super_admin this is the impersonated clinic chosen in the console
+  const clinicId = getEffectiveClinicId() || 'default';
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState({
     lowStock: [], outOfStock: [], dueMaintenance: [], overdueMaintenance: [],
   });
-  const { user, hasPerm } = useAuth();
-  const navigate = useNavigate();
-
-  const isDoctor = user?.role?.toLowerCase() === 'doctor';
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   // ── Fetch dashboard stats ─────────────────────────────────────────────────
   useEffect(() => {
@@ -297,10 +284,12 @@ export default function Dashboard() {
   if (loading) return <div className="spinner" />;
 
   const permList = user?.permissions || [];
-  const subtitle 
-  = user?.role === 'pharmacist'
+  const subtitle
+    = isSuperAdmin
+    ? 'Super Admin — full system access across all clinics.'
+    : user?.role === 'pharmacist'
     ? 'Manage pharmacy inventory and monitor stock alerts.'
-    : user?.role === 'admin'
+    : isAdmin
     ? 'Full system overview — you have complete access.'
     : permList.length <= 1
       ? 'Welcome! Contact admin to grant you module access.'
@@ -321,7 +310,42 @@ export default function Dashboard() {
 
   return (
     <div>
-      {isDoctor && <DoctorEmergencyAlerts />}
+      {/* ── Super admin clinic context banner ── */}
+      {isSuperAdmin && (
+        <div style={{
+          background: superAdminClinicId ? '#0f2942' : '#fee2e2',
+          color: superAdminClinicId ? '#fff' : '#991b1b',
+          borderRadius: 10, padding: '10px 16px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 8, fontSize: 13,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18 }}>⚡</span>
+            {superAdminClinicId ? (
+              <span>
+                <strong>Super Admin</strong> — viewing data for clinic:{' '}
+                <strong style={{ color: '#38bdf8' }}>{superAdminClinicName || superAdminClinicId}</strong>
+              </span>
+            ) : (
+              <span>
+                <strong>No clinic selected.</strong> Go to the Super Admin console to pick a clinic — all data below will be empty.
+              </span>
+            )}
+          </div>
+          <a
+            href="/super-admin"
+            style={{
+              background: 'rgba(255,255,255,0.15)', color: '#fff',
+              padding: '4px 12px', borderRadius: 20, fontSize: 11,
+              fontWeight: 700, textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.3)',
+            }}
+          >
+            ← Switch Clinic
+          </a>
+        </div>
+      )}
+      {(isDoctor || isSuperAdmin) && <DoctorEmergencyAlerts />}
       {/* ── Page header ── */}
       <div className="page-header">
         <div>
@@ -372,8 +396,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Doctor sections - Only show for DOCTORS ── */}
-      {isDoctor && (
+      {/* ── Doctor sections - Show for DOCTORS and SUPER_ADMIN ── */}
+      {showDoctorWidgets && (
         <>
           <DoctorTelemedicineQuickStats />
           <DoctorEarningsWidget />
@@ -516,8 +540,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Admin Payout Management - Only show for ADMIN ── */}
-      {isAdmin && <AdminPayoutManagement />}
+      {/* ── Admin Payout Management - Only show for ADMIN and SUPER_ADMIN ── */}
+      {(isAdmin || isSuperAdmin) && <AdminPayoutManagement />}
 
       {/* ── Room summary ── */}
       {showRoomSummary && <RoomSummary clinicId={clinicId} />}
@@ -656,7 +680,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Token queue ── */}
-      {showTokenQueue && <TokenDashboard />}
+      {showTokenQueue && <TokenDashboard clinicId={clinicId} />}
 
       {/* ── Empty permissions state ── */}
       {permList.filter(p => p !== 'dashboard').length === 0 && (
@@ -677,7 +701,7 @@ function DoctorEmergencyAlerts() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (user?.role !== 'doctor') return;
+    if (user?.role !== 'doctor' && user?.role !== 'super_admin') return;
 
     socket.emit('doctor:join', user._id);
 
@@ -772,8 +796,16 @@ function DoctorEarningsWidget() {
   const loadEarnings = async () => {
     try {
       const doctorId = user?._id || user?.id;
-      const { data } = await API.get(`/telemedicine/earnings/${doctorId}`);
-      if (data.success) {
+      // super_admin gets system-wide telemedicine earnings overview
+      const url = user?.role === 'super_admin'
+        ? '/telemedicine/pending-payouts'
+        : `/telemedicine/earnings/${doctorId}`;
+      const { data } = await API.get(url);
+      if (user?.role === 'super_admin') {
+        // For super_admin show aggregate pending amounts
+        const total = data.totalAmount || 0;
+        setEarnings({ total, pending: total, processing: 0, completed: 0 });
+      } else if (data.success) {
         setEarnings({
           total: data.earnings.total || 0,
           pending: data.earnings.pending || 0,
@@ -789,7 +821,7 @@ function DoctorEarningsWidget() {
   };
 
   useEffect(() => {
-    if (user?.role !== 'doctor') return;
+    if (user?.role !== 'doctor' && user?.role !== 'super_admin') return;
     loadEarnings();
 
     socket.on('telemedicine:payout-approved', loadEarnings);
@@ -914,7 +946,7 @@ function DoctorTelemedicineQuickStats() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.role === 'doctor') {
+    if (user?.role === 'doctor' || user?.role === 'super_admin') {
       loadStats();
     }
   }, [user]);
@@ -936,7 +968,7 @@ function DoctorTelemedicineQuickStats() {
     }
   };
 
-  if (loading || user?.role !== 'doctor') return null;
+  if (loading || (user?.role !== 'doctor' && user?.role !== 'super_admin')) return null;
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -958,8 +990,8 @@ function AdminPayoutManagement() {
   const [processing, setProcessing] = useState(false);
   const [totalAmount, setTotalAmount] = useState(0);
 
-  // Only show for admin
-  if (user?.role !== 'admin') return null;
+  // Only show for admin and super_admin
+  if (user?.role !== 'admin' && user?.role !== 'super_admin') return null;
 
   useEffect(() => {
     loadPendingPayouts();

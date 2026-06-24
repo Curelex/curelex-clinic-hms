@@ -40,6 +40,16 @@ const NAV_SECTIONS = [
   },
 ];
 
+// ── SUPER ADMIN SECTION ──
+const SUPER_ADMIN_SECTIONS = [
+  {
+    section: 'SUPER ADMIN',
+    items: [
+      { path: '/super-admin', label: 'Super Admin Console', icon: '⚡', perm: 'super', end: true },
+    ],
+  },
+];
+
 // ── DOCTOR SECTION - Only shown to doctors ──
 const DOCTOR_SECTIONS = [
   {
@@ -53,6 +63,7 @@ const DOCTOR_SECTIONS = [
 
 // ── Role badge config ──────────────────────────────────────────
 const ROLE_META = {
+  super_admin: { label: 'Super Admin', color: '#c084fc', bg: 'rgba(192,132,252,0.15)' },
   admin: { label: 'Administrator', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
   doctor: { label: 'Doctor', color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
   nurse: { label: 'Nurse', color: '#34d399', bg: 'rgba(52,211,153,0.15)' },
@@ -73,6 +84,7 @@ export default function Layout() {
   // ── Determine user role ──
   const isDoctor = user?.role?.toLowerCase() === 'doctor';
   const isAdmin = user?.role?.toLowerCase() === 'admin';
+  const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
 
   // ── Stable fetch — identity only changes on login/logout ──────
   const fetchData = useCallback(async () => {
@@ -157,16 +169,19 @@ export default function Layout() {
   const visibleSections = NAV_SECTIONS.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      // ── Hide telemedicine from admin ──
-      if (item.perm === 'telemedicine' && isAdmin) return false;
+      // ── Hide telemedicine from admin (but NOT super_admin) ──
+      if (item.perm === 'telemedicine' && isAdmin && !isSuperAdmin) return false;
       return hasPerm(item.perm);
     }),
   })).filter(s => s.items.length > 0);
 
   // ── Add DOCTOR section only for doctors ──
-  const finalSections = isDoctor 
-    ? [...visibleSections, ...DOCTOR_SECTIONS]
-    : visibleSections;
+  // ── Add SUPER ADMIN section for super_admin (plus doctor sections) ──
+  const finalSections = isSuperAdmin
+    ? [...visibleSections, ...DOCTOR_SECTIONS, ...SUPER_ADMIN_SECTIONS]
+    : isDoctor
+      ? [...visibleSections, ...DOCTOR_SECTIONS]
+      : visibleSections;
 
   return (
     <div

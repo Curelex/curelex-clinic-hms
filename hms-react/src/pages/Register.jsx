@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API from '../utils/api';
 
+// super_admin intentionally excluded — only creatable via DB/seed
 const ROLES = [
   { value: 'admin',          label: 'Admin',          icon: '🛡️',  desc: 'Full system access' },
   { value: 'doctor',         label: 'Doctor',         icon: '👨‍⚕️', desc: 'Patient care & records' },
@@ -22,7 +23,7 @@ export default function Register() {
   const [step,         setStep]         = useState(1);
   const [selectedRole, setSelectedRole] = useState('');
   const [form,         setForm]         = useState({
-    clinicName:      '',   // ✅ NEW — required to create clinic on register
+    clinicName:      '',
     name:            '',
     email:           '',
     password:        '',
@@ -47,8 +48,6 @@ export default function Register() {
     if (form.password !== form.confirmPassword) return setError('Passwords do not match');
     if (form.password.length < 6) return setError('Password must be at least 6 characters');
 
-    // ✅ Only require clinicName when registering as admin
-    //    (admins create a new clinic; other roles are added by an existing admin)
     if (selectedRole === 'admin' && !form.clinicName.trim()) {
       return setError('Clinic / Hospital name is required for admin registration');
     }
@@ -56,7 +55,7 @@ export default function Register() {
     setLoading(true);
     try {
       const { data } = await API.post('/auth/register', {
-        clinicName:  form.clinicName,   // ✅ sent to backend
+        clinicName:  form.clinicName,
         name:        form.name,
         email:       form.email,
         password:    form.password,
@@ -67,7 +66,16 @@ export default function Register() {
 
       localStorage.setItem('hms_token', data.token);
       localStorage.setItem('hms_user', JSON.stringify(data.user));
-      navigate('/');
+
+      // Route based on the registered role
+      const role = data.user?.role;
+      if (role === 'super_admin') {
+        navigate('/super-admin');
+      } else if (role === 'patient') {
+        navigate('/patient-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {
@@ -168,7 +176,7 @@ export default function Register() {
               </div>
             </div>
 
-            {/* ✅ Clinic name — only shown for admin, since only admins create a new clinic */}
+            {/* Clinic name — only for admin */}
             {selectedRole === 'admin' && (
               <div className="form-group">
                 <label className="form-label">Clinic / Hospital Name *</label>
