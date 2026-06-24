@@ -21,7 +21,7 @@ const STATUS_COLORS = {
 };
 
 export default function PatientTelemedicine() {
-  const { user, patient, logout, isPatient, isConnected, isDoctorOnline, onlineDoctors, emit, on, off } = useAuth();
+  const { user, patient, logout, isPatient, isConnected, isDoctorOnline, onlineDoctors, emit, on, off, getEffectiveClinicId } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [requests, setRequests] = useState([]);
@@ -191,9 +191,11 @@ const handlePayment = async () => {
   
   try {
     console.log('💳 Processing payment for request:', paymentRequest.requestId);
+    const clinicId = getEffectiveClinicId();
     
     const { data } = await API.post(`/telemedicine/${paymentRequest.requestId}/pay`, {
       paymentMethod: paymentMethod,
+      clinicId: clinicId,
       paymentDetails: {
         method: paymentMethod,
         timestamp: new Date().toISOString(),
@@ -239,12 +241,14 @@ const handleSubmit = async (e) => {
   try {
     // ── FIX: Don't send patientId from frontend ──
     // The backend will use req.user.id to find the patient
+    const clinicId = getEffectiveClinicId();
     const response = await API.post('/telemedicine/request', {
       // Remove patientId - let backend derive it from the logged-in user
       doctorId: form.doctorId,
       symptoms: form.symptoms,
       preferredTime: form.preferredTime || null,
       urgency: form.urgency,
+      clinicId: clinicId,
     });
 
     if (response.data.success) {

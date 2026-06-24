@@ -1,21 +1,20 @@
 // hms-backend/routes/tokens.js
-// Add to server.js:  app.use('/api/tokens', require('./routes/tokens'));
-
 import express from 'express';
 import mongoose from 'mongoose';
-const router  = express.Router();
-import {auth}    from '../middleware/auth.js';
-import Token   from '../models/Token.js';
-import User    from '../models/User.js';
+const router = express.Router();
+import { auth } from '../middleware/auth.js';
+import { getClinicFilter } from '../middleware/clinicFilter.js';
+import Token from '../models/Token.js';
+import User from '../models/User.js';
 import Patient from '../models/Patient.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Returns today's date as "YYYY-MM-DD" in local time (IST-safe). */
 function todayStr() {
-  const d   = new Date();
-  const yr  = d.getFullYear();
-  const mo  = String(d.getMonth() + 1).padStart(2, '0');
+  const d = new Date();
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${yr}-${mo}-${day}`;
 }
@@ -25,15 +24,18 @@ function todayStr() {
  *  1. req.body.clinicId   — POST/PUT requests pass it in the body
  *  2. req.query.clinicId  — GET/DELETE requests pass it as a query param
  *  3. req.user.clinicId   — set by the auth middleware from the JWT
- *  4. 'default'           — safe fallback
+ *  4. null                — if no clinic found, return null (caller handles)
  */
 function resolveClinicId(req) {
-  return (
-    req.body?.clinicId  ||
-    req.query?.clinicId ||
-    req.user?.clinicId  ||
-    'default'
-  );
+  const id = req.body?.clinicId || req.query?.clinicId || req.user?.clinicId || null;
+  
+  // For super_admin, they might have a session-stored clinic in the header
+  if (req.user?.role === 'super_admin') {
+    const headerId = req.headers['x-clinic-id'];
+    if (headerId) return headerId;
+  }
+  
+  return id;
 }
 
 /**
@@ -48,16 +50,22 @@ async function createPatientFromToken({ clinicId, doctorId, name, phone, email, 
     throw err;
   }
 
+  // Check if patient already exists in this clinic
+  const existing = await Patient.findOne({ email, clinicId });
+  if (existing) {
+    return existing;
+  }
+
   const patient = await Patient.create({
-    name:           name || 'Walk-in',
+    name: name || 'Walk-in',
     phone,
     email,
-    age:            age ?? null,
-    gender:         gender || null,
+    age: age ?? null,
+    gender: gender || null,
     clinicId,
     assignedDoctor: doctorId || null,
-    registeredBy:   registeredBy || null,
-    status:         'Active',
+    registeredBy: registeredBy || null,
+    status: 'Active',
   });
 
   return patient;
@@ -67,6 +75,17 @@ async function createPatientFromToken({ clinicId, doctorId, name, phone, email, 
 router.post('/generate', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
+    
+    // If no clinicId and user is not super_admin, use their clinicId
+    let effectiveClinicId = clinicId;
+    if (!effectiveClinicId && req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.status(400).json({ message: 'Clinic ID is required. Please select a clinic.' });
+    }
+
     const {
       doctorId,
       patientId,
@@ -84,73 +103,97 @@ router.post('/generate', auth, async (req, res) => {
 
     const date = todayStr();
 
-    const doctor = await User.findById(doctorId).select('consultationFee name department');
+    const doctor = await User.findById(doctorId).select('consultationFee name department clinicId');
     if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+    // Verify doctor belongs to the same clinic
+    if (doctor.clinicId && String(doctor.clinicId) !== String(effectiveClinicId)) {
+      return res.status(400).json({ message: 'Doctor does not belong to this clinic' });
+    }
 
     let patientDoc = null;
 
     if (patientId) {
-      patientDoc = await Patient.findById(patientId);
-      if (!patientDoc) return res.status(404).json({ message: 'Patient not found' });
-    } else {
-      if (!phone || !email) {
-        return res.status(400).json({
-          message: 'phone and email are required to register a new patient for this token',
-        });
+      patientDoc = await Patient.findOne({ _id: patientId, clinicId: effectiveClinicId });
+      if (!patientDoc) {
+        return res.status(404).json({ message: 'Patient not found in this clinic' });
       }
-      try {
-        patientDoc = await createPatientFromToken({
-          clinicId,
-          doctorId,
-          name:  patientName || 'Walk-in',
-          phone,
-          email,
-          age,
-          gender,
-          registeredBy: req.user.id,
-        });
-      } catch (err) {
-        return res.status(err.status || 500).json({ message: err.message });
+    } else {
+      // Try to find existing patient by email/phone in this clinic
+      if (email) {
+        patientDoc = await Patient.findOne({ email, clinicId: effectiveClinicId });
+      }
+      if (!patientDoc && phone) {
+        patientDoc = await Patient.findOne({ phone, clinicId: effectiveClinicId });
+      }
+      
+      if (!patientDoc) {
+        // Create new patient if we have enough info
+        if (!phone || !email) {
+          // For walk-ins, we can create with just name and phone
+          if (!phone) {
+            return res.status(400).json({
+              message: 'Phone number is required to register a new patient',
+            });
+          }
+        }
+        try {
+          patientDoc = await createPatientFromToken({
+            clinicId: effectiveClinicId,
+            doctorId,
+            name: patientName || 'Walk-in',
+            phone: phone || '',
+            email: email || `walkin_${Date.now()}@temp.com`,
+            age,
+            gender,
+            registeredBy: req.user.id,
+          });
+        } catch (err) {
+          return res.status(err.status || 500).json({ message: err.message });
+        }
       }
     }
 
-    const last = await Token.findOne({ clinicId, doctor: doctorId, date })
-      .sort({ tokenNumber: -1 })
-      .select('tokenNumber');
+    // Get today's tokens for this clinic and doctor
+    const last = await Token.findOne({ 
+      clinicId: effectiveClinicId, 
+      doctor: doctorId, 
+      date 
+    }).sort({ tokenNumber: -1 }).select('tokenNumber');
 
     const tokenNumber = last ? last.tokenNumber + 1 : 1;
 
     const isPatientBooking = req.user?.role === 'patient';
 
     const token = await Token.create({
-      clinicId,
+      clinicId: effectiveClinicId,
       tokenNumber,
       date,
-      doctor:      doctorId,
-      patient:     patientDoc._id,
+      doctor: doctorId,
+      patient: patientDoc._id,
       patientName: patientDoc.name,
-      phone:       patientDoc.phone,
-      email:       patientDoc.email,
+      phone: patientDoc.phone,
+      email: patientDoc.email,
       generatedBy: req.user.id,
 
       source: isPatientBooking ? 'patient' : 'staff',
       status: isPatientBooking ? 'Pending' : 'Waiting',
 
-      age:    age    || undefined,
-      gender: gender  || undefined,
+      age: age || patientDoc.age || undefined,
+      gender: gender || patientDoc.gender || undefined,
       symptoms: symptoms || undefined,
 
       consultationType: consultationType || 'in-person',
-      consultationFee:  doctor.consultationFee || 0,
+      consultationFee: doctor.consultationFee || 0,
 
       paymentMethod: paymentMethod || null,
       paymentStatus: 'pending',
     });
 
     await token.populate([
-      { path: 'doctor',      select: 'name department consultationFee' },
+      { path: 'doctor', select: 'name department consultationFee' },
       { path: 'generatedBy', select: 'name role' },
-      { path: 'patient',     select: 'name patientId' },
+      { path: 'patient', select: 'name patientId' },
     ]);
 
     res.status(201).json(token);
@@ -164,19 +207,37 @@ router.post('/generate', auth, async (req, res) => {
 router.get('/today', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
+    
+    // For non-super_admin, always use their clinicId from JWT
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.json({ date: todayStr(), tokens: [] });
+    }
+
     const { doctorId } = req.query;
-    const date  = todayStr();
-    const query = { clinicId, date };
-    if (doctorId) query.doctor = doctorId;
+    const date = todayStr();
+    const query = { clinicId: effectiveClinicId, date };
+    
+    // If user is a doctor, only show their tokens
+    if (req.user.role === 'doctor') {
+      query.doctor = req.user.id;
+    } else if (doctorId) {
+      query.doctor = doctorId;
+    }
 
     const tokens = await Token.find(query)
-      .populate('doctor',      'name department')
-      .populate('patient',     'name patientId')
+      .populate('doctor', 'name department')
+      .populate('patient', 'name patientId')
       .populate('generatedBy', 'name role')
       .sort({ tokenNumber: 1 });
 
     res.json({ date, tokens });
   } catch (err) {
+    console.error('Error fetching today tokens:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -185,39 +246,54 @@ router.get('/today', auth, async (req, res) => {
 router.get('/summary', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    const date     = todayStr();
+    
+    // For non-super_admin, always use their clinicId from JWT
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.json({ date: todayStr(), summary: [] });
+    }
+
+    const date = todayStr();
 
     const summary = await Token.aggregate([
-      { $match: { clinicId, date } },
+      { $match: { clinicId: effectiveClinicId, date } },
       {
         $group: {
-          _id:       '$doctor',
-          total:     { $sum: 1 },
-          waiting:   { $sum: { $cond: [{ $eq: ['$status', 'Waiting'] }, 1, 0] } },
-          called:    { $sum: { $cond: [{ $eq: ['$status', 'Called']  }, 1, 0] } },
-          done:      { $sum: { $cond: [{ $eq: ['$status', 'Done']    }, 1, 0] } },
+          _id: '$doctor',
+          total: { $sum: 1 },
+          waiting: { $sum: { $cond: [{ $eq: ['$status', 'Waiting'] }, 1, 0] } },
+          called: { $sum: { $cond: [{ $eq: ['$status', 'Called'] }, 1, 0] } },
+          done: { $sum: { $cond: [{ $eq: ['$status', 'Done'] }, 1, 0] } },
+          skipped: { $sum: { $cond: [{ $eq: ['$status', 'Skipped'] }, 1, 0] } },
+          pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
           lastToken: { $max: '$tokenNumber' },
         },
       },
       {
         $lookup: {
-          from:         'users',
-          localField:   '_id',
+          from: 'users',
+          localField: '_id',
           foreignField: '_id',
-          as:           'doctor',
+          as: 'doctor',
         },
       },
-      { $unwind: '$doctor' },
+      { $unwind: { path: '$doctor', preserveNullAndEmptyArrays: true } },
       {
         $project: {
-          _id:        0,
-          doctorId:   '$_id',
-          doctorName: '$doctor.name',
-          department: '$doctor.department',
-          total:    1,
-          waiting:  1,
-          called:   1,
-          done:     1,
+          _id: 0,
+          doctorId: '$_id',
+          doctorName: { $ifNull: ['$doctor.name', 'Unknown'] },
+          department: { $ifNull: ['$doctor.department', ''] },
+          total: 1,
+          waiting: 1,
+          called: 1,
+          done: 1,
+          skipped: 1,
+          pending: 1,
           lastToken: 1,
         },
       },
@@ -226,6 +302,7 @@ router.get('/summary', auth, async (req, res) => {
 
     res.json({ date, summary });
   } catch (err) {
+    console.error('Error fetching token summary:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -234,29 +311,57 @@ router.get('/summary', auth, async (req, res) => {
 router.patch('/:id/status', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
+    
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.status(400).json({ message: 'No clinic selected' });
+    }
+
     const { status } = req.body;
     const valid = ['Waiting', 'Called', 'Done', 'Skipped', 'Pending'];
-    if (!valid.includes(status))
+    if (!valid.includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    // Find token and verify it belongs to the clinic
+    const token = await Token.findOne({ _id: req.params.id, clinicId: effectiveClinicId });
+    if (!token) {
+      return res.status(404).json({ message: 'Token not found in this clinic' });
+    }
+
+    // Check permissions
+    const isDoctor = req.user.role === 'doctor' && String(token.doctor) === req.user.id;
+    const isGenerator = String(token.generatedBy) === req.user.id;
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+
+    if (!isAdmin && !isDoctor && !isGenerator) {
+      return res.status(403).json({ message: 'Not authorized to update this token' });
+    }
 
     const update = { status };
-    if (status === 'Called') update.calledAt = new Date();
+    if (status === 'Called') {
+      update.calledAt = new Date();
+    }
+    if (status === 'Done') {
+      update.completedAt = new Date();
+    }
 
-    const token = await Token.findOneAndUpdate(
-      { _id: req.params.id, clinicId },
+    const updatedToken = await Token.findByIdAndUpdate(
+      req.params.id,
       update,
       { new: true }
     )
-      .populate('doctor',      'name department')
-      .populate('patient',     'name patientId')
+      .populate('doctor', 'name department')
+      .populate('patient', 'name patientId')
       .populate('generatedBy', 'name role');
 
-    if (!token) return res.status(404).json({ message: 'Token not found' });
-
-    const needsPatientLink = status === 'Done' && !token.patient;
-
-    res.json({ ...token.toObject(), needsPatientLink });
+    res.json({ message: 'Token status updated', token: updatedToken });
   } catch (err) {
+    console.error('Error updating token status:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -265,14 +370,26 @@ router.patch('/:id/status', auth, async (req, res) => {
 router.patch('/:id/link-patient', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
+    
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.status(400).json({ message: 'No clinic selected' });
+    }
+
     const { phone, email, name, age, gender } = req.body;
 
     if (!phone || !email) {
       return res.status(400).json({ message: 'phone and email are required' });
     }
 
-    const token = await Token.findOne({ _id: req.params.id, clinicId });
-    if (!token) return res.status(404).json({ message: 'Token not found' });
+    const token = await Token.findOne({ _id: req.params.id, clinicId: effectiveClinicId });
+    if (!token) {
+      return res.status(404).json({ message: 'Token not found in this clinic' });
+    }
 
     if (token.patient) {
       return res.status(400).json({ message: 'This token is already linked to a patient' });
@@ -281,32 +398,33 @@ router.patch('/:id/link-patient', auth, async (req, res) => {
     let patient;
     try {
       patient = await createPatientFromToken({
-        clinicId,
+        clinicId: effectiveClinicId,
         doctorId: token.doctor,
-        name:     name || token.patientName || 'Walk-in',
+        name: name || token.patientName || 'Walk-in',
         phone,
         email,
-        age:      age ?? token.age,
-        gender:   gender ?? token.gender,
+        age: age ?? token.age,
+        gender: gender ?? token.gender,
         registeredBy: req.user.id,
       });
     } catch (err) {
       return res.status(err.status || 500).json({ message: err.message });
     }
 
-    token.patient     = patient._id;
+    token.patient = patient._id;
     token.patientName = patient.name;
-    token.phone        = phone;
-    token.email        = email;
+    token.phone = patient.phone;
+    token.email = patient.email;
     await token.save();
 
     await token.populate([
-      { path: 'doctor',  select: 'name department' },
+      { path: 'doctor', select: 'name department' },
       { path: 'patient', select: 'name patientId' },
     ]);
 
-    res.json(token);
+    res.json({ message: 'Patient linked successfully', token });
   } catch (err) {
+    console.error('Error linking patient:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -324,15 +442,26 @@ router.get('/mine', auth, async (req, res) => {
 
     res.json({ success: true, tokens });
   } catch (err) {
+    console.error('Error fetching patient tokens:', err);
     res.status(500).json({ message: err.message });
   }
 });
 
-// ── ✅ NEW: POST /api/tokens/statuses ──────────────────────────────────────
+// ── POST /api/tokens/statuses ──────────────────────────────────────────────
 router.post('/statuses', auth, async (req, res) => {
   try {
-    const { patientIds } = req.body;
     const clinicId = resolveClinicId(req);
+    
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.json({ success: true, tokens: [] });
+    }
+
+    const { patientIds } = req.body;
     
     if (!patientIds || !Array.isArray(patientIds) || patientIds.length === 0) {
       return res.json({ success: true, tokens: [] });
@@ -347,7 +476,7 @@ router.post('/statuses', auth, async (req, res) => {
     const tokens = await Token.aggregate([
       {
         $match: {
-          clinicId: clinicId,
+          clinicId: new mongoose.Types.ObjectId(effectiveClinicId),
           patient: { $in: validIds.map(id => new mongoose.Types.ObjectId(id)) }
         }
       },
@@ -402,18 +531,27 @@ router.post('/statuses', auth, async (req, res) => {
   }
 });
 
-// ── ✅ NEW: GET /api/tokens/patient/:patientId/latest ──────────────────────
+// ── GET /api/tokens/patient/:patientId/latest ──────────────────────────────
 router.get('/patient/:patientId/latest', auth, async (req, res) => {
   try {
     const { patientId } = req.params;
     const clinicId = resolveClinicId(req);
+    
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.json({ success: true, token: null });
+    }
     
     if (!mongoose.Types.ObjectId.isValid(patientId)) {
       return res.status(400).json({ success: false, message: 'Invalid patient ID' });
     }
     
     const token = await Token.findOne({ 
-      clinicId, 
+      clinicId: effectiveClinicId, 
       patient: patientId 
     })
       .sort({ createdAt: -1 })
@@ -422,22 +560,32 @@ router.get('/patient/:patientId/latest', auth, async (req, res) => {
     
     res.json({ success: true, token });
   } catch (err) {
+    console.error('Error fetching latest token:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ── ✅ NEW: GET /api/tokens/patient/:patientId/all ──────────────────────────
+// ── GET /api/tokens/patient/:patientId/all ──────────────────────────────────
 router.get('/patient/:patientId/all', auth, async (req, res) => {
   try {
     const { patientId } = req.params;
     const clinicId = resolveClinicId(req);
+    
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.json({ success: true, tokens: [] });
+    }
     
     if (!mongoose.Types.ObjectId.isValid(patientId)) {
       return res.status(400).json({ success: false, message: 'Invalid patient ID' });
     }
     
     const tokens = await Token.find({ 
-      clinicId, 
+      clinicId: effectiveClinicId, 
       patient: patientId 
     })
       .sort({ createdAt: -1 })
@@ -446,23 +594,37 @@ router.get('/patient/:patientId/all', auth, async (req, res) => {
     
     res.json({ success: true, tokens });
   } catch (err) {
+    console.error('Error fetching patient tokens:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ── ✅ NEW: GET /api/tokens/stats ──────────────────────────────────────────
+// ── GET /api/tokens/stats ──────────────────────────────────────────────────
 router.get('/stats', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
+    
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+    
+    if (!effectiveClinicId) {
+      return res.json({
+        success: true,
+        stats: { totalToday: 0, pending: 0, waiting: 0, called: 0, done: 0, skipped: 0 }
+      });
+    }
+
     const date = todayStr();
     
     const [totalToday, pending, waiting, called, done, skipped] = await Promise.all([
-      Token.countDocuments({ clinicId, date }),
-      Token.countDocuments({ clinicId, date, status: 'Pending' }),
-      Token.countDocuments({ clinicId, date, status: 'Waiting' }),
-      Token.countDocuments({ clinicId, date, status: 'Called' }),
-      Token.countDocuments({ clinicId, date, status: 'Done' }),
-      Token.countDocuments({ clinicId, date, status: 'Skipped' }),
+      Token.countDocuments({ clinicId: effectiveClinicId, date }),
+      Token.countDocuments({ clinicId: effectiveClinicId, date, status: 'Pending' }),
+      Token.countDocuments({ clinicId: effectiveClinicId, date, status: 'Waiting' }),
+      Token.countDocuments({ clinicId: effectiveClinicId, date, status: 'Called' }),
+      Token.countDocuments({ clinicId: effectiveClinicId, date, status: 'Done' }),
+      Token.countDocuments({ clinicId: effectiveClinicId, date, status: 'Skipped' }),
     ]);
     
     res.json({
@@ -477,6 +639,7 @@ router.get('/stats', auth, async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('Error fetching token stats:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

@@ -10,9 +10,10 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cron from 'node-cron';
 
-// Models (USED IN CRON)
+// Models (USED IN CRON + SEED)
 import Task from './models/Task.js';
 import Notification from './models/Notification.js';
+import User from './models/User.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -83,8 +84,47 @@ app.use((req, res, next) => {
 // MongoDB
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
+// ── Seed super admin from .env on first boot ─────────────────────────────
+async function seedSuperAdmin() {
+  try {
+    const existing = await User.findOne({ role: 'super_admin' });
+    if (existing) {
+      console.log('✅ Super Admin already exists — skipping seed');
+      return;
+    }
+
+    const { SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD, SUPER_ADMIN_NAME } = process.env;
+
+    if (!SUPER_ADMIN_EMAIL || !SUPER_ADMIN_PASSWORD) {
+      console.warn('⚠️  SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD not set in .env — skipping super admin seed');
+      return;
+    }
+
+    await User.create({
+      name:     SUPER_ADMIN_NAME || 'Super Admin',
+      email:    SUPER_ADMIN_EMAIL,
+      password: SUPER_ADMIN_PASSWORD,       // pre-save hook hashes it automatically
+      role:     'super_admin',
+      clinicId: null,
+      permissions: [
+        'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
+        'prescriptions', 'pharmacy', 'lab', 'inventory',
+        'room-settings', 'staff', 'telemedicine', 'tokens', 'emergency', 'tasks', 'super'
+      ],
+      isActive: true,
+    });
+
+    console.log(`🚀 Super Admin seeded → ${SUPER_ADMIN_EMAIL}`);
+  } catch (err) {
+    console.error('❌ Super admin seed failed:', err.message);
+  }
+}
+
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB Connected'))
+  .then(async () => {
+    console.log('MongoDB Connected');
+    await seedSuperAdmin();
+  })
   .catch(async err => {
     console.log('⚠️ MongoDB connection failed or URI missing. Starting in-memory database as fallback for testing...');
     try {
@@ -92,6 +132,7 @@ mongoose.connect(process.env.MONGO_URI)
       const mongoUri = mongoServer.getUri();
       await mongoose.connect(mongoUri);
       console.log('✅ MongoDB Connected to in-memory database successfully');
+      await seedSuperAdmin();
     } catch (memErr) {
       console.error('❌ Failed to start in-memory database:', memErr);
     }

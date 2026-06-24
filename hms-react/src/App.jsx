@@ -29,46 +29,65 @@ import TaskAllocation from './pages/TaskAllocation';
 import About from './pages/About';
 import DoctorPrescriptions from './pages/DoctorPrescriptions';
 import PatientPrescriptions from './pages/PatientPrescriptions';
-import PatientDocuments from './pages/PatientDocuments'; // ── NEW ──
+import PatientDocuments from './pages/PatientDocuments';
 import DoctorTelemedicine from './pages/DoctorTelemedicine';
 import PatientTelemedicine from './pages/PatientTelemedicine';
 import DoctorEarnings from './pages/DoctorEarnings';
 import DoctorBankDetails from './pages/DoctorBankDetails';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
-// ✅ Redirects to login if not authenticated
+// Redirects to login if not authenticated
 const PrivateRoute = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  return user ? children : <Navigate to="/login" replace />;
 };
 
-// ✅ Redirects to home if already authenticated (for login/register pages)
+// Redirects to correct home if already authenticated (login/register pages)
 const PublicRoute = ({ children }) => {
-  const { user } = useAuth();
-  return !user ? children : <Navigate to="/" />;
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  if (!user) return children;
+  // super_admin goes to the admin console; they can also manually navigate to /dashboard
+  if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
+  if (user.role === 'patient') return <Navigate to="/patient-dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
 };
 
-// ✅ Patient route guard - only patients can access
+// Patient route guard — only patients can access
 const PatientRoute = ({ children }) => {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/patient-login" />;
-  if (user.role !== 'patient') return <Navigate to="/" />;
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/patient-login" replace />;
+  if (user.role !== 'patient') return <Navigate to="/dashboard" replace />;
   return children;
 };
 
-// ✅ Staff route guard - redirects patients away from staff routes
+// Staff route guard — redirects patients and super_admin away from staff routes
 const StaffRoute = ({ children }) => {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" />;
-  if (user.role === 'patient') return <Navigate to="/patient-dashboard" />;
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'patient') return <Navigate to="/patient-dashboard" replace />;
+  if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
   return children;
 };
 
-// ✅ Permission guard for specific permissions
+// Super admin route guard — only super_admin can access
+const SuperAdminRoute = ({ children }) => {
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'super_admin') return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
+// Permission guard for specific permissions
 const PermRoute = ({ permKey, children }) => {
   const { hasPerm } = useAuth();
-  return hasPerm(permKey) ? children : <Navigate to="/" />;
+  return hasPerm(permKey) ? children : <Navigate to="/dashboard" replace />;
 };
 
 function App() {
@@ -77,27 +96,42 @@ function App() {
       <Router>
         <Routes>
           {/* ── Public Routes ────────────────────────────────────── */}
-          {/* Home page - accessible to everyone (NO PublicRoute wrapper) */}
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
 
           {/* ── Staff Auth Routes ────────────────────────────────── */}
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
+          {/* ── Super Admin Route ────────────────────────────────── */}
+          <Route
+            path="/super-admin"
+            element={
+              <SuperAdminRoute>
+                <SuperAdminDashboard />
+              </SuperAdminRoute>
+            }
+          />
+          {/* Convenience: /super-admin/* sub-paths stay on the dashboard */}
+          <Route
+            path="/super-admin/*"
+            element={
+              <SuperAdminRoute>
+                <SuperAdminDashboard />
+              </SuperAdminRoute>
+            }
+          />
+
           {/* ── Patient Auth Routes ─────────────────────────────── */}
-          <Route path="/patient-login" element={<PublicRoute><PatientLogin /></PublicRoute>} />
+          <Route path="/patient-login"    element={<PublicRoute><PatientLogin /></PublicRoute>} />
           <Route path="/patient-register" element={<PublicRoute><PatientRegister /></PublicRoute>} />
 
-          {/* ── Staff Dashboard Routes ──────────────────────────── */}
-          {/* These are nested under /dashboard to avoid conflict with home */}
+          {/* ── Staff Dashboard Routes (also accessible to super_admin) ──────────────────────────── */}
           <Route
             path="/dashboard"
             element={
               <PrivateRoute>
-                <StaffRoute>
-                  <Layout />
-                </StaffRoute>
+                <Layout />
               </PrivateRoute>
             }
           >
@@ -108,71 +142,56 @@ function App() {
               path="patients"
               element={<PermRoute permKey="patients"><Patients /></PermRoute>}
             />
-
             <Route
               path="billing"
               element={<PermRoute permKey="billing"><Billing /></PermRoute>}
             />
-
             <Route
               path="billing-requests"
               element={<PermRoute permKey="billing"><BillingRequests /></PermRoute>}
             />
-
             <Route
               path="ipd"
               element={<PermRoute permKey="ipd"><IPD /></PermRoute>}
             />
-
             <Route
               path="room-settings"
               element={<PermRoute permKey="room-settings"><RoomSettings /></PermRoute>}
             />
-
             <Route
               path="pharmacy/*"
               element={<PermRoute permKey="pharmacy"><IMSApp /></PermRoute>}
             />
-
             <Route
               path="lab"
               element={<PermRoute permKey="lab"><Lab /></PermRoute>}
             />
-
             <Route
               path="inventory"
               element={<PermRoute permKey="inventory"><Inventory /></PermRoute>}
             />
-
             <Route
               path="staff"
               element={<PermRoute permKey="staff"><Staff /></PermRoute>}
             />
-
             <Route
               path="tokens"
               element={<PermRoute permKey="patients"><TokenPanel /></PermRoute>}
             />
-
             <Route
               path="tasks"
               element={<PrivateRoute><TaskAllocation /></PrivateRoute>}
             />
-
+            <Route path="emergency" element={<Emergency />} />
             <Route
-              path="emergency"
-              element={<Emergency />}
+              path="prescriptions"
+              element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>}
             />
-
             <Route
-  path="prescriptions"
-  element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>}
-/>
-<Route
-  path="telemedicine"
-  element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>}
-/>
-<Route
+              path="telemedicine"
+              element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>}
+            />
+            <Route
               path="doctor-earnings"
               element={<PrivateRoute><DoctorEarnings /></PrivateRoute>}
             />
@@ -185,59 +204,31 @@ function App() {
           {/* ── Patient Routes ───────────────────────────────────── */}
           <Route
             path="/patient-dashboard"
-            element={
-              <PatientRoute>
-                <PatientDashboard />
-              </PatientRoute>
-            }
+            element={<PatientRoute><PatientDashboard /></PatientRoute>}
           />
-
           <Route
             path="/patient-appointments"
-            element={
-              <PatientRoute>
-                <PatientAppointments />
-              </PatientRoute>
-            }
+            element={<PatientRoute><PatientAppointments /></PatientRoute>}
           />
-
           <Route
             path="/patient-admission"
-            element={
-              <PatientRoute>
-                <PatientAdmission />
-              </PatientRoute>
-            }
+            element={<PatientRoute><PatientAdmission /></PatientRoute>}
           />
           <Route
-  path="/patient-prescriptions"
-  element={
-    <PatientRoute>
-      <PatientPrescriptions />
-    </PatientRoute>
-  }
-/>
-<Route
-  path="/patient-telemedicine"
-  element={
-    <PatientRoute>
-      <PatientTelemedicine />
-    </PatientRoute>
-  }
-/>
-
-          {/* ── NEW: Patient Documents ─────────────────────────── */}
+            path="/patient-prescriptions"
+            element={<PatientRoute><PatientPrescriptions /></PatientRoute>}
+          />
+          <Route
+            path="/patient-telemedicine"
+            element={<PatientRoute><PatientTelemedicine /></PatientRoute>}
+          />
           <Route
             path="/patient-documents"
-            element={
-              <PatientRoute>
-                <PatientDocuments />
-              </PatientRoute>
-            }
+            element={<PatientRoute><PatientDocuments /></PatientRoute>}
           />
 
           {/* ── Catch all ────────────────────────────────────────── */}
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>

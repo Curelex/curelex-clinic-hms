@@ -202,7 +202,7 @@ function TokenRowActions({ token, onUpdate }) {
 
 // ── Main Component ────────────────────────────────────────────────
 export default function TokenPanel() {
-  const { user } = useAuth();
+  const { user, getEffectiveClinicId } = useAuth();
   const [activeTab, setActiveTab] = useState('queue');
 
   const [doctors,  setDoctors]  = useState([]);
@@ -288,13 +288,21 @@ export default function TokenPanel() {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const handleRegisterPatient = async (formData) => {
+    
     setRegisterBusy(true); setRegisterError('');
     try {
+      const clinicId = getEffectiveClinicId();
+    if (!clinicId) {
+      setRegisterError('No clinic selected. Please select a clinic first.');
+      setRegisterBusy(false);
+      return;
+    }
       const { data: registerResponse } = await API.post('/patients', {
         name: formData.name, age: parseInt(formData.age) || 0,
         gender: formData.gender, phone: formData.phone,
         email: formData.email || '', address: formData.address || '',
         assignedDoctor: formData.doctorId,
+        clinicId: clinicId,
       });
       // ✅ POST /patients returns { success, message, patient, user } —
       // the actual patient record is nested under `.patient`, not at
@@ -304,6 +312,7 @@ export default function TokenPanel() {
         doctorId: formData.doctorId,
         patientId: patient._id,
         patientName: patient.name,
+        clinicId: clinicId
       });
       setShowTokenReceipt({ patient, token });
       await fetchPatients(); await fetchTokens();
@@ -318,8 +327,14 @@ export default function TokenPanel() {
   const handleReturningVisit = async (patient, formData) => {
     setRegisterBusy(true); setRegisterError('');
     try {
+      const clinicId = getEffectiveClinicId();
+    if (!clinicId) {
+      setRegisterError('No clinic selected. Please select a clinic first.');
+      setRegisterBusy(false);
+      return;
+    }
       const { data: token } = await API.post('/tokens/generate', {
-        doctorId: formData.doctorId, patientId: patient._id, patientName: patient.name,
+        doctorId: formData.doctorId, patientId: patient._id, patientName: patient.name, clinicId: clinicId
       });
       setShowTokenReceipt({ patient, token });
       await fetchTokens();

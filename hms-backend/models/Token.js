@@ -1,60 +1,126 @@
+// hms-backend/models/Token.js
 import mongoose from 'mongoose';
 
 const TokenSchema = new mongoose.Schema({
-  clinicId:     { type: String, required: true, index: true, default: 'default' },
-  tokenNumber:  { type: Number, required: true },
-  date:         { type: String, required: true },   // "YYYY-MM-DD" — resets daily
+  // ── Core fields ──
+  tokenNumber: {
+    type: Number,
+    required: true,
+  },
+  date: {
+    type: String, // "YYYY-MM-DD" format for easy daily queries
+    required: true,
+    index: true,
+  },
+  
+  // ── Relationships ──
+  clinicId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Clinic',
+    required: true,
+    index: true,
+  },
+  doctor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true,
+  },
+  patient: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Patient',
+    index: true,
+  },
+  generatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
 
-  // ── Doctor is now OPTIONAL ─────────────────────────────────────────────
-  // Patient-requested tokens won't have a doctor assigned yet — staff
-  // assigns one later. Receptionist-generated tokens still set this.
-  // NOTE: for patient-initiated tokens created via the new flow, doctor
-  // IS now set at creation time (patient picks the doctor before paying).
-  doctor:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // ── Patient info (denormalized for quick display) ──
+  patientName: {
+    type: String,
+    required: true,
+  },
+  phone: {
+    type: String,
+  },
+  email: {
+    type: String,
+  },
+  age: {
+    type: Number,
+  },
+  gender: {
+    type: String,
+    enum: ['Male', 'Female', 'Other', null],
+    default: null,
+  },
 
-  patient:      { type: mongoose.Schema.Types.ObjectId, ref: 'Patient' },
-  patientName:  { type: String },                   // denormalised for quick display
+  // ── Status ──
+  status: {
+    type: String,
+    enum: ['Pending', 'Waiting', 'Called', 'Done', 'Skipped'],
+    default: 'Waiting',
+    index: true,
+  },
+  calledAt: {
+    type: Date,
+  },
+  completedAt: {
+    type: Date,
+  },
 
-  // ── NEW: contact info ───────────────────────────────────────────────────
-  // Required to auto-create a real Patient record at booking time (the
-  // Patient schema requires both email and phone). Captured here so the
-  // token-creation form is the single place staff/patients enter it.
-  phone:        { type: String },
-  email:        { type: String },
+  // ── Source ──
+  source: {
+    type: String,
+    enum: ['staff', 'patient'],
+    default: 'staff',
+  },
 
-  generatedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // receptionist
+  // ── Consultation details ──
+  consultationType: {
+    type: String,
+    enum: ['in-person', 'telemedicine', 'follow-up'],
+    default: 'in-person',
+  },
+  consultationFee: {
+    type: Number,
+    default: 0,
+  },
+  symptoms: {
+    type: String,
+  },
+  notes: {
+    type: String,
+  },
 
-  status:       { type: String, enum: ['Waiting', 'Called', 'Done', 'Skipped', 'Pending'], default: 'Waiting' },
-  calledAt:     { type: Date },
+  // ── Payment ──
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'upi', 'card', 'insurance', null],
+    default: null,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'partial', 'refunded'],
+    default: 'pending',
+  },
+  paymentAmount: {
+    type: Number,
+    default: 0,
+  },
 
-  // ── fields for patient-initiated appointment requests ─────────────────
-  source:       { type: String, enum: ['staff', 'patient'], default: 'staff' },
-  age:          { type: Number },
-  gender:       { type: String },
-  symptoms:     { type: String },
-
-  // ── NEW: consultation type + payment ───────────────────────────────────
-  consultationType: { type: String, enum: ['online', 'in-person'], default: 'in-person' },
-
-  consultationFee:  { type: Number, default: 0 }, // snapshot of doctor's fee at booking time
-
-  paymentStatus:    { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
-  paymentMethod:    { type: String, enum: ['card', 'upi', 'netbanking', null], default: null },
-  transactionId:    { type: String }, // mock txn id, generated client/server side
-  paidAt:           { type: Date },
 }, { timestamps: true });
 
-// Unique token per clinic + doctor + date
-// NOTE: doctor can be null/undefined for patient-requested tokens before
-// a doctor is assigned — Mongo's unique index treats missing/null doctor
-// values as a single shared value across docs, which could collide.
-// We work around this by only enforcing this index when doctor is set;
-// patient-requested tokens get their tokenNumber from a separate counter
-// (see resolveTokenNumber in the route) and so practically won't collide,
-// but to be fully safe we make the index partial.
-TokenSchema.index(
-  { clinicId: 1, doctor: 1, date: 1, tokenNumber: 1 },
-  { unique: true, partialFilterExpression: { doctor: { $type: 'objectId' } } }
-);
+// ── Indexes ──
+// Unique token number per clinic, per doctor, per day
+TokenSchema.index({ clinicId: 1, doctor: 1, date: 1, tokenNumber: 1 }, { unique: true });
+
+// For fast status queries
+TokenSchema.index({ clinicId: 1, status: 1, date: 1 });
+
+// For patient lookups
+TokenSchema.index({ clinicId: 1, patient: 1 });
 
 export default mongoose.model('Token', TokenSchema);

@@ -2,16 +2,22 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import API from '../utils/api';
-import { useSocket, resetSocket } from '../hooks/useSocket'; // FIX: import resetSocket
+import { useSocket, resetSocket } from '../hooks/useSocket';
 
 // ── Role → nav section permissions ───────────────────────────────────────────
 const ROLE_PERMISSIONS = {
+  super_admin: [
+    'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
+    'pharmacy', 'lab', 'inventory', 'staff', 'room-settings',
+    'prescriptions', 'telemedicine', 'tokens', 'emergency', 'tasks',
+    'super',
+  ],
   admin: [
-    'dashboard', 'patients', 'ipd', 'billing',
-    'pharmacy', 'lab', 'inventory', 'staff', 'room-settings', 'prescriptions'
+    'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
+    'pharmacy', 'lab', 'inventory', 'staff', 'room-settings', 'prescriptions',
   ],
   doctor: [
-    'dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'
+    'dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine',
   ],
   nurse: [
     'dashboard', 'patients', 'ipd',
@@ -26,27 +32,34 @@ const ROLE_PERMISSIONS = {
     'dashboard', 'patients', 'lab',
   ],
   patient: [
-    'patient-dashboard', 'appointments', 'prescriptions', 'profile', 'telemedicine'
+    'patient-dashboard', 'appointments', 'prescriptions', 'profile', 'telemedicine',
   ],
 };
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [patient, setPatient] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
+  const [user,               setUser]               = useState(null);
+  const [patient,            setPatient]            = useState(null);
+  const [loading,            setLoading]            = useState(false);
+  const [authReady,          setAuthReady]          = useState(false);
+  // Super admin can impersonate a clinic so all sub-pages use its clinicId
+  const [superAdminClinicId, setSuperAdminClinicId] = useState(
+    () => sessionStorage.getItem('sa_clinicId') || null
+  );
+  const [superAdminClinicName, setSuperAdminClinicName] = useState(
+    () => sessionStorage.getItem('sa_clinicName') || null
+  );
 
   // ── Socket Integration ──
   const { socket, isConnected, emit, on, off } = useSocket();
-  const [doctorStatus, setDoctorStatus] = useState('offline');
-  const [onlineDoctors, setOnlineDoctors] = useState([]);
+  const [doctorStatus,   setDoctorStatus]   = useState('offline');
+  const [onlineDoctors,  setOnlineDoctors]  = useState([]);
 
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
 
-  // ── On app load: restore session from token ──
+  // ── On app load: restore session from token ──────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('hms_token');
     if (!token) {
@@ -71,16 +84,13 @@ export const AuthProvider = ({ children }) => {
       });
   }, []);
 
-  // ── Setup socket events when user is loaded ───────────────────────────────
-  // This runs once per user session. The 'connect' listener handles reconnects
-  // transparently so the doctor is always re-registered after network blips.
+  // ── Setup socket events when user is loaded ──────────────────────────────
   useEffect(() => {
-    if (!user || !socket) return;
+    // super_admin has no clinic context — skip socket registration entirely
+    if (!user || !socket || user.role === 'super_admin') return;
 
     const doctorId = user._id || user.id;
 
-    // FIX: Resolve clinicId robustly — patient object may carry it, or user may
-    //      carry it directly. Never send undefined to the server.
     const clinicId = user.clinicId
       || patient?.clinicId
       || user.clinic
@@ -93,17 +103,11 @@ export const AuthProvider = ({ children }) => {
         console.log('🩺 Registering doctor with socket:', doctorId);
         socket.emit('doctor:join', doctorId);
         socket.emit('doctor:register-socket', { doctorId });
-        socket.emit('doctor:status', {
-          doctorId,
-          status: 'online',
-          clinicId,
-        });
+        socket.emit('doctor:status', { doctorId, status: 'online', clinicId });
         setDoctorStatus('online');
       }
 
       if (user.role === 'patient') {
-        // FIX: Guard against missing clinicId — without it the patient never
-        //      joins the room, so no events arrive.
         if (!clinicId) {
           console.warn('⚠️ Patient socket setup: clinicId is missing. Cannot join clinic room.');
           return;
@@ -116,15 +120,9 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Register immediately if already connected, else wait for the 'connect' event
-    if (socket.connected) {
-      registerWithServer();
-    }
-
-    // Re-register on every reconnect (handles network blips transparently)
+    if (socket.connected) registerWithServer();
     socket.on('connect', registerWithServer);
 
-    // ── Persistent event listeners ───────────────────────────────────────────
     const handleDoctorStatusChange = (data) => {
       setOnlineDoctors(prev => {
         if (data.status === 'online') {
@@ -147,38 +145,52 @@ export const AuthProvider = ({ children }) => {
     };
 
     socket.on('doctor:status-change', handleDoctorStatusChange);
-    socket.on('doctor:online-list', handleOnlineList);
+    socket.on('doctor:online-list',   handleOnlineList);
 
     return () => {
-      socket.off('connect', registerWithServer);
+      socket.off('connect',              registerWithServer);
       socket.off('doctor:status-change', handleDoctorStatusChange);
-      socket.off('doctor:online-list', handleOnlineList);
+      socket.off('doctor:online-list',   handleOnlineList);
     };
-  }, [user, patient, socket]); // FIX: include patient so clinicId is resolved after patient loads
+  }, [user, patient, socket]);
 
-  // ── Doctor status management ──
+  // ── Doctor status management ─────────────────────────────────────────────
   const setDoctorOnline = useCallback((status) => {
     if (!user || user.role !== 'doctor') return;
-
     const doctorId = user._id || user.id;
     console.log(`🔄 Setting doctor ${doctorId} to ${status}`);
-
     setDoctorStatus(status);
-    emit('doctor:status', {
-      doctorId,
-      status,
-      clinicId: user.clinicId || null,
-    });
+    emit('doctor:status', { doctorId, status, clinicId: user.clinicId || null });
   }, [user, emit]);
 
-  // ── Check if a specific doctor is online ──
+  // ── Check if a specific doctor is online ────────────────────────────────
   const isDoctorOnline = useCallback((doctorId) => {
     if (!doctorId) return false;
     const id = String(doctorId);
     return onlineDoctors.some(d => String(d.doctorId) === id);
   }, [onlineDoctors]);
 
-  // ── Login ─────────────────────────────────────────────────────────────────
+  // ── Super admin clinic impersonation ────────────────────────────────────
+  // Call this whenever super_admin selects a clinic to "operate as"
+  const setSuperAdminClinic = (clinicId, clinicName = '') => {
+    if (clinicId) {
+      sessionStorage.setItem('sa_clinicId', clinicId);
+      sessionStorage.setItem('sa_clinicName', clinicName);
+    } else {
+      sessionStorage.removeItem('sa_clinicId');
+      sessionStorage.removeItem('sa_clinicName');
+    }
+    setSuperAdminClinicId(clinicId || null);
+    setSuperAdminClinicName(clinicName || null);
+  };
+
+  // Returns the effective clinicId: impersonated clinic for super_admin, own clinic otherwise
+  const getEffectiveClinicId = () => {
+    if (user?.role === 'super_admin') return superAdminClinicId || null;
+    return user?.clinicId || patient?.clinicId || user?.clinic || null;
+  };
+
+  // ── Login ────────────────────────────────────────────────────────────────
   const login = async (email, password) => {
     setLoading(true);
     try {
@@ -188,9 +200,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('hms_token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      // FIX: Reset the socket so the new user's IDs are cleanly registered.
-      //      Without this, the old socket connection still holds the previous
-      //      user's room memberships (stale after a DB wipe).
       resetSocket();
 
       setUser(data.user);
@@ -211,14 +220,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ── Register (Staff) ──────────────────────────────────────────────────────
+  // ── Register (Staff) ─────────────────────────────────────────────────────
   const register = async (formData) => {
     setLoading(true);
     try {
       const { data } = await API.post('/auth/register', formData);
       localStorage.setItem('hms_token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      resetSocket(); // FIX: same as login
+      resetSocket();
       setUser(data.user);
       return { success: true };
     } catch (err) {
@@ -229,32 +238,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ── Patient Registration ──────────────────────────────────────────────────
+  // ── Patient Registration ─────────────────────────────────────────────────
   const registerPatient = async (formData) => {
     setLoading(true);
     try {
       const patientData = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone || '',
-        dob: formData.dob || null,
-        age: formData.age || null,
-        gender: formData.gender || null,
-        bloodGroup: formData.bloodGroup || null,
-        address: formData.address || '',
-        city: formData.city || '',
-        state: formData.state || '',
-        pincode: formData.pincode || '',
-        emergencyContact: formData.emergencyContact || '',
-        emergencyName: formData.emergencyName || '',
-        emergencyRelation: formData.emergencyRelation || '',
-        allergies: formData.allergies || '',
-        chronicConditions: formData.chronicConditions || '',
-        currentMedications: formData.currentMedications || '',
-        medicalHistory: formData.medicalHistory || '',
-        notes: formData.notes || '',
-        assignedDoctor: formData.assignedDoctor || null,
+        name:                 formData.name,
+        email:                formData.email,
+        password:             formData.password,
+        phone:                formData.phone || '',
+        dob:                  formData.dob || null,
+        age:                  formData.age || null,
+        gender:               formData.gender || null,
+        bloodGroup:           formData.bloodGroup || null,
+        address:              formData.address || '',
+        city:                 formData.city || '',
+        state:                formData.state || '',
+        pincode:              formData.pincode || '',
+        emergencyContact:     formData.emergencyContact || '',
+        emergencyName:        formData.emergencyName || '',
+        emergencyRelation:    formData.emergencyRelation || '',
+        allergies:            formData.allergies || '',
+        chronicConditions:    formData.chronicConditions || '',
+        currentMedications:   formData.currentMedications || '',
+        medicalHistory:       formData.medicalHistory || '',
+        notes:                formData.notes || '',
+        assignedDoctor:       formData.assignedDoctor || null,
       };
 
       const { data } = await API.post('/auth/register-patient', patientData);
@@ -270,24 +279,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ── Logout ────────────────────────────────────────────────────────────────
+  // ── Logout ───────────────────────────────────────────────────────────────
   const logout = () => {
     if (user?.role === 'doctor') {
       const doctorId = user._id || user.id;
       console.log(`🔄 Logging out doctor ${doctorId}`);
-      emit('doctor:status', {
-        doctorId,
-        status: 'offline',
-        clinicId: user.clinicId || null,
-      });
+      emit('doctor:status', { doctorId, status: 'offline', clinicId: user.clinicId || null });
       setDoctorStatus('offline');
     }
 
     localStorage.removeItem('hms_token');
     localStorage.removeItem('user');
     localStorage.removeItem('patient');
+    sessionStorage.removeItem('sa_clinicId');
+    sessionStorage.removeItem('sa_clinicName');
 
-    // FIX: Reset socket on logout so stale room registrations are cleared
     resetSocket();
 
     setUser(null);
@@ -295,31 +301,36 @@ export const AuthProvider = ({ children }) => {
     setOnlineDoctors([]);
   };
 
-  // ── Permission check ──────────────────────────────────────────────────────
+  // ── Permission check ─────────────────────────────────────────────────────
   const hasPerm = (key) => {
     if (!user) return false;
     const role = user.role?.toLowerCase();
-    if (key === 'telemedicine') {
-    return role === 'doctor';
-  }
+
+    // super_admin has every permission, everywhere
+    if (role === 'super_admin') return true;
+
+    if (key === 'telemedicine') return role === 'doctor';
     if (role === 'admin') return true;
+
     const roleNavPerms = ROLE_PERMISSIONS[role];
     if (roleNavPerms) return roleNavPerms.includes(key);
     return Array.isArray(user.permissions) && user.permissions.includes(key);
   };
 
-  // ── Helper methods ────────────────────────────────────────────────────────
-  const isPatient = () => user?.role === 'patient';
-  const isDoctor = () => user?.role?.toLowerCase() === 'doctor';
-  const isAdmin = () => user?.role?.toLowerCase() === 'admin';
-  const isStaff = () => user && user?.role !== 'patient';
-  const getUserId = () => user?.id || user?._id || null;
-  const getUserName = () => user?.name || user?.fullName || 'User';
-  const getUserEmail = () => user?.email || '';
-  const getUserRole = () => user?.role || null;
+  // ── Helper methods ───────────────────────────────────────────────────────
+  const isPatient      = () => user?.role === 'patient';
+  const isDoctor       = () => user?.role?.toLowerCase() === 'doctor';
+  const isAdmin        = () => user?.role?.toLowerCase() === 'admin';
+  const isSuperAdmin   = () => user?.role?.toLowerCase() === 'super_admin';
+  const isStaff        = () => user && user?.role !== 'patient';
+  const getUserId      = () => user?.id || user?._id || null;
+  const getUserName    = () => user?.name || user?.fullName || 'User';
+  const getUserEmail   = () => user?.email || '';
+  const getUserRole    = () => user?.role || null;
   const isAuthenticated = () => !!user;
   const getPatientData = () => patient || null;
 
+  // Expose authReady so route guards can defer rendering until session is resolved
   if (!authReady) return null;
 
   const value = {
@@ -329,11 +340,13 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     loading,
+    authReady,
     hasPerm,
 
     isPatient,
     isDoctor,
     isAdmin,
+    isSuperAdmin,
     isStaff,
     getUserId,
     getUserName,
@@ -343,6 +356,12 @@ export const AuthProvider = ({ children }) => {
     getPatientData,
 
     registerPatient,
+
+    // ── Super admin clinic context ──
+    superAdminClinicId,
+    superAdminClinicName,
+    setSuperAdminClinic,
+    getEffectiveClinicId,
 
     // ── Socket related ──
     socket,

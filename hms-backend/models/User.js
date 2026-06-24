@@ -4,11 +4,11 @@ import bcrypt from 'bcryptjs';
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['admin', 'doctor', 'nurse', 'receptionist', 'pharmacist', 'lab_technician', 'patient'],
+    enum: ['super_admin','admin', 'doctor', 'nurse', 'receptionist', 'pharmacist', 'lab_technician', 'patient'],
     default: 'receptionist' 
   },
   department: { type: String },
@@ -23,7 +23,7 @@ const UserSchema = new mongoose.Schema({
   clinicId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Clinic',
-    required: true,
+    
   },
 
   permissions: {
@@ -57,8 +57,10 @@ const UserSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// ✅ email must be unique WITHIN a clinic, not globally
-UserSchema.index({ email: 1, clinicId: 1 }, { unique: true });
+UserSchema.index({ email: 1, clinicId: 1 }, { 
+  unique: true, 
+  partialFilterExpression: { clinicId: { $ne: null } } 
+});
 
 UserSchema.pre('save', async function (next) {
   // Only hash if password was explicitly modified AND is not already a bcrypt hash
@@ -71,5 +73,18 @@ UserSchema.pre('save', async function (next) {
 UserSchema.methods.matchPassword = async function (entered) {
   return await bcrypt.compare(entered, this.password);
 };
+
+// ── Virtual: Check if user is Super Admin ──
+UserSchema.virtual('isSuperAdmin').get(function() {
+  return this.role === 'super_admin';
+});
+
+UserSchema.virtual('isAdmin').get(function() {
+  return this.role === 'admin' || this.role === 'super_admin';
+});
+
+UserSchema.set('toJSON', { virtuals: true });
+UserSchema.set('toObject', { virtuals: true });
+
 
 export default mongoose.model('User', UserSchema);

@@ -1,4 +1,4 @@
-// models/PatientRecord.js
+// hms-backend/models/PatientRecord.js
 import mongoose from 'mongoose';
 
 const patientRecordSchema = new mongoose.Schema({
@@ -7,7 +7,7 @@ const patientRecordSchema = new mongoose.Schema({
     ref: 'Patient',
     required: true
   },
-  patientCode: { type: String }, // e.g. PAT00002
+  patientCode: { type: String },
   tokenId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Token'
@@ -17,19 +17,20 @@ const patientRecordSchema = new mongoose.Schema({
     ref: 'User'
   },
   clinicId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Clinic'
+    type: String,
+    required: true,
+    index: true
   },
 
   // Uploaded files (reports, prescriptions, etc.)
   files: [
     {
-      filename: String,         // original file name
-      storedName: String,       // name on disk / cloud
-      path: String,             // URL or local path
+      filename: String,
+      storedName: String,
+      path: String,
       mimetype: String,
       size: Number,
-      label: String,            // e.g. "Blood Report", "X-Ray"
+      label: String,
       uploadedAt: { type: Date, default: Date.now }
     }
   ],
@@ -57,5 +58,6 @@ const patientRecordSchema = new mongoose.Schema({
 // Index for fast patient lookup
 patientRecordSchema.index({ patientId: 1, visitDate: -1 });
 patientRecordSchema.index({ patientCode: 1 });
+patientRecordSchema.index({ clinicId: 1, patientId: 1 });
 
 export default mongoose.model('PatientRecord', patientRecordSchema);
