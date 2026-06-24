@@ -1,5 +1,3 @@
-// hms-react/src/context/AuthContext.jsx
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import API from '../utils/api';
 import { useSocket, resetSocket } from '../hooks/useSocket';
@@ -43,7 +41,6 @@ export const AuthProvider = ({ children }) => {
   const [patient,            setPatient]            = useState(null);
   const [loading,            setLoading]            = useState(false);
   const [authReady,          setAuthReady]          = useState(false);
-  // Super admin can impersonate a clinic so all sub-pages use its clinicId
   const [superAdminClinicId, setSuperAdminClinicId] = useState(
     () => sessionStorage.getItem('sa_clinicId') || null
   );
@@ -86,35 +83,33 @@ export const AuthProvider = ({ children }) => {
 
   // ── Setup socket events when user is loaded ──────────────────────────────
   useEffect(() => {
-    // super_admin has no clinic context — skip socket registration entirely
     if (!user || !socket || user.role === 'super_admin') return;
 
-    const doctorId = user._id || user.id;
+    const userId   = user._id || user.id;
+    const clinicId = user.clinicId || patient?.clinicId || user.clinic || null;
 
-    const clinicId = user.clinicId
-      || patient?.clinicId
-      || user.clinic
-      || null;
-
-    console.log('🔌 Socket setup for user:', { doctorId, role: user.role, clinicId });
+    console.log('🔌 Socket setup for user:', { userId, role: user.role, clinicId });
 
     const registerWithServer = () => {
       if (user.role === 'doctor') {
-        console.log('🩺 Registering doctor with socket:', doctorId);
-        socket.emit('doctor:join', doctorId);
-        socket.emit('doctor:register-socket', { doctorId });
-        socket.emit('doctor:status', { doctorId, status: 'online', clinicId });
+        console.log('🩺 Registering doctor with socket:', userId);
+        socket.emit('doctor:join', userId);
+        socket.emit('doctor:register-socket', { doctorId: userId });
+        socket.emit('doctor:status', { doctorId: userId, status: 'online', clinicId });
         setDoctorStatus('online');
       }
 
       if (user.role === 'patient') {
-        if (!clinicId) {
-          console.warn('⚠️ Patient socket setup: clinicId is missing. Cannot join clinic room.');
-          return;
-        }
-        console.log('🧑‍⚕️ Registering patient with socket:', { patientId: doctorId, clinicId });
-        socket.emit('patient:join-clinic', { clinicId, patientId: doctorId });
-        socket.emit('doctor:get-online', { clinicId }, (doctors) => {
+        // FIX: Always join personal patient room using userId — this is what
+        // receives targeted events (payment, status, meeting links).
+        // clinicId mismatch was causing the old guard to bail out early,
+        // so the patient never joined ANY room and saw 0 online doctors.
+        console.log('🧑‍⚕️ Registering patient with socket:', { patientId: userId, clinicId });
+        socket.emit('patient:join-clinic', { clinicId, patientId: userId });
+
+        // FIX: Fetch ALL online doctors — no clinicId filter needed since
+        // the server now returns all online doctors regardless of clinic.
+        socket.emit('doctor:get-online', {}, (doctors) => {
           setOnlineDoctors(doctors || []);
         });
       }
@@ -171,7 +166,6 @@ export const AuthProvider = ({ children }) => {
   }, [onlineDoctors]);
 
   // ── Super admin clinic impersonation ────────────────────────────────────
-  // Call this whenever super_admin selects a clinic to "operate as"
   const setSuperAdminClinic = (clinicId, clinicName = '') => {
     if (clinicId) {
       sessionStorage.setItem('sa_clinicId', clinicId);
@@ -184,7 +178,6 @@ export const AuthProvider = ({ children }) => {
     setSuperAdminClinicName(clinicName || null);
   };
 
-  // Returns the effective clinicId: impersonated clinic for super_admin, own clinic otherwise
   const getEffectiveClinicId = () => {
     if (user?.role === 'super_admin') return superAdminClinicId || null;
     return user?.clinicId || patient?.clinicId || user?.clinic || null;
@@ -305,13 +298,9 @@ export const AuthProvider = ({ children }) => {
   const hasPerm = (key) => {
     if (!user) return false;
     const role = user.role?.toLowerCase();
-
-    // super_admin has every permission, everywhere
     if (role === 'super_admin') return true;
-
     if (key === 'telemedicine') return role === 'doctor';
     if (role === 'admin') return true;
-
     const roleNavPerms = ROLE_PERMISSIONS[role];
     if (roleNavPerms) return roleNavPerms.includes(key);
     return Array.isArray(user.permissions) && user.permissions.includes(key);
@@ -330,7 +319,6 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = () => !!user;
   const getPatientData = () => patient || null;
 
-  // Expose authReady so route guards can defer rendering until session is resolved
   if (!authReady) return null;
 
   const value = {
@@ -357,13 +345,11 @@ export const AuthProvider = ({ children }) => {
 
     registerPatient,
 
-    // ── Super admin clinic context ──
     superAdminClinicId,
     superAdminClinicName,
     setSuperAdminClinic,
     getEffectiveClinicId,
 
-    // ── Socket related ──
     socket,
     isConnected,
     doctorStatus,

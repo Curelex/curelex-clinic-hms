@@ -103,7 +103,7 @@ async function seedSuperAdmin() {
     await User.create({
       name:     SUPER_ADMIN_NAME || 'Super Admin',
       email:    SUPER_ADMIN_EMAIL,
-      password: SUPER_ADMIN_PASSWORD,       // pre-save hook hashes it automatically
+      password: SUPER_ADMIN_PASSWORD,
       role:     'super_admin',
       clinicId: null,
       permissions: [
@@ -156,7 +156,7 @@ io.on('connection', (socket) => {
   });
 
   // ─── TELEMEDICINE SOCKET EVENTS ───
-  
+
   // Initialize doctor status storage
   if (!global.doctorStatus) {
     global.doctorStatus = new Map();
@@ -165,28 +165,29 @@ io.on('connection', (socket) => {
     global.socketToDoctor = new Map();
   }
 
-  // Doctor goes online/offline
+  // ── FIX: Doctor goes online/offline ──
+  // Broadcast to ALL patients (not just clinic-filtered) because clinicId
+  // on the doctor's JWT may differ from the clinicId stored on patient records.
   socket.on('doctor:status', async ({ doctorId, status, clinicId }) => {
     if (!doctorId) return;
-    
+
     global.doctorStatus.set(doctorId, {
       status: status,
       lastSeen: new Date(),
       clinicId: clinicId,
       socketId: socket.id
     });
-    
+
     socket.join(`doctor_${doctorId}`);
     global.socketToDoctor.set(socket.id, doctorId);
-    
-    if (clinicId) {
-      io.to(`clinic_${clinicId}_patients`).emit('doctor:status-change', {
-        doctorId,
-        status,
-        timestamp: new Date()
-      });
-    }
-    
+
+    // Broadcast to ALL connected patients so the online indicator always works
+    io.emit('doctor:status-change', {
+      doctorId,
+      status,
+      timestamp: new Date()
+    });
+
     console.log(`👨‍⚕️ Doctor ${doctorId} is now ${status}`);
   });
 
@@ -196,19 +197,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('patient:join-clinic', ({ clinicId, patientId }) => {
+    // Always join the personal patient room — this is what matters for
+    // receiving targeted events (payment, status updates, meeting links).
+    if (patientId) {
+      socket.join(`patient_${patientId}`);
+      console.log(`👤 Patient ${patientId} joined personal room`);
+    }
+    // Also join clinic room if clinicId is available (non-critical)
     if (clinicId) {
       socket.join(`clinic_${clinicId}_patients`);
       console.log(`👤 Patient ${patientId} joined clinic ${clinicId} room`);
     }
-    if (patientId) {
-      socket.join(`patient_${patientId}`);
-    }
   });
 
+  // ── FIX: doctor:get-online — removed clinicId filter ──
+  // clinicId on doctor JWT != clinicId stored on patient, so the filter
+  // always returned 0 results for patients. Return ALL online doctors instead.
   socket.on('doctor:get-online', ({ clinicId }, callback) => {
     const onlineDoctors = [];
     for (const [docId, data] of global.doctorStatus.entries()) {
-      if (data.status === 'online' && data.clinicId === clinicId) {
+      if (data.status === 'online') {
         onlineDoctors.push({
           doctorId: docId,
           lastSeen: data.lastSeen,
@@ -216,11 +224,11 @@ io.on('connection', (socket) => {
         });
       }
     }
-    
+
     if (callback && typeof callback === 'function') {
       callback(onlineDoctors);
     } else {
-      socket.emit('doctor:online-list', { clinicId, onlineDoctors });
+      socket.emit('doctor:online-list', { onlineDoctors });
     }
   });
 
@@ -251,7 +259,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ── NEW: Payment related socket events ──
+  // ── Payment related socket events ──
   socket.on('telemedicine:payment-required', ({ requestId, patientId, doctorId, consultationFee }) => {
     io.to(`patient_${patientId}`).emit('telemedicine:payment-required', {
       requestId,
@@ -328,14 +336,13 @@ io.on('connection', (socket) => {
         status.status = 'offline';
         status.lastSeen = new Date();
         global.doctorStatus.set(doctorId, status);
-        
-        if (status.clinicId) {
-          io.to(`clinic_${status.clinicId}_patients`).emit('doctor:status-change', {
-            doctorId,
-            status: 'offline',
-            timestamp: new Date()
-          });
-        }
+
+        // FIX: Broadcast to ALL patients on disconnect too
+        io.emit('doctor:status-change', {
+          doctorId,
+          status: 'offline',
+          timestamp: new Date()
+        });
         console.log(`👨‍⚕️ Doctor ${doctorId} is now offline (disconnected)`);
       }
       global.socketToDoctor.delete(socket.id);
