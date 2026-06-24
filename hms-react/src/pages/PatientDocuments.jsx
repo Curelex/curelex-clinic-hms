@@ -33,19 +33,19 @@ export default function PatientDocuments() {
   const { user, patient, logout, isPatient } = useAuth();
   const navigate = useNavigate();
 
-  const patientId    = patient?._id || patient?.id || user?.id || user?._id;
-  const patientName  = patient?.name  || user?.name  || 'Patient';
+  const patientId = patient?._id || patient?.id || user?.id || user?._id;
+  const patientName = patient?.name || user?.name || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
 
   const [documents, setDocuments] = useState([]);
-  const [loading,   setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── Upload form state ──
-  const [file,        setFile]        = useState(null);
-  const [category,    setCategory]    = useState('Lab Report');
+  const [file, setFile] = useState(null);
+  const [category, setCategory] = useState('Lab Report');
   const [description, setDescription] = useState('');
-  const [uploading,   setUploading]   = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -180,13 +180,45 @@ export default function PatientDocuments() {
       <div className="pd-below-header">
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-        <PatientSidebar
-          activeItem="documents"
-          onClose={() => setSidebarOpen(false)}
-          patientName={patientName}
-          patientEmail={patientEmail}
-          initials={initials}
-        />
+
+        {!sidebarOpen && (
+          <div
+            style={{
+              padding: "12px 20px",
+              marginBottom: "8px",
+            }}
+          >
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                background: "#0f2d52",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              }}
+            >
+              ☰ Menu
+            </button>
+          </div>
+        )}
+
+        {sidebarOpen && (
+          <PatientSidebar
+            activeItem="documents" // <-- page ke hisaab se change karna
+            onClose={() => setSidebarOpen(false)}
+            patientName={patientName}
+            patientEmail={patientEmail}
+            initials={initials}
+          />
+        )}
 
         <div className="pd-main">
           <main className="pd-body">

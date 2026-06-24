@@ -547,7 +547,7 @@ router.post('/users', auth, roleCheck('admin'), async (req, res) => {
 });
 
 // ── Update Staff (admin only) ─────────────────────────────────────────────
-router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
+router.put('/users/:id', auth, async (req, res) => {
   try {
     const { password, ...fields } = req.body;
     delete fields.password;

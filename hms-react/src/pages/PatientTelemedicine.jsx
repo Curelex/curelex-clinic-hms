@@ -77,7 +77,7 @@ export default function PatientTelemedicine() {
         message: `🔴 Dr. ${data.doctorName || 'Doctor'} has started the meeting!`,
         meetingLink: data.meetingLink
       });
-      
+
       // Auto-open meeting link in new tab
       if (data.meetingLink) {
         const openMeeting = confirm('🟢 The doctor has started the meeting. Click OK to join now.');
@@ -183,91 +183,89 @@ export default function PatientTelemedicine() {
     }
   };
 
-const handlePayment = async () => {
-  if (!paymentRequest) return;
-  
-  setPaying(true);
-  setPaymentError('');
-  
-  try {
-    console.log('💳 Processing payment for request:', paymentRequest.requestId);
-    const clinicId = getEffectiveClinicId();
-    
-    const { data } = await API.post(`/telemedicine/${paymentRequest.requestId}/pay`, {
-      paymentMethod: paymentMethod,
-      clinicId: clinicId,
-      paymentDetails: {
-        method: paymentMethod,
-        timestamp: new Date().toISOString(),
-      }
-    });
-    
-    if (data.success) {
-      setShowPaymentModal(false);
-      setPaymentRequest(null);
-      
-      // Show success message with meeting link
-      setStatusUpdate({
-        type: 'payment_success',
-        message: `✅ Payment successful! Your consultation is confirmed. Meeting link: ${data.telemedicine?.meetingLink || 'Will be available when doctor starts'}`,
-        meetingLink: data.telemedicine?.meetingLink,
+  const handlePayment = async () => {
+    if (!paymentRequest) return;
+
+    setPaying(true);
+    setPaymentError('');
+
+    try {
+      console.log('💳 Processing payment for request:', paymentRequest.requestId);
+
+      const { data } = await API.post(`/telemedicine/${paymentRequest.requestId}/pay`, {
+        paymentMethod: paymentMethod,
+        paymentDetails: {
+          method: paymentMethod,
+          timestamp: new Date().toISOString(),
+        }
       });
-      
-      // Reload requests to update status
-      await loadRequests();
-      
-      // Auto-dismiss after 10 seconds
-      setTimeout(() => setStatusUpdate(null), 10000);
+
+      if (data.success) {
+        setShowPaymentModal(false);
+        setPaymentRequest(null);
+
+        // Show success message with meeting link
+        setStatusUpdate({
+          type: 'payment_success',
+          message: `✅ Payment successful! Your consultation is confirmed. Meeting link: ${data.telemedicine?.meetingLink || 'Will be available when doctor starts'}`,
+          meetingLink: data.telemedicine?.meetingLink,
+        });
+
+        // Reload requests to update status
+        await loadRequests();
+
+        // Auto-dismiss after 10 seconds
+        setTimeout(() => setStatusUpdate(null), 10000);
+      }
+    } catch (err) {
+      console.error('Payment error:', err);
+      setPaymentError(err.response?.data?.message || 'Payment failed');
     }
-  } catch (err) {
-    console.error('Payment error:', err);
-    setPaymentError(err.response?.data?.message || 'Payment failed');
-  }
-  setPaying(false);
-};
+    setPaying(false);
+  };
 
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSubmitting(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
 
-  if (!form.doctorId) {
-    setError('Please select a doctor');
-    setSubmitting(false);
-    return;
-  }
+    if (!form.doctorId) {
+      setError('Please select a doctor');
+      setSubmitting(false);
+      return;
+    }
 
-  try {
-    // ── FIX: Don't send patientId from frontend ──
-    // The backend will use req.user.id to find the patient
-    const clinicId = getEffectiveClinicId();
+    try {
+      // ── FIX: Don't send patientId from frontend ──
+      // The backend will use req.user.id to find the patient
+      const clinicId = getEffectiveClinicId();
     const response = await API.post('/telemedicine/request', {
-      // Remove patientId - let backend derive it from the logged-in user
-      doctorId: form.doctorId,
-      symptoms: form.symptoms,
-      preferredTime: form.preferredTime || null,
-      urgency: form.urgency,
-      clinicId: clinicId,
+        // Remove patientId - let backend derive it from the logged-in user
+        doctorId: form.doctorId,
+        symptoms: form.symptoms,
+        preferredTime: form.preferredTime || null,
+        urgency: form.urgency,
+        clinicId: clinicId,
     });
 
-    if (response.data.success) {
-      setShowRequestForm(false);
-      setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
-      loadRequests();
-      alert('✅ Telemedicine request sent successfully! The doctor will be notified.');
+      if (response.data.success) {
+        setShowRequestForm(false);
+        setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
+        loadRequests();
+        alert('✅ Telemedicine request sent successfully! The doctor will be notified.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send request');
     }
-  } catch (err) {
-    setError(err.response?.data?.message || 'Failed to send request');
-  }
-  setSubmitting(false);
-};
+    setSubmitting(false);
+  };
 
   const handleCancel = async (id) => {
     if (!window.confirm('Cancel this request?')) return;
     try {
       await API.patch(`/telemedicine/${id}/cancel`);
-      
+
       if (isConnected) {
         emit('telemedicine:status-update', {
           requestId: id,
@@ -276,7 +274,7 @@ const handleSubmit = async (e) => {
           notes: 'Cancelled by patient'
         });
       }
-      
+
       loadRequests();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to cancel');
@@ -334,13 +332,44 @@ const handleSubmit = async (e) => {
       <div className="pd-below-header">
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
-        <PatientSidebar
-          activeItem="telemedicine"
-          onClose={() => setSidebarOpen(false)}
-          patientName={patientName}
-          patientEmail={patientEmail}
-          initials={initials}
-        />
+        {!sidebarOpen && (
+          <div
+            style={{
+              padding: "12px 20px",
+              marginBottom: "8px",
+            }}
+          >
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                background: "#0f2d52",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              }}
+            >
+              ☰ Menu
+            </button>
+          </div>
+        )}
+
+        {sidebarOpen && (
+          <PatientSidebar
+            activeItem="documents" // <-- page ke hisaab se change karna
+            onClose={() => setSidebarOpen(false)}
+            patientName={patientName}
+            patientEmail={patientEmail}
+            initials={initials}
+          />
+        )}
 
         <div className="pd-main">
           <main className="pd-body">
@@ -348,17 +377,16 @@ const handleSubmit = async (e) => {
             {statusUpdate && (
               <div className="status-alert" style={{
                 background: statusUpdate.type === 'meeting_started' ? '#dbeafe' :
-                           statusUpdate.type === 'payment_required' ? '#fef3c7' :
-                           statusUpdate.type === 'payment_success' ? '#dcfce7' :
-                           statusUpdate.type === 'meeting_ended' ? '#dcfce7' :
-                           statusUpdate.type === 'rejected' ? '#fee2e2' : '#fef3c7',
-                border: `1px solid ${
-                  statusUpdate.type === 'meeting_started' ? '#3b82f6' :
+                  statusUpdate.type === 'payment_required' ? '#fef3c7' :
+                    statusUpdate.type === 'payment_success' ? '#dcfce7' :
+                      statusUpdate.type === 'meeting_ended' ? '#dcfce7' :
+                        statusUpdate.type === 'rejected' ? '#fee2e2' : '#fef3c7',
+                border: `1px solid ${statusUpdate.type === 'meeting_started' ? '#3b82f6' :
                   statusUpdate.type === 'payment_required' ? '#f59e0b' :
-                  statusUpdate.type === 'payment_success' ? '#22c55e' :
-                  statusUpdate.type === 'meeting_ended' ? '#22c55e' :
-                  statusUpdate.type === 'rejected' ? '#ef4444' : '#f59e0b'
-                }`,
+                    statusUpdate.type === 'payment_success' ? '#22c55e' :
+                      statusUpdate.type === 'meeting_ended' ? '#22c55e' :
+                        statusUpdate.type === 'rejected' ? '#ef4444' : '#f59e0b'
+                  }`,
                 borderRadius: 8,
                 padding: '12px 16px',
                 marginBottom: 16,
@@ -371,9 +399,9 @@ const handleSubmit = async (e) => {
                 </div>
                 <div>
                   {statusUpdate.meetingLink && (
-                    <a 
-                      href={statusUpdate.meetingLink} 
-                      target="_blank" 
+                    <a
+                      href={statusUpdate.meetingLink}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-sm btn-primary"
                       style={{ marginRight: 8 }}
@@ -382,7 +410,7 @@ const handleSubmit = async (e) => {
                     </a>
                   )}
                   {statusUpdate.type === 'payment_required' && (
-                    <button 
+                    <button
                       className="btn btn-sm btn-primary"
                       style={{ marginRight: 8 }}
                       onClick={() => setShowPaymentModal(true)}
@@ -390,8 +418,8 @@ const handleSubmit = async (e) => {
                       💳 Pay Now
                     </button>
                   )}
-                  <button 
-                    className="btn btn-sm btn-ghost" 
+                  <button
+                    className="btn btn-sm btn-ghost"
                     onClick={() => setStatusUpdate(null)}
                   >
                     Dismiss
@@ -547,9 +575,9 @@ const handleSubmit = async (e) => {
                           <i className="fas fa-info-circle"></i> Loading doctors... Please wait.
                         </div>
                       ) : (
-                        <select 
-                          className="form-control" 
-                          value={form.doctorId} 
+                        <select
+                          className="form-control"
+                          value={form.doctorId}
                           onChange={(e) => setForm({ ...form, doctorId: e.target.value })}
                           required
                         >
@@ -579,10 +607,10 @@ const handleSubmit = async (e) => {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Symptoms / Reason</label>
-                      <textarea 
-                        className="form-control" 
+                      <textarea
+                        className="form-control"
                         rows={3}
-                        value={form.symptoms} 
+                        value={form.symptoms}
                         onChange={(e) => setForm({ ...form, symptoms: e.target.value })}
                         placeholder="Describe your symptoms or reason for consultation..."
                       />
@@ -590,18 +618,18 @@ const handleSubmit = async (e) => {
                     <div className="form-row">
                       <div className="form-group">
                         <label className="form-label">Preferred Time</label>
-                        <input 
-                          type="datetime-local" 
-                          className="form-control" 
-                          value={form.preferredTime} 
+                        <input
+                          type="datetime-local"
+                          className="form-control"
+                          value={form.preferredTime}
                           onChange={(e) => setForm({ ...form, preferredTime: e.target.value })}
                         />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Urgency</label>
-                        <select 
-                          className="form-control" 
-                          value={form.urgency} 
+                        <select
+                          className="form-control"
+                          value={form.urgency}
                           onChange={(e) => setForm({ ...form, urgency: e.target.value })}
                         >
                           <option value="normal">Normal</option>
@@ -653,7 +681,7 @@ const handleSubmit = async (e) => {
                           const isPending = ['requested', 'approved', 'scheduled', 'payment_pending'].includes(req.status);
                           const isOnline = isDoctorOnline(req.doctorId);
                           const isPaymentPending = req.status === 'payment_pending';
-                          
+
                           return (
                             <tr key={req._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
                               <td style={{ padding: '12px 16px' }}>
@@ -704,9 +732,9 @@ const handleSubmit = async (e) => {
                                       🔗 Join Meeting
                                     </a>
                                   )}
-                                  
+
                                   {isPaymentPending && (
-                                    <button 
+                                    <button
                                       className="btn btn-sm btn-warning"
                                       onClick={() => {
                                         setPaymentRequest({
@@ -731,19 +759,19 @@ const handleSubmit = async (e) => {
                                       💳 Pay Now
                                     </button>
                                   )}
-                                  
+
                                   {isPending && req.status !== 'payment_pending' && (
                                     <button className="btn btn-sm btn-danger" onClick={() => handleCancel(req._id)}>
                                       Cancel
                                     </button>
                                   )}
-                                  
+
                                   {req.status === 'completed' && (
                                     <span style={{ fontSize: 12, color: '#64748b' }}>
                                       Duration: {req.durationMinutes || 0} min
                                     </span>
                                   )}
-                                  
+
                                   {req.status === 'ongoing' && req.meetingLink && (
                                     <a href={req.meetingLink} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-success">
                                       🔴 Join Now

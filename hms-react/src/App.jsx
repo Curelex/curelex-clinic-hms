@@ -138,6 +138,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
 
+
             <Route
               path="patients"
               element={<PermRoute permKey="patients"><Patients /></PermRoute>}
@@ -206,6 +207,16 @@ function App() {
             path="/patient-dashboard"
             element={<PatientRoute><PatientDashboard /></PatientRoute>}
           />
+
+          <Route
+            path="/patient-profile"
+            element={
+              <PatientRoute>
+                <Profile />
+              </PatientRoute>
+            }
+          />
+
           <Route
             path="/patient-appointments"
             element={<PatientRoute><PatientAppointments /></PatientRoute>}
@@ -216,12 +227,22 @@ function App() {
           />
           <Route
             path="/patient-prescriptions"
-            element={<PatientRoute><PatientPrescriptions /></PatientRoute>}
+            element={
+              <PatientRoute>
+                <PatientPrescriptions />
+              </PatientRoute>
+            }
           />
           <Route
             path="/patient-telemedicine"
-            element={<PatientRoute><PatientTelemedicine /></PatientRoute>}
+            element={
+              <PatientRoute>
+                <PatientTelemedicine />
+              </PatientRoute>
+            }
           />
+
+          {/* ── NEW: Patient Documents ─────────────────────────── */}
           <Route
             path="/patient-documents"
             element={<PatientRoute><PatientDocuments /></PatientRoute>}
