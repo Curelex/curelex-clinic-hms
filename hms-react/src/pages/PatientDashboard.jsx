@@ -8,7 +8,7 @@ import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
 
 export default function PatientDashboard() {
-  const { user, patient, logout, isPatient } = useAuth();
+  const { user, patient, logout, isPatient, isDoctorOnline } = useAuth();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -20,6 +20,7 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [admission, setAdmission] = useState(null);
+  const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
@@ -80,6 +81,15 @@ export default function PatientDashboard() {
       } catch {
         console.log('Admission status not available');
       }
+
+      try {
+        const docRes = await API.get('/auth/available-doctors');
+        if (docRes.data.success) {
+          setDoctors(docRes.data.doctors || []);
+        }
+      } catch {
+        console.log('Doctors not available');
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
     }
@@ -111,9 +121,9 @@ export default function PatientDashboard() {
     });
   };
 
-  const patientName  = patient?.name  || user?.name  || 'Patient';
+  const patientName = patient?.name || user?.name || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
-  const patientId    = patient?._id || patient?.id || user?.id || user?._id;
+  const patientId = patient?._id || patient?.id || user?.id || user?._id;
 
   const initials = patientName
     .split(' ')
@@ -288,10 +298,10 @@ export default function PatientDashboard() {
             {/* Quick Stats */}
             <div className="pd-stats">
               {[
-                { icon: 'fa-calendar-check',      label: 'Upcoming',           value: stats.upcomingAppointments, color: '#2d6be4' },
-                { icon: 'fa-prescription-bottle', label: 'Prescriptions',      value: stats.prescriptionsCount,   color: '#00b386' },
-                { icon: 'fa-file-medical',        label: 'Total Appointments', value: stats.totalAppointments,    color: '#f59e0b' },
-                { icon: 'fa-user-md',             label: 'Doctors Consulted',  value: stats.doctorsConsulted,     color: '#7c3aed' },
+                { icon: 'fa-calendar-check', label: 'Upcoming', value: stats.upcomingAppointments, color: '#2d6be4' },
+                { icon: 'fa-prescription-bottle', label: 'Prescriptions', value: stats.prescriptionsCount, color: '#00b386' },
+                { icon: 'fa-file-medical', label: 'Total Appointments', value: stats.totalAppointments, color: '#f59e0b' },
+                { icon: 'fa-user-md', label: 'Doctors Consulted', value: stats.doctorsConsulted, color: '#7c3aed' },
               ].map(s => (
                 <div className="pd-stat-card" key={s.label}>
                   <div className="pd-stat-card__icon" style={{ background: s.color + '18', color: s.color }}>
@@ -392,9 +402,330 @@ export default function PatientDashboard() {
               </div>
             </div>
 
+            {/* ── Available Doctors ── */}
+            <div style={{ marginTop: '28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1a2236' }}>Available Doctors</h3>
+                <div style={{ display: 'flex', gap: '16px', fontSize: '13px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                    <span style={{ color: '#374151', fontWeight: 500 }}>
+                      {doctors.filter(d => isDoctorOnline ? isDoctorOnline(d._id) : false).length} online
+                    </span>
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }}></span>
+                    <span style={{ color: '#6b7a99', fontWeight: 500 }}>
+                      {doctors.filter(d => !(isDoctorOnline ? isDoctorOnline(d._id) : false)).length} offline / pending
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {doctors.length === 0 ? (
+                <div className="pd-card">
+                  <div className="pd-card__body">
+                    <div className="pd-empty"><i className="fas fa-user-md"></i> No doctors available right now</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                  gap: '16px',
+                }}>
+                  {doctors.map((doc) => {
+                    const online = isDoctorOnline ? isDoctorOnline(doc._id) : false;
+                    const avatarLetter = (doc.name || 'D')[0].toUpperCase();
+                    return (
+                      <div
+                        key={doc._id}
+                        style={{
+                          background: '#fff',
+                          borderRadius: '16px',
+                          padding: '20px',
+                          border: online ? '2px solid #2d6be4' : '1.5px solid #e5e7eb',
+                          boxShadow: online ? '0 4px 20px rgba(45,107,228,0.10)' : '0 2px 8px rgba(0,0,0,0.04)',
+                          position: 'relative',
+                          opacity: online ? 1 : 0.65,
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {/* Online indicator dot */}
+                        <span style={{
+                          position: 'absolute', top: 16, right: 16,
+                          width: 12, height: 12, borderRadius: '50%',
+                          background: online ? '#22c55e' : '#cbd5e1',
+                          border: '2px solid #fff',
+                          boxShadow: online ? '0 0 0 2px #bbf7d0' : 'none',
+                          display: 'inline-block',
+                        }} />
+
+                        {/* Doctor avatar + name */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                          {doc.avatar ? (
+                            <img
+                              src={doc.avatar}
+                              alt={doc.name}
+                              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb' }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: 56, height: 56, borderRadius: '50%',
+                              background: online ? '#dbeafe' : '#f1f5f9',
+                              color: online ? '#2d6be4' : '#94a3b8',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '22px', fontWeight: 700, flexShrink: 0,
+                            }}>
+                              {avatarLetter}
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '15px', color: online ? '#1a2236' : '#94a3b8' }}>
+                              Dr. {doc.name}
+                            </div>
+                            {doc.department && (
+                              <div style={{ fontSize: '13px', color: '#6b7a99', marginTop: 2 }}>
+                                {doc.department}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {online ? (
+                          <>
+                            {/* Badges */}
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                background: '#f0f9ff', color: '#0369a1',
+                                border: '1px solid #bae6fd',
+                                borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 600,
+                              }}>
+                                ✓ Verified
+                              </span>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                background: '#f0fdf4', color: '#15803d',
+                                border: '1px solid #bbf7d0',
+                                borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: 600,
+                              }}>
+                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                                Online Now
+                              </span>
+                            </div>
+
+                            {/* Wait time */}
+                            <div style={{ fontSize: '13px', color: '#6b7a99', marginBottom: '14px' }}>
+                              <i className="fas fa-clock" style={{ marginRight: 5 }}></i> ~5 min wait
+                            </div>
+
+                            {/* Fee + CTA */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: 2 }}>Consultation fee</div>
+                                <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a2236' }}>
+                                  ₹{doc.consultationFee || 299}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => navigate('/patient-telemedicine', { state: { preSelectDoctor: doc._id } })}
+                                style={{
+                                  background: 'linear-gradient(135deg, #2d6be4, #1e40af)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '10px',
+                                  padding: '10px 18px',
+                                  fontSize: '14px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 7,
+                                  boxShadow: '0 4px 12px rgba(45,107,228,0.3)',
+                                  transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                              >
+                                <i className="fas fa-video" style={{ fontSize: 13 }}></i> Consult Now
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1', display: 'inline-block' }}></span>
+                              <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>Offline</span>
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
+                              Currently unavailable for consultations
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── CONSULT TOP DOCTORS SECTION ── */}
+            <div style={{
+              marginTop: '40px',
+              padding: '32px 28px',
+              background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+              borderRadius: '20px',
+              border: '1px solid #e2e8f0',
+            }}>
+              {/* Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '28px',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}>
+                <div>
+                  <h2 style={{
+                    margin: 0,
+                    fontSize: '24px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    letterSpacing: '-0.5px',
+                  }}>
+                    Consult top doctors online for any health concern
+                  </h2>
+                  <p style={{
+                    margin: '6px 0 0',
+                    fontSize: '14px',
+                    color: '#64748b',
+                  }}>
+                    Private online consultations with verified doctors in all specialists
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/patient-telemedicine')}
+                  style={{
+                    padding: '10px 24px',
+                    background: 'white',
+                    border: '1.5px solid #2d6be4',
+                    borderRadius: '10px',
+                    color: '#2d6be4',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#2d6be4';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.color = '#2d6be4';
+                  }}
+                >
+                  View All Specialities →
+                </button>
+              </div>
+
+              {/* Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gap: '20px',
+              }}>
+                {[
+                  { label: 'Period doubts or Pregnancy', icon: 'fa-venus', color: '#ec4899' },
+                  { label: 'Acne, pimple or skin issues', icon: 'fa-face-meh', color: '#f59e0b' },
+                  { label: 'Performance issues in bed', icon: 'fa-heart-pulse', color: '#ef4444' },
+                  { label: 'Cold, cough or fever', icon: 'fa-head-side-cough', color: '#3b82f6' },
+                  { label: 'Child not feeling well', icon: 'fa-baby', color: '#22c55e' },
+                  { label: 'Depression or anxiety', icon: 'fa-brain', color: '#8b5cf6' },
+                ].map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: 'white',
+                      borderRadius: '16px',
+                      padding: '24px 16px 20px',
+                      textAlign: 'center',
+                      border: '1.5px solid #e2e8f0',
+                      transition: 'all 0.2s',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = item.color;
+                      e.currentTarget.style.boxShadow = `0 8px 24px ${item.color}22`;
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.transform = 'none';
+                    }}
+                    onClick={() => navigate('/patient-telemedicine')}
+                  >
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      margin: '0 auto 14px',
+                      borderRadius: '50%',
+                      background: item.color + '15',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '28px',
+                      color: item.color,
+                    }}>
+                      <i className={`fas ${item.icon}`}></i>
+                    </div>
+                    <p style={{
+                      margin: '0 0 16px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      lineHeight: '1.4',
+                    }}>
+                      {item.label}
+                    </p>
+                    <button
+                      style={{
+                        padding: '6px 16px',
+                        background: 'transparent',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '20px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#475569',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        letterSpacing: '0.5px',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = item.color;
+                        e.currentTarget.style.color = 'white';
+                        e.currentTarget.style.borderColor = item.color;
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = '#475569';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                      }}
+                    >
+                      CONSULT NOW
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Quick Actions */}
             <div style={{
-              marginTop: '24px',
+              marginTop: '28px',
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '14px',

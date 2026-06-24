@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import API from '../utils/api';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
@@ -23,6 +23,7 @@ const STATUS_COLORS = {
 export default function PatientTelemedicine() {
   const { user, patient, logout, isPatient, isConnected, isDoctorOnline, onlineDoctors, emit, on, off } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
@@ -146,6 +147,17 @@ export default function PatientTelemedicine() {
     loadRequests();
     loadDoctors();
   }, []);
+
+  // Pre-select doctor if navigated from dashboard "Consult Now"
+  useEffect(() => {
+    const preSelectId = location.state?.preSelectDoctor;
+    if (preSelectId && doctors.length > 0) {
+      setForm(prev => ({ ...prev, doctorId: preSelectId }));
+      setShowRequestForm(true);
+      // Clear state so a page refresh doesn't re-trigger
+      window.history.replaceState({}, '');
+    }
+  }, [doctors, location.state]);
 
   const loadRequests = async () => {
     setLoading(true);
