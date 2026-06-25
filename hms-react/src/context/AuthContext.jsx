@@ -93,10 +93,11 @@ export const AuthProvider = ({ children }) => {
     const registerWithServer = () => {
       if (user.role === 'doctor') {
         console.log('🩺 Registering doctor with socket:', userId);
+        // Join the socket room and register, but do NOT set status to online.
+        // The doctor must manually click "Go Online" — status stays 'offline' on login.
         socket.emit('doctor:join', userId);
         socket.emit('doctor:register-socket', { doctorId: userId });
-        socket.emit('doctor:status', { doctorId: userId, status: 'online', clinicId });
-        setDoctorStatus('online');
+        // Intentionally NOT emitting doctor:status here — doctor starts offline.
       }
 
       if (user.role === 'patient') {

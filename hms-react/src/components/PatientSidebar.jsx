@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 
 export default function PatientSidebar({
   activeItem,
-  sidebarOpen,
   onClose,
   admission,
   patientName,
@@ -24,7 +23,6 @@ export default function PatientSidebar({
     if (window.innerWidth <= 768 && onClose) {
       onClose();
     }
-
     navigate(path);
   };
 
@@ -39,10 +37,7 @@ export default function PatientSidebar({
   ];
 
   return (
-
-    <aside
-      className={`pd-sidebar ${sidebarOpen ? 'open' : ''}`}
-    >
+    <aside className="pd-sidebar">
       <div className="pd-sidebar__profile">
         <div className="pd-sidebar__avatar">{initials || 'P'}</div>
         <div>

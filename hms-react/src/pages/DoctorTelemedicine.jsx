@@ -38,10 +38,8 @@ export default function DoctorTelemedicine() {
   useEffect(() => {
     if (!isConnected) return;
 
-    // FIX: Always re-register as online whenever socket connects/reconnects.
-    // The old wentOnlineRef guard silently blocked re-registration after a
-    // DB wipe (new _id = server has no record of this doctor).
-    setDoctorOnline('online');
+    // Do NOT auto-set doctor online here.
+    // Doctor status is controlled manually via the toggle button only.
 
     const handleNewRequest = (data) => {
       setNewRequestAlert(data);
