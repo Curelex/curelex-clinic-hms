@@ -69,7 +69,7 @@ export default function DoctorTelemedicine() {
     const handlePayoutRequested = (data) => {
       console.log('💰 Payout requested:', data);
       setStatusAlert({
-        message: `💰 Payout requested: ₹${data.amount} - Waiting for admin approval`,
+        message: `💰 Payout requested: ₹${data.amount} - Waiting for super admin approval`,
         type: 'payout_requested'
       });
       loadRequests();
@@ -252,7 +252,7 @@ export default function DoctorTelemedicine() {
       const { data } = await API.post(`/telemedicine/${id}/request-payout`);
       if (data.success) {
         setStatusAlert({
-          message: '✅ Payout request submitted! Waiting for admin approval.',
+          message: '✅ Payout request submitted! Waiting for super admin approval.',
           type: 'payout_submitted'
         });
         setTimeout(() => setStatusAlert(null), 5000);

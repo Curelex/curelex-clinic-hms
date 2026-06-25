@@ -574,10 +574,11 @@ export const requestPayout = async (req, res) => {
       { payoutStatus: 'processing' }
     );
 
-    const admin = await User.findOne({ clinicId, role: 'admin' });
-    if (admin) {
+    // Notify super_admin (not clinic admin) — payout approval is a super admin responsibility
+    const superAdmin = await User.findOne({ role: 'super_admin' });
+    if (superAdmin) {
       await Notification.create({
-        userId: admin._id,
+        userId: superAdmin._id,
         message: `💰 Payout requested: Dr. ${telemedicine.doctorName} is requesting ₹${telemedicine.doctorPayoutAmount}`,
         taskId: telemedicine._id,
         clinicId,
@@ -606,14 +607,14 @@ export const requestPayout = async (req, res) => {
   }
 };
 
-// ── 8. Admin approves payout ──
+// ── 8. Super admin approves payout ──
 export const approvePayout = async (req, res) => {
   try {
     const { id } = req.params;
     const { payoutId, payoutMethod, notes } = req.body;
-    const clinicId = req.user?.clinicId;
 
-    const telemedicine = await Telemedicine.findOne({ _id: id, clinicId });
+    // super_admin has no clinicId — find by ID only
+    const telemedicine = await Telemedicine.findById(id);
     if (!telemedicine) {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
@@ -988,13 +989,11 @@ export const getDoctorEarnings = async (req, res) => {
   }
 };
 
-// ── Get pending payouts (admin) ──
+// ── Get pending payouts (super_admin only) ──
 export const getPendingPayouts = async (req, res) => {
   try {
-    const clinicId = req.user?.clinicId;
-
+    // super_admin has no clinicId — fetch all pending payouts across all clinics
     const pendingPayouts = await Telemedicine.find({
-      clinicId,
       doctorPayoutStatus: 'processing',
       status: 'completed'
     })
