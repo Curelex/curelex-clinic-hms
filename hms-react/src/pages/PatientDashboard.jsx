@@ -317,91 +317,189 @@ export default function PatientDashboard() {
             </div>
 
             {/* Dashboard Grid */}
-            <div className="pd-grid">
-              {/* Upcoming Appointments */}
-              <div className="pd-card">
-                <div className="pd-card__head">
-                  <div className="pd-card__head-icon"><i className="fas fa-calendar-alt"></i></div>
-                  <h3>Upcoming Appointments</h3>
+<div className="pd-grid">
+
+  {/* ── Upcoming Appointments ── */}
+  <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '18px 20px 14px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: '#dbeafe', color: '#1e40af', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+          <i className="fas fa-calendar-alt"></i>
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#1a2236' }}>Upcoming appointments</span>
+      </div>
+      {upcomingAppointments.length > 0 && (
+        <span style={{ fontSize: 11, fontWeight: 600, background: '#dbeafe', color: '#1e40af', borderRadius: 20, padding: '2px 8px' }}>
+          {upcomingAppointments.length} scheduled
+        </span>
+      )}
+    </div>
+
+    <div style={{ flex: 1 }}>
+      {upcomingAppointments.length === 0 ? (
+        <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#94a3b8' }}>
+          <i className="fas fa-calendar-times" style={{ fontSize: 24 }}></i>
+          <span style={{ fontSize: 13 }}>No upcoming appointments</span>
+        </div>
+      ) : (
+        upcomingAppointments.slice(0, 3).map((apt, i) => {
+          // Appointment model: date (Date), time (String e.g. "10:30 AM"), doctor (ref→User), reason, status
+          const d = new Date(apt.date);
+          const isLast = i === Math.min(upcomingAppointments.length, 3) - 1;
+          const statusStyle = {
+            Scheduled:  { bg: '#dbeafe', color: '#1e40af' },
+            Completed:  { bg: '#d1fae5', color: '#065f46' },
+            Cancelled:  { bg: '#fee2e2', color: '#991b1b' },
+            'No-Show':  { bg: '#fef3c7', color: '#92400e' },
+          }[apt.status] || { bg: '#f1f5f9', color: '#475569' };
+
+          return (
+            <div key={i}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: isLast ? 'none' : '0.5px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.12s' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onClick={() => navigate('/patient-appointments')}
+            >
+              {/* date block — from apt.date */}
+              <div style={{ flexShrink: 0, width: 40, height: 44, borderRadius: 10, border: '0.5px solid #bfdbfe', background: '#eff6ff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#2d6be4', lineHeight: 1 }}>{d.getDate()}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#2d6be4', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {d.toLocaleString('en-US', { month: 'short' })}
+                </span>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* doctor comes from apt.doctor (populated User), fallback to doctorId for backward compat */}
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2236', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {apt.doctor?.name ? `Dr. ${apt.doctor.name}` : apt.doctorId?.name ? `Dr. ${apt.doctorId.name}` : 'Doctor'}
                 </div>
-                <div className="pd-card__body">
-                  {upcomingAppointments.length === 0 && (
-                    <div className="pd-empty">
-                      <i className="fas fa-calendar-times"></i> No upcoming appointments
-                    </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <i className="fas fa-clock" style={{ fontSize: 10 }}></i>
+                  {/* apt.time is stored as a plain string e.g. "10:30 AM" */}
+                  {apt.time || formatTime(apt.date)}
+                  {apt.reason && (
+                    <>
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#cbd5e1', display: 'inline-block' }}></span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{apt.reason}</span>
+                    </>
                   )}
-                  {upcomingAppointments.slice(0, 3).map((apt, i) => {
-                    const d = new Date(apt.appointmentTime);
-                    return (
-                      <div className="pd-appt-item" key={i}>
-                        <div className="pd-appt-date">
-                          <span className="day">{d.getDate()}</span>
-                          <span className="month">{d.toLocaleString('en-US', { month: 'short' })}</span>
-                        </div>
-                        <div className="pd-appt-info">
-                          <h4>{apt.doctorId?.name ? `Dr. ${apt.doctorId.name}` : 'Doctor'}</h4>
-                          <p>{formatTime(apt.appointmentTime)}</p>
-                          <span className="badge badge--green">✅ Confirmed</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="pd-card__footer">
-                  <button
-                    className="pd-btn pd-btn--primary pd-btn--full"
-                    onClick={() => navigate('/patient-appointments')}
-                  >
-                    <i className="fas fa-calendar-plus"></i> Book New Appointment
-                  </button>
                 </div>
               </div>
 
-              {/* Recent Prescriptions */}
-              <div className="pd-card">
-                <div className="pd-card__head">
-                  <div className="pd-card__head-icon"><i className="fas fa-prescription-bottle-alt"></i></div>
-                  <h3>Recent Prescriptions</h3>
+              {/* apt.status: 'Scheduled' | 'Completed' | 'Cancelled' | 'No-Show' */}
+              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, background: statusStyle.bg, color: statusStyle.color, borderRadius: 6, padding: '3px 8px' }}>
+                {apt.status}
+              </span>
+            </div>
+          );
+        })
+      )}
+    </div>
+
+    <div style={{ padding: '14px 20px', borderTop: '0.5px solid #e5e7eb' }}>
+      <button
+        onClick={() => navigate('/patient-appointments')}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'linear-gradient(135deg, #2d6be4, #1e40af)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        <i className="fas fa-calendar-plus"></i> Book appointment
+      </button>
+    </div>
+  </div>
+
+  {/* ── Recent Prescriptions ── */}
+  <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '18px 20px 14px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: '#d1fae5', color: '#065f46', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+          <i className="fas fa-prescription-bottle-alt"></i>
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#1a2236' }}>Recent prescriptions</span>
+      </div>
+      {prescriptions.length > 0 && (
+        <span style={{ fontSize: 11, fontWeight: 600, background: '#d1fae5', color: '#065f46', borderRadius: 20, padding: '2px 8px' }}>
+          {prescriptions.length} total
+        </span>
+      )}
+    </div>
+
+    <div style={{ flex: 1 }}>
+      {prescriptions.length === 0 ? (
+        <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#94a3b8' }}>
+          <i className="fas fa-file-prescription" style={{ fontSize: 24 }}></i>
+          <span style={{ fontSize: 13 }}>No prescriptions yet</span>
+        </div>
+      ) : (
+        prescriptions.slice(0, 3).map((rx, i) => {
+          // Prescription model: doctorName (denorm String), doctorId (ref), medicines[], diagnosis, chiefComplaint, status, createdAt
+          const isLast = i === Math.min(prescriptions.length, 3) - 1;
+          const rxStatus = {
+            active:    { bg: '#dbeafe', color: '#1e40af', label: 'Active' },
+            completed: { bg: '#d1fae5', color: '#065f46', label: 'Completed' },
+            draft:     { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
+            cancelled: { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
+            dispensed: { bg: '#fef3c7', color: '#92400e', label: 'Dispensed' },
+          }[rx.status] || { bg: '#f1f5f9', color: '#475569', label: rx.status };
+
+          // diagnosis preferred; fall back to chiefComplaint
+          const summary = rx.diagnosis || rx.chiefComplaint || '';
+
+          return (
+            <div key={i}
+              onClick={() => navigate('/patient-prescriptions')}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: isLast ? 'none' : '0.5px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.12s' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f1f5f9', border: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#94a3b8', flexShrink: 0 }}>
+                <i className="fas fa-stethoscope"></i>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* doctorName is the denormalized field on the Prescription model */}
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a2236' }}>
+                  {rx.doctorName || rx.doctorId?.name || 'Doctor'}
                 </div>
-                <div className="pd-card__body">
-                  {prescriptions.length === 0 && (
-                    <div className="pd-empty"><i className="fas fa-file-prescription"></i> No prescriptions yet</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+                  {/* medicines is an array of subdocs with .name, .dosage, .frequency */}
+                  <span>{rx.medicines?.length || 0} medicine{rx.medicines?.length !== 1 ? 's' : ''}</span>
+                  {summary && (
+                    <>
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#cbd5e1', display: 'inline-block', flexShrink: 0 }}></span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {summary.length > 28 ? summary.substring(0, 28) + '…' : summary}
+                      </span>
+                    </>
                   )}
-                  {prescriptions.slice(0, 3).map((rx, i) => {
-                    const sc = statusColors[rx.status] || statusColors.draft;
-                    return (
-                      <div className="pd-rx-item" key={i} style={{ cursor: 'pointer' }} onClick={() => navigate('/patient-prescriptions')}>
-                        <div className="pd-rx-avatar"><i className="fas fa-user-md"></i></div>
-                        <div className="pd-rx-info">
-                          <h4>{rx.doctorId?.name || rx.doctorName || 'Doctor'}</h4>
-                          <p>
-                            {rx.medicines?.length || 0} medicine{rx.medicines?.length !== 1 ? 's' : ''}
-                            {rx.diagnosis && ` · ${rx.diagnosis.substring(0, 30)}${rx.diagnosis.length > 30 ? '...' : ''}`}
-                          </p>
-                          <div style={{ marginTop: 4 }}>
-                            <span style={{
-                              padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 600,
-                              background: sc.bg, color: sc.color,
-                            }}>
-                              {sc.label}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="pd-rx-date">{formatDate(rx.createdAt)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="pd-card__footer">
-                  <button
-                    className="pd-btn pd-btn--outline pd-btn--full"
-                    onClick={() => navigate('/patient-prescriptions')}
-                  >
-                    <i className="fas fa-eye"></i> View All Prescriptions
-                  </button>
                 </div>
               </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+                {/* createdAt comes from Mongoose timestamps: true */}
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>{formatDate(rx.createdAt)}</span>
+                {/* status enum: 'draft' | 'active' | 'dispensed' | 'completed' | 'cancelled' */}
+                <span style={{ fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '2px 7px', background: rxStatus.bg, color: rxStatus.color }}>
+                  {rxStatus.label}
+                </span>
+              </div>
             </div>
+          );
+        })
+      )}
+    </div>
+
+    <div style={{ padding: '14px 20px', borderTop: '0.5px solid #e5e7eb' }}>
+      <button
+        onClick={() => navigate('/patient-prescriptions')}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', border: '0.5px solid #d1d5db', color: '#374151', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.12s' }}
+        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      >
+        <i className="fas fa-eye"></i> View all prescriptions
+      </button>
+    </div>
+  </div>
+
+</div>
 
             {/* ── Available Doctors ── */}
             <div style={{ marginTop: '28px' }}>
