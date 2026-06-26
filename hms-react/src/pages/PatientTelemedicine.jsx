@@ -175,11 +175,18 @@ export default function PatientTelemedicine() {
   const loadDoctors = async () => {
     try {
       const { data } = await API.get('/auth/available-doctors');
+      console.log('🩺 DOCTORS API RESPONSE:', data); // 👈 ADD THIS
       if (data.success) {
         setDoctors(data.doctors || []);
+        console.log('🩺 DOCTORS SET:', data.doctors); // 👈 AND THIS
+      } else {
+        console.warn('🩺 data.success is false or missing:', data);
+        // Try setting directly in case your API doesn't use {success, doctors} shape
+        if (Array.isArray(data)) setDoctors(data);
+        if (Array.isArray(data.data)) setDoctors(data.data);
       }
     } catch (err) {
-      console.error('Failed to load doctors:', err);
+      console.error('❌ Failed to load doctors:', err);
     }
   };
 
@@ -623,7 +630,99 @@ export default function PatientTelemedicine() {
                 </div>
               </div>
             )}
+{/* ── Available Doctors Cards ── */}
+{doctors.length > 0 && (
+  <div style={{ marginBottom: 24 }}>
+    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', marginBottom: 12 }}>
+      👨‍⚕️ Available Doctors
+    </h3>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+      gap: 16,
+    }}>
+      {doctors.map(doc => {
+        const isOnline = isDoctorOnline(doc._id);
+        return (
+          <div key={doc._id} style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '16px 18px',
+            border: `1.5px solid ${isOnline ? '#22c55e' : '#e5e7eb'}`,
+            boxShadow: isOnline ? '0 2px 12px rgba(34,197,94,0.10)' : '0 1px 4px rgba(0,0,0,0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}>
+            {/* Avatar + name row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 46, height: 46, borderRadius: '50%',
+                background: isOnline ? '#d1fae5' : '#f1f5f9',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, fontWeight: 700,
+                color: isOnline ? '#16a34a' : '#94a3b8',
+                flexShrink: 0,
+              }}>
+                {doc.name?.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Dr. {doc.name}
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7a99' }}>
+                  {doc.department || doc.specialization || 'General'}
+                </div>
+              </div>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
+                background: isOnline ? '#d1fae5' : '#f1f5f9',
+                color: isOnline ? '#16a34a' : '#94a3b8',
+                flexShrink: 0,
+              }}>
+                {isOnline ? '🟢 Online' : '🔴 Offline'}
+              </span>
+            </div>
 
+            {/* Fee row */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: '#f8fafc', borderRadius: 8, padding: '8px 12px',
+            }}>
+              <span style={{ fontSize: 12, color: '#64748b' }}>Consultation Fee</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: '#0f4c81' }}>
+                {doc.consultationFee > 0 ? `₹${doc.consultationFee}` : 'Free'}
+              </span>
+            </div>
+
+            {/* Consult Now button */}
+            <button
+              onClick={() => {
+                setForm(prev => ({ ...prev, doctorId: doc._id }));
+                setShowRequestForm(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                width: '100%',
+                padding: '9px 0',
+                background: isOnline ? '#2d6be4' : '#94a3b8',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: isOnline ? 'pointer' : 'not-allowed',
+                letterSpacing: 0.3,
+              }}
+            >
+              {isOnline ? '🩺 Consult Now' : '📅 Request Appointment'}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
             {/* Requests List */}
             <div className="pd-card">
               <div className="pd-card__body" style={{ padding: requests.length ? 0 : '24px' }}>

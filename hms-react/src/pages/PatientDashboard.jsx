@@ -26,6 +26,64 @@ export default function PatientDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
 
+  // ── Location (auto-detected via browser GPS) ──
+  const [locationLabel, setLocationLabel] = useState('Home');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+
+  useEffect(() => {
+    detectLocation();
+  }, []);
+
+  function detectLocation() {
+    if (!navigator.geolocation) {
+      setLocationLabel('Home');
+      setLocationError('not-supported');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`,
+            { headers: { Accept: 'application/json' } }
+          );
+          const data = await res.json();
+          const addr = data?.address || {};
+          const place =
+            addr.suburb ||
+            addr.neighbourhood ||
+            addr.city_district ||
+            addr.town ||
+            addr.village ||
+            addr.city ||
+            addr.county ||
+            data?.display_name?.split(',')[0] ||
+            'Current Location';
+          setLocationLabel(place);
+        } catch (err) {
+          console.error('Reverse geocoding failed:', err);
+          setLocationLabel('Current Location');
+          setLocationError('geocode-failed');
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (err) => {
+        console.log('Geolocation permission denied or unavailable:', err);
+        setLocationLabel('Home');
+        setLocationError('permission-denied');
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
+    );
+  }
+
   useEffect(() => {
     if (!user) {
       navigate('/patient-login');
@@ -169,9 +227,18 @@ export default function PatientDashboard() {
           </Link>
         </div>
         <div className="pd-topbar__right">
-          <div className="pd-topbar__location">
-            <i className="fas fa-map-marker-alt"></i>
-            Home
+          <div
+            className="pd-topbar__location"
+            onClick={detectLocation}
+            style={{ cursor: 'pointer' }}
+            title={
+              locationError === 'permission-denied'
+                ? 'Location access denied — click to try again'
+                : 'Click to refresh your location'
+            }
+          >
+            <i className={`fas ${locationLoading ? 'fa-spinner fa-spin' : 'fa-map-marker-alt'}`}></i>
+            {locationLoading ? 'Locating…' : locationLabel}
             <i className="fas fa-chevron-down" style={{ fontSize: 10 }}></i>
           </div>
 

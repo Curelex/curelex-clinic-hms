@@ -694,8 +694,10 @@ router.put('/change-password', auth, async (req, res) => {
 
 router.get('/available-doctors', auth, async (req, res) => {
   try {
-    const filter = { ...getClinicFilter(req.user), role: 'doctor', isActive: true };
-    const doctors = await User.find(filter, 'name department consultationFee phone email avatar').sort({ name: 1 });
+    const doctors = await User.find(
+      { role: 'doctor', isActive: true },
+      'name department consultationFee phone email avatar'
+    ).sort({ name: 1 });
     res.json({ success: true, doctors });
   } catch (err) {
     console.error('Error fetching available doctors:', err);
