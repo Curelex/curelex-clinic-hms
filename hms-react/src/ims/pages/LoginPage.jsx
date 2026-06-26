@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
 const LoginPage = () => {
   const { user, login, signup } = useAuth();
+  const navigate = useNavigate();
   const [isSignup, setIsSignup] = useState(false);
   const [form, setForm] = useState({ fullName: "", email: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -29,17 +30,25 @@ const LoginPage = () => {
     setSubmitting(true);
     try {
       if (isSignup) {
-        await signup({ fullName: form.fullName, email: form.email, password: form.password });
-        // signup sets user in context → Navigate above will redirect to dashboard on re-render
+        await signup({
+          fullName: form.fullName,
+          email: form.email,
+          password: form.password,
+        });
+        // signup sets user → Navigate above redirects on re-render
       } else {
         await login({ email: form.email, password: form.password });
-        // Use saved redirect path, or fall back to dashboard
-        const redirectPath = sessionStorage.getItem("ims_redirectPath") || "/ims/dashboard";
+        const redirectPath =
+          sessionStorage.getItem("ims_redirectPath") || "/ims/dashboard";
         sessionStorage.removeItem("ims_redirectPath");
-        window.location.href = redirectPath;
+        // Use React Router navigate — not window.location.href
+        // which causes a full page reload and remounts AuthProvider
+        navigate(redirectPath, { replace: true });
       }
     } catch (err) {
-      setError(err?.response?.data?.message || "Something went wrong. Please try again.");
+      setError(
+        err?.response?.data?.message || "Something went wrong. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -69,7 +78,9 @@ const LoginPage = () => {
               className="w-full rounded-lg border border-brand-100 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               placeholder="Full name"
               value={form.fullName}
-              onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, fullName: e.target.value }))
+              }
               onKeyDown={handleKeyDown}
               autoComplete="name"
             />
@@ -80,7 +91,9 @@ const LoginPage = () => {
             type="email"
             placeholder="Email address"
             value={form.email}
-            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, email: e.target.value }))
+            }
             onKeyDown={handleKeyDown}
             autoComplete="email"
           />
@@ -90,7 +103,9 @@ const LoginPage = () => {
             type="password"
             placeholder="Password"
             value={form.password}
-            onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, password: e.target.value }))
+            }
             onKeyDown={handleKeyDown}
             autoComplete={isSignup ? "new-password" : "current-password"}
           />

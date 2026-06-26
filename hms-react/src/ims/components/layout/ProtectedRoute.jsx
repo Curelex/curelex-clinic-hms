@@ -1,20 +1,26 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
   if (!user) {
-    // Only save the attempted path if it's a real protected page (not login itself)
-    const currentPath = window.location.pathname;
-    if (!currentPath.includes("/pharmacy/login")) {
-      sessionStorage.setItem("ims_redirectPath", currentPath);
+    // Save redirect path only for real protected routes
+    const loginPath = "/dashboard/pharmacy/login";
+    if (!location.pathname.includes(loginPath)) {
+      sessionStorage.setItem("ims_redirectPath", location.pathname);
     }
-    return <Navigate to="/pharmacy/login" replace />;
+    // Pass current location as state — don't use window.location
+    return <Navigate to={loginPath} replace state={{ from: location }} />;
   }
 
   return children;

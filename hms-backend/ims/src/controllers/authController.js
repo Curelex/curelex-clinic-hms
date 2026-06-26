@@ -68,15 +68,16 @@ export const ssoExchange = asyncHandler(async (req, res) => {
     throw new Error("SSO token required");
   }
 
-  const record = await SsoToken.findOneAndDelete({ token });
+  // Atomic: only deletes if token exists AND is not expired.
+  // If StrictMode fires this twice, second call finds nothing → clean 401.
+  const record = await SsoToken.findOneAndDelete({
+    token,
+    expiresAt: { $gt: new Date() }, // must not be expired
+  });
+
   if (!record) {
     res.status(401);
     throw new Error("Invalid or expired SSO token");
-  }
-
-  if (record.expiresAt < new Date()) {
-    res.status(401);
-    throw new Error("SSO token has expired. Please log in again.");
   }
 
   let user = await User.findOne({ email: record.email });
@@ -84,17 +85,15 @@ export const ssoExchange = asyncHandler(async (req, res) => {
   if (!user) {
     const role = record.role === "admin" ? ROLES.ADMIN : ROLES.STAFF;
     user = await User.create({
-      fullName: record.email.split("@")[0],
-      email: record.email,
-      password: crypto.randomBytes(16).toString("hex"),
+      fullName:    record.email.split("@")[0],
+      email:       record.email,
+      password:    crypto.randomBytes(16).toString("hex"),
       role,
       permissions: role === ROLES.ADMIN ? [] : STAFF_PERMISSIONS.SALES_BILLING,
-      clinicId: record.clinicId || null,
-      isActive: true,
+      clinicId:    record.clinicId || null,
+      isActive:    true,
     });
   } else if (user.role !== ROLES.ADMIN) {
-    // Sync IMS-format permissions for any non-admin (incl. legacy HMS roles)
-    // using updateOne to avoid full-document validation on legacy fields
     await User.updateOne(
       { _id: user._id },
       { $set: { permissions: STAFF_PERMISSIONS.SALES_BILLING } }

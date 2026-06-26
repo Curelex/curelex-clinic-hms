@@ -5,37 +5,73 @@ import api from "../services/api";
 
 export const AuthContext = createContext(null);
 
+// Module-level guard: survives StrictMode remount
+let lastExchangedSsoToken = null;
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const bootstrapped = useRef(false);
+  // Component-level guard: blocks concurrent in-flight calls
+  const exchangeInFlight = useRef(false);
 
   useEffect(() => {
-    if (bootstrapped.current) return;
-    bootstrapped.current = true;
-
     const bootstrap = async () => {
       const params = new URLSearchParams(window.location.search);
       const ssoToken = params.get("sso");
 
       if (ssoToken) {
+        // Strip URL immediately before any async work
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Block if same token already handled or currently in flight
+        if (lastExchangedSsoToken === ssoToken || exchangeInFlight.current) {
+          setLoading(false);
+          return;
+        }
+
+        lastExchangedSsoToken = ssoToken;
+        exchangeInFlight.current = true;
+
         try {
           const { data } = await api.post("/auth/sso-exchange", { token: ssoToken });
           localStorage.setItem("ims_token", data.token);
-          window.history.replaceState({}, document.title, window.location.pathname);
+          setUser(data.user);
+          setLoading(false);
+          return;
         } catch (error) {
-          console.error("SSO exchange failed:", error?.response?.data?.message || error.message);
+          const status = error?.response?.status;
+          if (status === 401 && localStorage.getItem("ims_token")) {
+            // Race lost — first call already saved the token, restore session
+            try {
+              const { user: currentUser } = await getMe();
+              setUser(currentUser);
+            } catch {
+              localStorage.removeItem("ims_token");
+            }
+            setLoading(false);
+            return;
+          }
+          // Genuine failure — reset guards for retry
+          lastExchangedSsoToken = null;
+          exchangeInFlight.current = false;
+          console.error(
+            "SSO exchange failed:",
+            error?.response?.data?.message || error.message
+          );
         }
       }
 
+      // Normal JWT session restore
       const token = localStorage.getItem("ims_token");
-      if (!token) { setLoading(false); return; }
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const { user: currentUser } = await getMe();
         setUser(currentUser);
       } catch (error) {
-        console.error("bootstrap getMe failed:", error?.response?.status, error?.message);
         if (error?.response?.status === 401) {
           localStorage.removeItem("ims_token");
         }
@@ -43,6 +79,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
+
     bootstrap();
   }, []);
 
@@ -63,6 +100,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem("ims_token");
     setUser(null);
+    lastExchangedSsoToken = null;
+    exchangeInFlight.current = false;
   };
 
   const hasPerm = (key) => {
