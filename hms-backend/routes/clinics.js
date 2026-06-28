@@ -26,7 +26,54 @@ router.get('/', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+// ── GET /api/clinics/search-all - Unified search across clinics + doctors ──
+// Query: ?q=dermatology  → matches clinic name OR doctor name/department
+// Returns a single mixed list, each item tagged with `type: 'clinic' | 'doctor'`
+router.get('/search-all', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || !q.trim()) {
+      return res.json({ success: true, results: [] });
+    }
 
+    const regex = new RegExp(q.trim(), 'i');
+
+    const [clinics, doctors] = await Promise.all([
+      Clinic.find({ name: regex }, '_id name address').limit(8),
+      User.find(
+        { role: 'doctor', isActive: true, $or: [{ name: regex }, { department: regex }] },
+        'name department consultationFee avatar clinicId'
+      )
+        .populate('clinicId', 'name address')
+        .limit(8),
+    ]);
+
+    const results = [
+      ...clinics.map((c) => ({
+        type: 'clinic',
+        _id: c._id,
+        name: c.name,
+        address: c.address,
+      })),
+      ...doctors.map((d) => ({
+        type: 'doctor',
+        _id: d._id,
+        name: d.name,
+        department: d.department,
+        consultationFee: d.consultationFee,
+        avatar: d.avatar,
+        clinic: d.clinicId
+          ? { _id: d.clinicId._id, name: d.clinicId.name, address: d.clinicId.address }
+          : null,
+      })),
+    ];
+
+    res.json({ success: true, results });
+  } catch (err) {
+    console.error('Error in unified search:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 // ── GET /api/clinics/:clinicId/doctors - Doctors for a specific clinic ────
 // Returns active doctors with name, department (specialization) and fee.
 router.get('/:clinicId/doctors', async (req, res) => {

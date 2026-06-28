@@ -30,6 +30,30 @@ function computeDays(admissionDate, dischargeDate) {
   return diff || 1;
 }
 
+/**
+ * A patient gets a SEPARATE Patient document per clinic (clinics are
+ * tenant-scoped). When the same person books at a new clinic — e.g. via
+ * the unified doctor/clinic search — a brand-new Patient _id is created
+ * for them at that clinic, even though it's the same real person.
+ *
+ * This helper finds every Patient document that represents the same
+ * person as `patient` (matched by email, falling back to phone) so that
+ * appointment/stat queries can include tokens from ALL their clinics,
+ * not just the one tied to the originally logged-in Patient _id.
+ */
+async function getLinkedPatientIds(patient) {
+  const orConditions = [];
+  if (patient.email) orConditions.push({ email: patient.email });
+  if (patient.phone) orConditions.push({ phone: patient.phone });
+
+  if (orConditions.length === 0) {
+    return [patient._id];
+  }
+
+  const linked = await Patient.find({ $or: orConditions }).select('_id');
+  return linked.map((p) => p._id);
+}
+
 // ── GET /:id/dashboard ───────────────────────────────────────────────────
 router.get('/:id/dashboard', patientAuth, async (req, res) => {
   try {
@@ -38,12 +62,13 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const patientId = patient._id;
+    // Include tokens booked under any of this person's clinic-scoped
+    // Patient records, not just the one they originally logged in with.
+    const patientIds = await getLinkedPatientIds(patient);
 
-    // Count across ALL clinics
-    const totalAppointments = await Token.countDocuments({ patient: patientId });
+    const totalAppointments = await Token.countDocuments({ patient: { $in: patientIds } });
     const upcomingAppointments = await Token.countDocuments({
-      patient: patientId,
+      patient: { $in: patientIds },
       status: { $in: ['Waiting', 'Pending', 'Called'] },
     });
 
@@ -85,8 +110,13 @@ router.get('/:id/appointments', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    // No clinicId filter — patient can book at any clinic
-    const tokens = await Token.find({ patient: patient._id })
+    // Include tokens booked under any of this person's clinic-scoped
+    // Patient records (see getLinkedPatientIds) so appointments created
+    // at a NEW clinic — e.g. via the unified doctor/clinic search — show
+    // up here too, not just the ones tied to the original Patient _id.
+    const patientIds = await getLinkedPatientIds(patient);
+
+    const tokens = await Token.find({ patient: { $in: patientIds } })
       .populate('doctor', 'name department consultationFee')
       .populate('clinicId', 'name')
       .sort({ createdAt: -1 });
