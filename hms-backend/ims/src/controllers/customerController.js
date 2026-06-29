@@ -22,7 +22,9 @@ const listCustomers = asyncHandler(async (req, res) => {
 // POST /customers
 const createCustomer = asyncHandler(async (req, res) => {
   const clinicId = req.user.clinicId; // ← ADDED
-  if (!clinicId) { res.status(400); throw new Error("No clinic associated with your account"); }
+  if (!clinicId) {
+    res.status(400); throw new Error("No clinic associated with your account");
+  }
   const customer = await Customer.create({ ...req.body, clinicId }); // ← ADDED
   res.status(201).json(customer);
 });

@@ -3,24 +3,24 @@ import crypto from "crypto";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import env from "../config/env.js";
 import { STAFF_PERMISSIONS, ROLES } from "../utils/permissions.js";
-import User from "../models/User.js";
+import User from "../../../models/User.js";
 import SsoToken from "../models/SsoToken.js";
 
 const signToken = (userId, clinicId = null) =>
   jwt.sign({ id: userId, clinicId }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
 
 export const signup = asyncHandler(async (req, res) => {
-  const { fullName, email, password } = req.body;
+  const { name, email, password, role } = req.body;
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) {
     res.status(409);
     throw new Error("Email already exists");
   }
   const user = await User.create({
-    fullName,
+    name,
     email: email.toLowerCase(),
     password,
-    role: ROLES.STAFF,
+    role: role,
     permissions: STAFF_PERMISSIONS.SALES_BILLING,
   });
 
@@ -29,7 +29,7 @@ export const signup = asyncHandler(async (req, res) => {
     token,
     user: {
       id:       user._id,
-      fullName: user.fullName,
+      name: user.name,
       email:    user.email,
       role:     user.role,
       clinicId: user.clinicId,
@@ -40,7 +40,7 @@ export const signup = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user || !(await user.comparePassword(password))) {
+  if (!user || !(await user.matchPassword(password))) {
     res.status(401);
     throw new Error("Invalid credentials");
   }
@@ -52,7 +52,7 @@ export const login = asyncHandler(async (req, res) => {
     token,
     user: {
       id:          user._id,
-      fullName:    user.fullName,
+      name:    user.name,
       email:       user.email,
       role:        user.role,
       permissions: user.permissions,
@@ -83,9 +83,9 @@ export const ssoExchange = asyncHandler(async (req, res) => {
   let user = await User.findOne({ email: record.email });
 
   if (!user) {
-    const role = record.role === "admin" ? ROLES.ADMIN : ROLES.STAFF;
+    const role = (record.role === 'admin' || record.role === 'super_admin') ? ROLES.ADMIN : ROLES.RECEPTIONIST;
     user = await User.create({
-      fullName:    record.email.split("@")[0],
+      name:    record.email.split("@")[0],
       email:       record.email,
       password:    crypto.randomBytes(16).toString("hex"),
       role,
@@ -114,7 +114,7 @@ export const ssoExchange = asyncHandler(async (req, res) => {
     token: imsToken,
     user: {
       id:          user._id,
-      fullName:    user.fullName,
+      name:    user.name,
       email:       user.email,
       role:        user.role,
       permissions: user.permissions,

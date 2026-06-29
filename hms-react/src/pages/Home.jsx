@@ -121,7 +121,7 @@ const Home = () => {
   const [showRoleModal, setShowRoleModal] = useState(false);
 
   const [consultForm, setConsultForm] = useState({
-    fullName: '', phoneCode: '+91', mobile: '', email: '', state: '', service: ''
+    name: '', phoneCode: '+91', mobile: '', email: '', state: '', service: ''
   });
   const [consultLoading, setConsultLoading] = useState(false);
   const [consultSubmitted, setConsultSubmitted] = useState(false);
@@ -154,7 +154,7 @@ const Home = () => {
   const handleConsultSubmit = async (e) => {
     e.preventDefault();
 
-    if (!consultForm.fullName.trim()) return showToast('Please enter your full name.', 'error');
+    if (!consultForm.name.trim()) return showToast('Please enter your full name.', 'error');
     if (!consultForm.mobile.trim()) return showToast('Please enter your mobile number.', 'error');
     if (!consultForm.email.trim()) return showToast('Please enter your email.', 'error');
     if (!consultForm.state) return showToast('Please select your state.', 'error');
@@ -170,7 +170,7 @@ const Home = () => {
       const data = await res.json();
       if (res.ok) {
         setConsultSubmitted(true);
-        setConsultForm({ fullName: '', phoneCode: '+91', mobile: '', email: '', state: '', service: '' });
+        setConsultForm({ name: '', phoneCode: '+91', mobile: '', email: '', state: '', service: '' });
         showToast('Consultation request submitted successfully!', 'success');
       } else {
         showToast(data.message || 'Submission failed. Please try again.', 'error');
@@ -321,8 +321,8 @@ const Home = () => {
                     className="curelex-form-input"
                     type="text"
                     placeholder="Full Name"
-                    value={consultForm.fullName}
-                    onChange={(e) => setConsultForm({ ...consultForm, fullName: e.target.value })}
+                    value={consultForm.name}
+                    onChange={(e) => setConsultForm({ ...consultForm, name: e.target.value })}
                     style={formStyles.input}
                     required
                   />

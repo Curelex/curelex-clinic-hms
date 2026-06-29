@@ -63,7 +63,7 @@ const InventorySchema = new mongoose.Schema({
     maintenanceLogs: [{
       date: { type: Date, default: Date.now },
       type: { type: String, enum: ['Routine', 'Repair', 'Calibration', 'Emergency'], default: 'Routine' },
-      performedBy: String,
+      performedBy:    { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       cost: { type: Number, default: 0 },
       notes: String,
       nextDueDate: Date

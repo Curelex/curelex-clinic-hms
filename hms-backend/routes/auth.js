@@ -5,7 +5,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
-
+import SsoToken from '../ims/src/models/SsoToken.js';
 import User from '../models/User.js';
 import Clinic from '../models/Clinic.js';
 import Patient from '../models/Patient.js';
@@ -18,17 +18,17 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// ── SSO Token Schema ──────────────────────────────────────────────────────
-const ssoTokenSchema = new mongoose.Schema({
-  token:     { type: String, required: true },
-  email:     { type: String, required: true },
-  userId:    { type: String, required: true },
-  role:      { type: String, default: 'staff' },
-  clinicId:  { type: String, required: true },
-  expiresAt: { type: Date,   required: true },
-}, { timestamps: false });
+// // ── SSO Token Schema ──────────────────────────────────────────────────────
+// const ssoTokenSchema = new mongoose.Schema({
+//   token:     { type: String, required: true },
+//   email:     { type: String, required: true },
+//   userId:    { type: String, required: true },
+//   role:      { type: String, default: 'staff' },
+//   clinicId:  { type: String, required: true },
+//   expiresAt: { type: Date,   required: true },
+// }, { timestamps: false });
 
-const SsoToken = mongoose.models.SsoToken || mongoose.model('SsoToken', ssoTokenSchema);
+// const SsoToken = mongoose.models.SsoToken || mongoose.model('SsoToken', ssoTokenSchema);
 
 router.post('/register-super-admin', async (req, res) => {
   try {
@@ -763,6 +763,60 @@ router.patch('/users/:id/toggle-active', auth, roleCheck('super_admin'), async (
     res.json({ success: true, isActive: user.isActive });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sso-exchange', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ message: 'SSO token required' });
+
+    // Atomic findOneAndDelete — expired or already-used tokens return null
+    const record = await SsoToken.findOneAndDelete({
+      token,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!record) {
+      return res.status(401).json({ message: 'Invalid or expired SSO token' });
+    }
+
+    // Find existing user by email
+    let user = await User.findOne({ email: record.email });
+
+    if (!user) {
+      // First-time IMS access — auto-provision an HMS account
+      const role     = record.role === 'admin' ? 'admin' : 'receptionist';
+      const clinicId = record.clinicId !== 'super_admin' ? record.clinicId : null;
+      user = await User.create({
+        name:        record.email.split('@')[0],
+        email:       record.email,
+        password:    crypto.randomBytes(16).toString('hex'),
+        role,
+        clinicId,
+        permissions: ['dashboard'],
+        isActive:    true,
+      });
+    }
+
+    // Patch missing clinicId onto existing user
+    if (record.clinicId && record.clinicId !== 'super_admin' && !user.clinicId) {
+      user.clinicId = record.clinicId;
+      await user.save();
+    }
+
+    const jwtToken = jwt.sign(
+      { id: user._id, role: user.role, clinicId: user.clinicId || null },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password: _, ...userOut } = user.toObject();
+    res.json({ token: jwtToken, user: userOut });
+
+  } catch (err) {
+    console.error('SSO exchange error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

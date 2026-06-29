@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import jwt from "jsonwebtoken";
 import Sale from "../models/Sale.js";
-import Clinic from "../../../clinic/models/Clinic.js";// ← ADDED: import Clinic model
+import Clinic from "../../../models/Clinic.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { createSale, finalizeSale } from "../services/saleService.js";
 import { logAudit } from "../services/auditService.js";

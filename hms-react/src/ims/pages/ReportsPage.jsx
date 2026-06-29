@@ -5,7 +5,7 @@ import { fetchStockReport, fetchDashboardSummary } from "../services/reportServi
 import { currency } from "../utils/format";
 
 const PERIODS = ["daily", "weekly", "monthly", "yearly"];
-const API_BASE = import.meta.env.VITE_IMS_API_URL || "/ims/api/v1";
+const API_BASE = import.meta.env.VITE_IMS_API_URL || "/api";
 
 // ── Mini icons (inline SVG — no extra dep) ───────────────────────────────────
 const IconDownload = () => (

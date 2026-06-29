@@ -23,5 +23,5 @@ inventorySchema.index({ quantity: 1 });
 inventorySchema.index({ clinicId: 1 });                        // ← added
 inventorySchema.index({ clinicId: 1, product: 1 }, { unique: true }); // ← unique per clinic
 
-const Inventory = mongoose.model("Inventory", inventorySchema);
+const Inventory = mongoose.model("ImsInventory", inventorySchema);
 export default Inventory;

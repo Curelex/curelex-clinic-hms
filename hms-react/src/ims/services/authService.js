@@ -1,21 +1,22 @@
-import api from "./api";
+// hms-backend/ims/src/services/authService.js
+import { authApi } from './api';
 
 export const signup = async (payload) => {
-  const { data } = await api.post("/auth/signup", payload);
+  const { data } = await authApi.post('/auth/register', payload);
   return data;
 };
 
 export const login = async (payload) => {
-  const { data } = await api.post("/auth/login", payload);
+  const { data } = await authApi.post('/auth/login', payload);
   return data;
 };
 
 export const getMe = async () => {
-  const { data } = await api.get("/auth/me");
+  const { data } = await authApi.get('/auth/profile');
   return data;
 };
 
 export const ssoExchange = async (token) => {
-  const { data } = await api.post("/auth/sso-exchange", { token });
+  const { data } = await authApi.post('/auth/sso-exchange', { token });
   return data;
 };

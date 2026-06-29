@@ -314,7 +314,7 @@ export const AuthProvider = ({ children }) => {
   const isSuperAdmin   = () => user?.role?.toLowerCase() === 'super_admin';
   const isStaff        = () => user && user?.role !== 'patient';
   const getUserId      = () => user?.id || user?._id || null;
-  const getUserName    = () => user?.name || user?.fullName || 'User';
+  const getUserName    = () => user?.name || 'User';
   const getUserEmail   = () => user?.email || '';
   const getUserRole    = () => user?.role || null;
   const isAuthenticated = () => !!user;

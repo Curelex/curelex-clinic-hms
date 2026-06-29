@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import env from '../config/env.js';
-import User from "../models/User.js";
+import User from '../../../models/User.js';
 import Product from "../models/Product.js";
 import Inventory from "../models/Inventory.js";
 import Customer from "../models/Customer.js";
@@ -26,7 +26,7 @@ const seedUsers = async () => {
 
   users.push(
     await User.create({
-      fullName: "Admin User",
+      name: "Admin User",
       email: "admin@test.com",
       password: "password123",
       role: ROLES.ADMIN,
@@ -37,10 +37,10 @@ const seedUsers = async () => {
   for (let i = 1; i < TOTAL; i += 1) {
     users.push(
       await User.create({
-        fullName: `Staff User ${i}`,
+        name: `Staff User ${i}`,
         email: `staff${i}@test.com`,
         password: "password123",
-        role: ROLES.STAFF,
+        role: ROLES.RECEPTIONIST,
         permissions: STAFF_PERMISSIONS.SALES_BILLING
       })
     );

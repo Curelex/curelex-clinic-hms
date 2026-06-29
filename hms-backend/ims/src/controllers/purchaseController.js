@@ -16,7 +16,9 @@ const createPurchase = asyncHandler(async (req, res) => {
   const { supplierId, items, notes, billType, gstNumber } = req.body;
   const clinicId = req.user.clinicId; // ← already there
 
-  if (!clinicId) { res.status(400); throw new Error("No clinic associated with your account"); }
+  if (!clinicId) {
+    res.status(400); throw new Error("No clinic associated with your account");
+  }
   if (!items || !items.length) { res.status(400); throw new Error("At least one purchase item is required"); }
   if (billType === "gst" && !gstNumber) { res.status(400); throw new Error("GST number is required for GST bills"); }
 

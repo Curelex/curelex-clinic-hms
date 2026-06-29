@@ -54,6 +54,7 @@ const UserSchema = new mongoose.Schema({
       default: 'weekly'
     },
   },
+  lastLoginAt: { type: Date, default: null },
 
 }, { timestamps: true });
 

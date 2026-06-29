@@ -3,7 +3,7 @@ import useAuth from "./useAuth";
 const usePermissions = () => {
   const { user } = useAuth();
   const permissions = user?.permissions || [];
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
   const can = (permission) => isAdmin || permissions.includes(permission);
 
