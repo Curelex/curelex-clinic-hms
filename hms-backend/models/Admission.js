@@ -29,17 +29,17 @@ const FollowupLogSchema = new mongoose.Schema({
 });
 
 const AdmissionSchema = new mongoose.Schema({
-  admissionId:    { type: String, unique: true },
+  admissionId:    { type: String },
   clinicId:       { type: String, required: true, index: true, default: 'default' },
   patient:        { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   doctor:         { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   admittedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   admittedByName: { type: String },
-
+ 
   admissionDate: { type: Date, default: Date.now },
   dischargeDate: { type: Date },
   daysAdmitted:  { type: Number, default: 0 },
-
+ 
   roomType: {
     type: String,
     enum: ['General Ward', 'Semi-Private', 'Private Room', 'ICU'],
@@ -48,19 +48,21 @@ const AdmissionSchema = new mongoose.Schema({
   roomNumber:     { type: String },
   roomRatePerDay: { type: Number, default: 800 },
   roomRent:       { type: Number, default: 0 },
-
+ 
   status: {
     type: String,
     enum: ['Admitted', 'Discharged', 'Transferred'],
     default: 'Admitted',
   },
-
+ 
   medicineLog: [MedicineLogSchema],
   followupLog: [FollowupLogSchema],
-
+ 
   bill:  { type: mongoose.Schema.Types.ObjectId, ref: 'Billing' },
   notes: { type: String },
 }, { timestamps: true });
+ 
+AdmissionSchema.index({ clinicId: 1, admissionId: 1 }, { unique: true });
 
 // ─── Reliable admissionId generation ────────────────────────────────────────
 // Uses the highest existing number for this clinic rather than countDocuments,
