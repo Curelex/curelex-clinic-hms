@@ -409,16 +409,7 @@ export default function Dashboard() {
         <div>
           <div className="card" style={{ marginBottom: 20 }}>
             <h3 style={{ marginBottom: 16 }}>📊 Today's Overview</h3>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  window.innerWidth <= 768
-                    ? '1fr 1fr'
-                    : 'repeat(4, 1fr)',
-                gap: 16,
-              }}
-            >
+            <div className="grid-4-col">
               <div className="stat-card">
                 <div
                   style={{
@@ -657,11 +648,7 @@ export default function Dashboard() {
       )}
 
       {/* ── Charts ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1fr',
-        gap: 20, marginTop: 20,
-      }}>
+      <div className="grid-2-col">
         {hasPerm('billing') && (
           <div className="card">
             <h3 style={{ marginBottom: 16, fontSize: 15 }}>Monthly Revenue (Last 6 Months)</h3>
@@ -862,11 +849,7 @@ function DoctorEarningsWidget() {
         </div>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: window.innerWidth <= 768 ? '1fr 1fr' : 'repeat(4, 1fr)',
-        gap: 16,
-      }}>
+      <div className="grid-4-col">
         <div className="stat-card" style={{ background: '#f0fdf4', padding: 12, borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: '#64748b' }}>Total Earned</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#16a34a' }}>₹{earnings.total}</div>
