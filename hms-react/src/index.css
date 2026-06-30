@@ -1685,3 +1685,97 @@ tr:hover td { background: var(--surface2); }
     .stat-card { padding: 16px; flex-direction: row; align-items: center; }
     .grid-4-col { grid-template-columns: 1fr; }
 }
+
+
+/* ============================================
+   DARK MODE TEXT VISIBILITY FIX
+   ============================================ */
+
+[data-theme="dark"] .about-card,
+[data-theme="dark"] .service-card,
+[data-theme="dark"] .supported-card {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .about-card h4,
+[data-theme="dark"] .service-card h3,
+[data-theme="dark"] .supported-card h3,
+[data-theme="dark"] .contact-details h4,
+[data-theme="dark"] .social-links h4 {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .about-card p,
+[data-theme="dark"] .service-card p,
+[data-theme="dark"] .supported-card p,
+[data-theme="dark"] .contact-details p,
+[data-theme="dark"] .section-header p {
+    color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .supported-location {
+    color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .section-header h2 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .section-header span {
+    color: #0ea5e9;
+}
+
+[data-theme="dark"] .footer-section p,
+[data-theme="dark"] .footer-section a,
+[data-theme="dark"] .footer-bottom {
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .social-icons a {
+    background: #334155;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .social-icons a:hover {
+    background: #0ea5e9;
+    color: white;
+}
+
+[data-theme="dark"] .nav-links a {
+    color: #f8fafc;
+}
+
+[data-theme="dark"] .nav-links a:hover {
+    color: #38bdf8;
+}
+
+[data-theme="dark"] .consult-section {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .consult-section-wrapper {
+    background: #0f172a;
+    margin-bottom: 0;
+    border-bottom-color: #0f172a;
+    padding: 0 24px 24px;
+    
+}
+
+[data-theme="dark"] .consult-card {
+    background: #334155;
+    border-color: #475569;
+}
+
+[data-theme="dark"] .consult-card p {
+    color: white;
+}
+
+[data-theme="dark"] .consult-header h2 {
+    color: white;
+}
+
+[data-theme="dark"] .consult-header p {
+    color: #cbd5e1;
+}
