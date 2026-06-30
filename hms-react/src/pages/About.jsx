@@ -4,11 +4,7 @@ import { useNavigate } from 'react-router-dom';
 const TEAM = [
   { name: 'Shriyansh Singh', role: 'Founder & CEO', focus: 'Leads vision, strategy, and innovation.', img: '/assets/Shriyansh Singh-Photoroom (1).png' },
   { name: 'Aman Maurya', role: 'Co-Founder & COO', focus: 'Oversees operations and execution.', img: '/assets/Aman Maurya-Photoroom.png' },
-  { name: 'Ashutosh Mishra', role: 'CTO', focus: 'Heads technology and platform architecture.', img: '/assets/Ashutosh Mishra-Photoroom.png' },
-  { name: 'Ishan Shrivastava', role: 'CMO', focus: 'Leads brand and growth strategy.', img: '/assets/Ishan Shrivastav-Photoroom.png' },
-  { name: 'Sandhya Tiwari', role: 'CLO', focus: 'Ensures legal compliance.', img: '/assets/Sandhya Tiwari-Photoroom.png' },
-  { name: 'Vishal Kumar Gond', role: 'Head – Camps', focus: 'Drives awareness programs.', img: '/assets/Vishal Gond-Photoroom.png' },
-  { name: 'Pankaj Pal', role: 'Head – PR', focus: 'Manages communications & media.', img: '/assets/Pankaj Pal-Photoroom.png' },
+
 ];
 
 const VALUES = [
@@ -141,9 +137,10 @@ export default function About() {
         }
 
         .about-team-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          display: flex;
+          justify-content: center;
           gap: 24px;
+          flex-wrap: wrap;
         }
 
         .about-team-card {
@@ -153,6 +150,8 @@ export default function About() {
           border: 1px solid #e5e7eb;
           text-align: center;
           transition: box-shadow 0.3s, transform 0.3s;
+          width: 420px;   
+          max-width: 100%;
         }
 
         .about-team-card:hover {
@@ -168,6 +167,8 @@ export default function About() {
           margin-bottom: 12px;
           border: 3px solid #e5e7eb;
           transition: border-color 0.3s;
+          display: block;
+          margin: 0 auto 12px;
         }
 
         .about-team-card:hover img {
