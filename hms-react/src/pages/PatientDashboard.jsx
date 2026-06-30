@@ -160,9 +160,11 @@ export default function PatientDashboard() {
       {/* ── TOPBAR ── */}
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-            <i className="fas fa-bars" />
-          </button>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars" />
+            </button>
+          )}
           <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
         </div>
         <div className="pd-topbar__right">
@@ -510,9 +512,12 @@ export default function PatientDashboard() {
                   <h2 style={{ margin: 0, fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
                     Consult top doctors online for any health concern
                   </h2>
-                  <p style={{ margin: '5px 0 0', fontSize: 13, color: '#64748b' }}>
-                    Private online consultations with verified doctors in all specialists
-                  </p>
+                  {/* Subtitle hidden on mobile (was cramped/unnecessary on small screens) */}
+                  {!isMobile && (
+                    <p style={{ margin: '5px 0 0', fontSize: 13, color: '#64748b' }}>
+                      Private online consultations with verified doctors in all specialists
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => navigate('/patient-telemedicine')}

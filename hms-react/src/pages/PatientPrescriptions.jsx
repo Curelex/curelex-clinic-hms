@@ -15,6 +15,7 @@ export default function PatientPrescriptions() {
   const [loading, setLoading] = useState(true);
   const [viewPrescription, setViewPrescription] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
 
   const patientId = patient?._id || patient?.id || user?.id || user?._id;
   const patientName = patient?.name || user?.name || 'Patient';
@@ -48,7 +49,7 @@ export default function PatientPrescriptions() {
   };
 
   const handleLogout = () => { logout(); navigate('/patient-login'); };
-  const goTo = (path) => { setSidebarOpen(false); navigate(path); };
+  const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
 
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -75,17 +76,48 @@ export default function PatientPrescriptions() {
     <div className="pd-layout">
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-            <i className="fas fa-bars"></i>
-          </button>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars"></i>
+            </button>
+          )}
           <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
         </div>
         <div className="pd-topbar__right">
           <div className="pd-user-menu">
-            <div className="pd-user-menu__trigger">
+            <div className="pd-user-menu__trigger" onClick={() => setUserDropdown(!userDropdown)}>
               <div className="pd-user-menu__avatar">{initials}</div>
               <span className="pd-user-menu__name">{patientName}</span>
+              <i className="fas fa-chevron-down" style={{ fontSize: 10, color: 'var(--text-secondary)' }} />
             </div>
+            {userDropdown && (
+              <>
+                <div className="pd-user-dropdown-overlay" onClick={() => setUserDropdown(false)} />
+                <div className="pd-user-dropdown">
+                  <div className="pd-user-dropdown__info">
+                    <strong>{patientName}</strong>
+                    <span>{patientEmail}</span>
+                  </div>
+                  <div className="pd-user-dropdown__divider" />
+                  {[
+                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
+                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
+                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
+                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                  ].map(item => (
+                    <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
+                      <i className={`fas ${item.icon}`} /> {item.label}
+                    </button>
+                  ))}
+                  <div className="pd-user-dropdown__divider" />
+                  <button className="pd-user-dropdown__item pd-user-dropdown__item--danger" onClick={handleLogout}>
+                    <i className="fas fa-sign-out-alt" /> Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>

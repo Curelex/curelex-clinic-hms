@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import API from '../utils/api';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 const STATUS_COLORS = {
   requested: { bg: '#fef3c7', color: '#92400e', label: '⏳ Requested' },
@@ -37,6 +38,7 @@ export default function PatientTelemedicine() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
   const [statusUpdate, setStatusUpdate] = useState(null);
   const [meetingStarted, setMeetingStarted] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -44,6 +46,14 @@ export default function PatientTelemedicine() {
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mock');
+
+  // ── Responsive hook ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   const patientId = patient?._id || patient?.id || user?._id || user?.id;
   const patientName = patient?.name || user?.name || 'Patient';
@@ -289,7 +299,7 @@ export default function PatientTelemedicine() {
   };
 
   const handleLogout = () => { logout(); navigate('/patient-login'); };
-  const goTo = (path) => { setSidebarOpen(false); navigate(path); };
+  const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
 
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -318,20 +328,53 @@ export default function PatientTelemedicine() {
 
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-            <i className="fas fa-bars"></i>
-          </button>
-          <span className="pd-topbar__title">🩺 Telemedicine</span>
-          <span style={{ fontSize: 12, color: '#64748b', marginLeft: 12 }}>
-            {isConnected ? '🔗 Connected' : '⚠️ Disconnected'}
-          </span>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars"></i>
+            </button>
+          )}
+          <Link to="/patient-dashboard" className="pd-topbar__title">🩺 Telemedicine</Link>
+          {!isMobile && (
+            <span style={{ fontSize: 12, color: '#64748b', marginLeft: 12 }}>
+              {isConnected ? '🔗 Connected' : '⚠️ Disconnected'}
+            </span>
+          )}
         </div>
         <div className="pd-topbar__right">
           <div className="pd-user-menu">
-            <div className="pd-user-menu__trigger">
+            <div className="pd-user-menu__trigger" onClick={() => setUserDropdown(!userDropdown)}>
               <div className="pd-user-menu__avatar">{initials}</div>
               <span className="pd-user-menu__name">{patientName}</span>
+              <i className="fas fa-chevron-down" style={{ fontSize: 10, color: 'var(--text-secondary)' }} />
             </div>
+            {userDropdown && (
+              <>
+                <div className="pd-user-dropdown-overlay" onClick={() => setUserDropdown(false)} />
+                <div className="pd-user-dropdown">
+                  <div className="pd-user-dropdown__info">
+                    <strong>{patientName}</strong>
+                    <span>{patientEmail}</span>
+                  </div>
+                  <div className="pd-user-dropdown__divider" />
+                  {[
+                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
+                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
+                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
+                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                  ].map(item => (
+                    <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
+                      <i className={`fas ${item.icon}`} /> {item.label}
+                    </button>
+                  ))}
+                  <div className="pd-user-dropdown__divider" />
+                  <button className="pd-user-dropdown__item pd-user-dropdown__item--danger" onClick={handleLogout}>
+                    <i className="fas fa-sign-out-alt" /> Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -340,7 +383,7 @@ export default function PatientTelemedicine() {
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
         <PatientSidebar
-          activeItem="xxxx"
+          activeItem="telemedicine"
           sidebarOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           patientName={patientName}
@@ -860,6 +903,9 @@ export default function PatientTelemedicine() {
           </main>
         </div>
       </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <BottomNav activeItem="consult" />
     </div>
   );
 }
