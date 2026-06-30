@@ -6,6 +6,7 @@ import API from '../utils/api';
 import ClinicSearch from '../components/ClinicSearch';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 // ── Responsive hook — updates on resize ──────────────────────────────────────
 function useIsMobile(breakpoint = 768) {
@@ -232,11 +233,14 @@ export default function PatientDashboard() {
           <main className="pd-body">
 
             {/* Welcome Banner */}
-            <div style={{
-              background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
-              borderRadius: 16, padding: '24px 28px', marginBottom: 24,
-              border: '1px solid #bfdbfe',
-            }}>
+            <div
+              className="pd-welcome-banner"
+              style={{
+                background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
+                borderRadius: 16, padding: '24px 28px', marginBottom: 24,
+                border: '1px solid #bfdbfe',
+              }}
+            >
               <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1e3a8a' }}>
                 Welcome back, {patientName}! 👋
               </h2>
@@ -248,6 +252,7 @@ export default function PatientDashboard() {
             {/* Admission banner */}
             {admission && (
               <div
+                className="pd-admission-banner"
                 onClick={() => navigate('/patient-admission')}
                 style={{
                   background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
@@ -633,6 +638,9 @@ export default function PatientDashboard() {
           </main>
         </div>
       </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <BottomNav activeItem="dashboard" />
     </div>
   );
 }

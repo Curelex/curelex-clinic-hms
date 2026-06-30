@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 // ── What the patient sees for each HMS queue status ──────────────────────
 // "Pending"  = clinic hasn't accepted the portal request yet
@@ -57,6 +58,14 @@ const STEP_PAYMENT = 'payment';
 export default function PatientAppointments() {
   const { user, patient, logout, isPatient } = useAuth();
   const navigate = useNavigate();
+
+  // ── Responsive hook ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   const [appointments, setAppointments] = useState([]);
   const [clinics, setClinics]           = useState([]);
@@ -301,7 +310,7 @@ export default function PatientAppointments() {
               marginBottom: '20px', flexWrap: 'wrap', gap: '12px',
             }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#1a2236' }}>
+                <h2 style={{ margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: 700, color: '#1a2236' }}>
                   My Appointments
                 </h2>
                 <p style={{ margin: '4px 0 0', color: '#6b7a99', fontSize: '14px' }}>
@@ -311,7 +320,7 @@ export default function PatientAppointments() {
               <button
                 className="pd-btn pd-btn--primary"
                 onClick={openModal}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: isMobile ? '100%' : 'auto' }}
               >
                 <i className="fas fa-plus" /> Create New Token
               </button>
@@ -338,14 +347,79 @@ export default function PatientAppointments() {
               ))}
             </div>
 
-            {/* ── Table ── */}
+            {/* ── Appointments list ── */}
             <div className="pd-card">
               <div className="pd-card__body" style={{ padding: appointments.length ? 0 : '24px' }}>
                 {appointments.length === 0 ? (
                   <div className="pd-empty">
                     <i className="fas fa-calendar-times" /> No appointments yet. Create a new token to get started.
                   </div>
+                ) : isMobile ? (
+                  /* ── MOBILE: card layout ── */
+                  <div style={{ padding: '12px' }}>
+                    {appointments.map((apt) => {
+                      const ps = PATIENT_STATUS[apt.status] || PATIENT_STATUS.Pending;
+                      const pc = PAYMENT_STATUS_COLORS[apt.paymentStatus] || PAYMENT_STATUS_COLORS.pending;
+                      return (
+                        <div key={apt._id} className="pd-appt-mobile-card">
+                          <div className="pd-appt-mobile-card__header">
+                            <span className="pd-appt-mobile-card__token">#{apt.tokenNumber}</span>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5,
+                              background: ps.bg, color: ps.text,
+                              padding: '4px 10px', borderRadius: 999,
+                              fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                            }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: ps.dot, display: 'inline-block' }} />
+                              {ps.label}
+                            </span>
+                          </div>
+                          <div className="pd-appt-mobile-card__row">
+                            <span className="pd-appt-mobile-card__label">Date</span>
+                            <span className="pd-appt-mobile-card__value">{formatDate(apt.createdAt)}</span>
+                          </div>
+                          <div className="pd-appt-mobile-card__row">
+                            <span className="pd-appt-mobile-card__label">Doctor</span>
+                            <span className="pd-appt-mobile-card__value">
+                              {apt.doctor?.name ? `Dr. ${apt.doctor.name}` : 'Not yet assigned'}
+                            </span>
+                          </div>
+                          <div className="pd-appt-mobile-card__row">
+                            <span className="pd-appt-mobile-card__label">Clinic</span>
+                            <span className="pd-appt-mobile-card__value">{apt.clinicId?.name || '—'}</span>
+                          </div>
+                          <div className="pd-appt-mobile-card__row">
+                            <span className="pd-appt-mobile-card__label">Type</span>
+                            <span className="pd-appt-mobile-card__value" style={{ textTransform: 'capitalize' }}>{apt.consultationType || '—'}</span>
+                          </div>
+                          {apt.consultationFee && (
+                            <div className="pd-appt-mobile-card__row">
+                              <span className="pd-appt-mobile-card__label">Fee</span>
+                              <span className="pd-appt-mobile-card__value">₹{apt.consultationFee}</span>
+                            </div>
+                          )}
+                          <div className="pd-appt-mobile-card__row">
+                            <span className="pd-appt-mobile-card__label">Payment</span>
+                            <span style={{
+                              background: pc.bg, color: pc.text,
+                              padding: '3px 8px', borderRadius: 999,
+                              fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
+                            }}>
+                              {apt.paymentStatus === 'paid' ? '✓ Paid' : apt.paymentStatus || 'Pending'}
+                            </span>
+                          </div>
+                          {apt.symptoms && (
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#6b7a99', background: '#f8fafc', borderRadius: 6, padding: '6px 10px' }}>
+                              <i className="fas fa-notes-medical" style={{ marginRight: 5 }} />
+                              {apt.symptoms.length > 80 ? apt.symptoms.slice(0, 80) + '…' : apt.symptoms}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
+                  /* ── DESKTOP: full table ── */
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                       <thead>
@@ -359,58 +433,31 @@ export default function PatientAppointments() {
                       </thead>
                       <tbody>
                         {appointments.map((apt) => {
-                          // ── Use patient-friendly status display ──────────
                           const ps = PATIENT_STATUS[apt.status] || PATIENT_STATUS.Pending;
                           const pc = PAYMENT_STATUS_COLORS[apt.paymentStatus] || PAYMENT_STATUS_COLORS.pending;
-
                           return (
                             <tr key={apt._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
-                              <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1a2236' }}>
-                                #{apt.tokenNumber}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: '#374151' }}>
-                                {formatDate(apt.createdAt)}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: '#374151' }}>
-                                {apt.clinicId?.name || '-'}
-                              </td>
+                              <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1a2236' }}>#{apt.tokenNumber}</td>
+                              <td style={{ padding: '12px 16px', color: '#374151' }}>{formatDate(apt.createdAt)}</td>
+                              <td style={{ padding: '12px 16px', color: '#374151' }}>{apt.clinicId?.name || '-'}</td>
                               <td style={{ padding: '12px 16px', color: '#374151' }}>
                                 {apt.doctor?.name ? `Dr. ${apt.doctor.name}` : 'Not yet assigned'}
                               </td>
-                              <td style={{ padding: '12px 16px', color: '#374151', textTransform: 'capitalize' }}>
-                                {apt.consultationType || '-'}
-                              </td>
+                              <td style={{ padding: '12px 16px', color: '#374151', textTransform: 'capitalize' }}>{apt.consultationType || '-'}</td>
                               <td style={{ padding: '12px 16px', color: '#374151', maxWidth: 200 }}>
-                                {apt.symptoms
-                                  ? apt.symptoms.length > 50
-                                    ? apt.symptoms.slice(0, 50) + '…'
-                                    : apt.symptoms
-                                  : '-'}
+                                {apt.symptoms ? apt.symptoms.length > 50 ? apt.symptoms.slice(0, 50) + '…' : apt.symptoms : '-'}
                               </td>
                               <td style={{ padding: '12px 16px', color: '#374151' }}>
                                 {apt.consultationFee ? `₹${apt.consultationFee}` : '-'}
                               </td>
                               <td style={{ padding: '12px 16px' }}>
-                                <span style={{
-                                  background: pc.bg, color: pc.text,
-                                  padding: '4px 10px', borderRadius: 999,
-                                  fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
-                                }}>
+                                <span style={{ background: pc.bg, color: pc.text, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>
                                   {apt.paymentStatus === 'paid' ? '✓ Paid' : apt.paymentStatus || 'Pending'}
                                 </span>
                               </td>
                               <td style={{ padding: '12px 16px' }}>
-                                {/* ── Patient-friendly status badge ── */}
-                                <span style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                                  background: ps.bg, color: ps.text,
-                                  padding: '4px 10px', borderRadius: 999,
-                                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                                }}>
-                                  <span style={{
-                                    width: 6, height: 6, borderRadius: '50%',
-                                    background: ps.dot, display: 'inline-block', flexShrink: 0,
-                                  }} />
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: ps.bg, color: ps.text, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: ps.dot, display: 'inline-block', flexShrink: 0 }} />
                                   {ps.label}
                                 </span>
                               </td>
@@ -427,9 +474,13 @@ export default function PatientAppointments() {
         </div>
       </div>
 
+      {/* ── Mobile bottom navigation ── */}
+      <BottomNav activeItem="appointments" />
+
       {/* ── CREATE TOKEN MODAL ─────────────────────────────────────────── */}
       {showModal && (
         <div
+          className="pd-appt-modal-wrap"
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -438,6 +489,7 @@ export default function PatientAppointments() {
           onClick={closeModal}
         >
           <div
+            className="pd-appt-modal-inner"
             style={{
               background: 'white', borderRadius: '16px', width: '100%', maxWidth: '460px',
               padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',

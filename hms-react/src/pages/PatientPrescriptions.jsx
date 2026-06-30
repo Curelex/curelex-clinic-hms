@@ -6,6 +6,7 @@ import API from '../utils/api';
 import ViewPrescription from '../components/ViewPrescription';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 export default function PatientPrescriptions() {
   const { user, patient, logout, isPatient } = useAuth();
@@ -18,6 +19,14 @@ export default function PatientPrescriptions() {
   const patientId = patient?._id || patient?.id || user?.id || user?._id;
   const patientName = patient?.name || user?.name || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
+
+  // ── Responsive hook ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   useEffect(() => {
     if (!user) { navigate('/patient-login'); return; }
@@ -85,7 +94,7 @@ export default function PatientPrescriptions() {
         <div className={`pd-sidebar-overlay${sidebarOpen ? ' visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
         <PatientSidebar
-          activeItem="xxxx"
+          activeItem="prescriptions"
           sidebarOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           patientName={patientName}
@@ -116,66 +125,106 @@ export default function PatientPrescriptions() {
                     <i className="fas fa-file-prescription"></i> No prescriptions yet
                   </div>
                 )}
-                {prescriptions.length > 0 && (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>
-                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Date</th>
-                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Doctor</th>
-                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Diagnosis</th>
-                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Medicines</th>
-                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Status</th>
-                          <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {prescriptions.map((rx) => {
-                          const sc = statusColors[rx.status] || statusColors.draft;
-                          return (
-                            <tr key={rx._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
-                              <td style={{ padding: '12px 16px', color: '#374151' }}>
-                                {new Date(rx.createdAt).toLocaleDateString('en-US', {
-                                  day: 'numeric', month: 'short', year: 'numeric'
-                                })}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: '#374151' }}>
-                                {rx.doctorId?.name || rx.doctorName || '—'}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: '#374151' }}>
-                                {rx.diagnosis || '—'}
-                              </td>
-                              <td style={{ padding: '12px 16px', color: '#374151' }}>
-                                {rx.medicines?.length || 0} medicine{rx.medicines?.length !== 1 ? 's' : ''}
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <span style={{
-                                  padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                                  background: sc.bg, color: sc.color,
-                                }}>
-                                  {sc.label}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <button
-                                  className="btn btn-sm btn-ghost"
-                                  onClick={() => setViewPrescription(rx)}
-                                >
-                                  View
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+            {prescriptions.length > 0 && (
+              isMobile ? (
+                /* ── MOBILE: card layout ── */
+                <div style={{ padding: '12px' }}>
+                  {prescriptions.map((rx) => {
+                    const sc = statusColors[rx.status] || statusColors.draft;
+                    return (
+                      <div key={rx._id} className="pd-appt-mobile-card">
+                        <div className="pd-appt-mobile-card__header">
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1a2236' }}>
+                            {rx.doctorId?.name || rx.doctorName || 'Doctor'}
+                          </span>
+                          <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>
+                            {sc.label}
+                          </span>
+                        </div>
+                        <div className="pd-appt-mobile-card__row">
+                          <span className="pd-appt-mobile-card__label">Date</span>
+                          <span className="pd-appt-mobile-card__value">
+                            {new Date(rx.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                        {rx.diagnosis && (
+                          <div className="pd-appt-mobile-card__row">
+                            <span className="pd-appt-mobile-card__label">Diagnosis</span>
+                            <span className="pd-appt-mobile-card__value">{rx.diagnosis}</span>
+                          </div>
+                        )}
+                        <div className="pd-appt-mobile-card__row">
+                          <span className="pd-appt-mobile-card__label">Medicines</span>
+                          <span className="pd-appt-mobile-card__value">
+                            {rx.medicines?.length || 0} medicine{rx.medicines?.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setViewPrescription(rx)}
+                          style={{
+                            marginTop: 10, width: '100%', padding: '9px', borderRadius: 8,
+                            background: 'linear-gradient(135deg, #2d6be4, #1e40af)', color: '#fff',
+                            border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          }}
+                        >
+                          <i className="fas fa-eye" /> View Prescription
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* ── DESKTOP: table ── */
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>
+                        <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Date</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Doctor</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Diagnosis</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Medicines</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Status</th>
+                        <th style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 600 }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {prescriptions.map((rx) => {
+                        const sc = statusColors[rx.status] || statusColors.draft;
+                        return (
+                          <tr key={rx._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>
+                              {new Date(rx.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>{rx.doctorId?.name || rx.doctorName || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>{rx.diagnosis || '—'}</td>
+                            <td style={{ padding: '12px 16px', color: '#374151' }}>
+                              {rx.medicines?.length || 0} medicine{rx.medicines?.length !== 1 ? 's' : ''}
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>
+                                {sc.label}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <button className="btn btn-sm btn-ghost" onClick={() => setViewPrescription(rx)}>View</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
               </div>
             </div>
           </main>
         </div>
       </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <BottomNav activeItem="prescriptions" />
 
       {viewPrescription && (
         <ViewPrescription
