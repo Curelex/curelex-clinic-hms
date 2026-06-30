@@ -42,12 +42,11 @@ const PatientSchema = new mongoose.Schema({
   medicalHistory: { type: String, default: '' },
   notes: { type: String, default: '' },
 
-  clinicId: {
+  clinicIds: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Clinic',
-    required: true,
     index: true,
-  },
+  }],
 
   assignedDoctor: {
     type: mongoose.Schema.Types.ObjectId,
@@ -80,22 +79,15 @@ PatientSchema.pre('save', async function (next) {
     return next();
   }
 
-  if (!this.clinicId) {
-    return next(new Error('clinicId is required to generate a patientId'));
-  }
-
   try {
-    // ✅ Atomic increment — safe even when multiple patients are created
-    // back-to-back (e.g. two token bookings within milliseconds of each
-    // other). Replaces the old find-max-then-increment approach, which
-    // had a race condition: two concurrent saves could both read "no
-    // patients yet" and both try to claim PAT00001.
-    const seq = await Counter.getNextSequence(`patient_${this.clinicId}`);
+    // ✅ Generate global patient ID
+    const seq = await Counter.getNextSequence('patient_global');
 
-    // ✅ Format with leading zeros (5 digits)
-    this.patientId = `PAT${String(seq).padStart(5, '0')}`;
+    // ✅ Format with leading zeros (5 digits) using GPAT for Global Patients
+    // to avoid collisions with existing PATxxxxx IDs that were clinic-scoped.
+    this.patientId = `GPAT${String(seq).padStart(5, '0')}`;
 
-    console.log(`✅ Generated patientId: ${this.patientId} for clinic: ${this.clinicId}`);
+    console.log(`✅ Generated global patientId: ${this.patientId}`);
     next();
   } catch (err) {
     console.error('❌ Error generating patientId:', err);
@@ -104,8 +96,8 @@ PatientSchema.pre('save', async function (next) {
 });
 
 // Indexes
-PatientSchema.index({ clinicId: 1, patientId: 1 }, { unique: true });
-PatientSchema.index({ clinicId: 1, email: 1 });
-PatientSchema.index({ clinicId: 1, phone: 1 });
+PatientSchema.index({ patientId: 1 }, { unique: true });
+PatientSchema.index({ clinicIds: 1, email: 1 });
+PatientSchema.index({ clinicIds: 1, phone: 1 });
 
 export default mongoose.model('Patient', PatientSchema);
