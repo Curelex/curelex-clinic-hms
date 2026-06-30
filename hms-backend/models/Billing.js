@@ -2,11 +2,11 @@
 import mongoose from 'mongoose';
 
 const BillingSchema = new mongoose.Schema({
-  billId:   { type: String, unique: true },
+  billId:   { type: String },
   clinicId: { type: String, required: true, index: true, default: 'default' }, // ← NEW
   patient:     { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   appointment: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
-
+ 
   items: [{
     description: String,
     category:    { type: String, enum: ['Medicine', 'Lab', 'Procedure', 'Consultation', 'Other'], default: 'Other' },
@@ -17,7 +17,7 @@ const BillingSchema = new mongoose.Schema({
     total:       { type: Number, default: 0 },
     sourceRef:   String,
   }],
-
+ 
   admissionDate:  { type: Date },
   dischargeDate:  { type: Date },
   daysAdmitted:   { type: Number, default: 0 },
@@ -28,13 +28,13 @@ const BillingSchema = new mongoose.Schema({
   },
   roomRatePerDay: { type: Number, default: 800 },
   roomRent:       { type: Number, default: 0 },
-
+ 
   subtotal:    { type: Number, default: 0 },
   discount:    { type: Number, default: 0 },
   tax:         { type: Number, default: 0 },
   totalAmount: { type: Number, required: true },
   paidAmount:  { type: Number, default: 0 },
-
+ 
   paymentMethod: {
     type: String,
     enum: ['Cash', 'Card', 'Insurance', 'UPI', 'Pending'],
@@ -45,16 +45,18 @@ const BillingSchema = new mongoose.Schema({
     enum: ['Paid', 'Partial', 'Pending', 'Cancelled'],
     default: 'Pending',
   },
-
+ 
   insuranceDetails: {
     provider:     String,
     policyNumber: String,
     claimAmount:  Number,
   },
-
+ 
   notes:       { type: String },
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
+ 
+BillingSchema.index({ clinicId: 1, billId: 1 }, { unique: true });
 
 BillingSchema.pre('save', async function (next) {
   if (!this.billId) {

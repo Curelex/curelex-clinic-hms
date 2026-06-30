@@ -16,10 +16,15 @@ router.get('/', async (req, res) => {
       filter.name = { $regex: search.trim(), $options: 'i' };
     }
 
+    console.log('🔍 GET CLINICS QUERY:', { search, filter });
+    const allClinics = await Clinic.find({});
+    console.log('🔍 ALL CLINICS IN DB:', allClinics);
+
     const clinics = await Clinic.find(filter, '_id name email phone address')
       .sort({ name: 1 })
       .limit(20); // cap results so the dropdown stays fast
 
+    console.log('🔍 SEARCH RESULTS:', clinics);
     res.json({ success: true, clinics });
   } catch (err) {
     console.error('Error fetching clinics:', err);
