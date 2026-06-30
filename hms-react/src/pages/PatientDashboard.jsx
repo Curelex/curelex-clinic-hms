@@ -165,7 +165,9 @@ export default function PatientDashboard() {
               <i className="fas fa-bars" />
             </button>
           )}
-          <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
+          <Link to="/patient-dashboard" className="pd-topbar__title">
+            {isMobile ? `Hi, ${patientName.split(' ')[0]}` : 'My Health'}
+          </Link>
         </div>
         <div className="pd-topbar__right">
           <div

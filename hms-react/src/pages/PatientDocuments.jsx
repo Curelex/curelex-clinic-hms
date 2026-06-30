@@ -233,15 +233,56 @@ export default function PatientDocuments() {
 
         <div className="pd-main">
           <main className="pd-body">
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1a2236' }}>
-                📁 My Documents
-              </h2>
-              <p style={{ margin: '4px 0 0', color: '#6b7a99', fontSize: 14 }}>
-                Upload your lab reports, scans, and other medical documents — your doctor can view them
-                directly during your visit, no need to carry physical copies.
-              </p>
-            </div>
+            {isMobile ? (
+              /* ── MOBILE: compact, impressive header banner ── */
+              <div
+                style={{
+                  marginBottom: 20,
+                  borderRadius: 16,
+                  padding: '18px 20px',
+                  background: 'linear-gradient(135deg, #2d6be4 0%, #1e40af 100%)',
+                  boxShadow: '0 8px 20px rgba(45, 107, 228, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                }}
+              >
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 12,
+                    background: 'rgba(255,255,255,0.18)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    flexShrink: 0,
+                  }}
+                >
+                  📁
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
+                    My Documents
+                  </h2>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>
+                    {documents.length} {documents.length === 1 ? 'file' : 'files'} safely stored
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* ── DESKTOP: original header ── */
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1a2236' }}>
+                  📁 My Documents
+                </h2>
+                <p style={{ margin: '4px 0 0', color: '#6b7a99', fontSize: 14 }}>
+                  Upload your lab reports, scans, and other medical documents — your doctor can view them
+                  directly during your visit, no need to carry physical copies.
+                </p>
+              </div>
+            )}
 
             {/* ── Upload card ── */}
             <div className="pd-card" style={{ marginBottom: 20 }}>
