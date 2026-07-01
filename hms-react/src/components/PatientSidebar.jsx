@@ -32,6 +32,7 @@ export default function PatientSidebar({
     { key: 'telemedicine',  label: 'Telemedicine',       icon: 'fa-video',                    path: '/patient-telemedicine' },
     { key: 'prescriptions', label: 'Prescriptions',      icon: 'fa-prescription-bottle-alt', path: '/patient-prescriptions' },
     { key: 'documents',     label: 'My Documents',       icon: 'fa-folder-open',              path: '/patient-documents' },
+    { key: 'feedback',      label: 'Feedback',           icon: 'fa-star',                     path: '/patient-feedback' },
     { key: 'profile',       label: 'Profile',            icon: 'fa-user-circle',              path: '/patient-profile' },
   ];
 
