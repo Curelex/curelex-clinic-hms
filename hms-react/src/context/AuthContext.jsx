@@ -350,7 +350,15 @@ export const AuthProvider = ({ children }) => {
     superAdminClinicName,
     setSuperAdminClinic,
     getEffectiveClinicId,
-
+    updateUserData: (updatedFields) => {
+      setUser(prev => {
+        if (!prev) return null;
+        const updated = { ...prev, ...updatedFields };
+        localStorage.setItem('user', JSON.stringify(updated));
+        return updated;
+      });
+    },
+ 
     socket,
     isConnected,
     doctorStatus,

@@ -706,7 +706,7 @@ router.get('/available-doctors', auth, async (req, res) => {
   try {
     const doctors = await User.find(
       { role: 'doctor', isActive: true },
-      'name department consultationFee phone email avatar'
+      'name department consultationFee telemedicineFee phone email avatar'
     ).sort({ name: 1 });
     res.json({ success: true, doctors });
   } catch (err) {
