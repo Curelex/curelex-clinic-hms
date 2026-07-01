@@ -120,7 +120,7 @@ router.get('/:id/appointments', patientAuth, async (req, res) => {
     const patientIds = await getLinkedPatientIds(patient);
 
     const tokens = await Token.find({ patient: { $in: patientIds } })
-      .populate('doctor', 'name department consultationFee')
+      .populate('doctor', 'name department consultationFee telemedicineFee')
       .populate('clinicId', 'name')
       .sort({ createdAt: -1 });
 
@@ -137,7 +137,7 @@ router.get('/doctors/:clinicId', patientAuth, async (req, res) => {
 
     const doctors = await User.find(
       { clinicId, role: 'doctor', isActive: true },
-      'name department consultationFee'
+      'name department consultationFee telemedicineFee'
     ).sort({ name: 1 });
 
     res.json({ success: true, doctors });

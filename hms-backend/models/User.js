@@ -36,6 +36,10 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  telemedicineFee: {
+    type: Number,
+    default: 0,
+  },
   bankDetails: {
     accountHolderName: { type: String },
     accountNumber: { type: String },

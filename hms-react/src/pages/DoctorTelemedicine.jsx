@@ -19,7 +19,7 @@ const STATUS_COLORS = {
 };
 
 export default function DoctorTelemedicine() {
-  const { user, socket, isConnected, doctorStatus, setDoctorOnline, emit, on, off } = useAuth();
+  const { user, socket, isConnected, doctorStatus, setDoctorOnline, updateUserData, emit, on, off } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -31,6 +31,23 @@ export default function DoctorTelemedicine() {
   const [actionLoading, setActionLoading] = useState(false);
   const [newRequestAlert, setNewRequestAlert] = useState(null);
   const [statusAlert, setStatusAlert] = useState(null);
+
+  const [teleFee, setTeleFee] = useState(user?.telemedicineFee || 0);
+  const [savingFee, setSavingFee] = useState(false);
+
+  const handleSaveFee = async () => {
+    setSavingFee(true);
+    try {
+      await API.put('/telemedicine/consultation-fee', { telemedicineFee: Number(teleFee) || 0 });
+      updateUserData({ telemedicineFee: Number(teleFee) || 0 });
+      setStatusAlert({ type: 'payout_approved', message: 'Telemedicine consultation fee updated successfully!' });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to update consultation fee');
+    } finally {
+      setSavingFee(false);
+    }
+  };
 
   const doctorId = user?._id || user?.id;
 
@@ -345,6 +362,57 @@ export default function DoctorTelemedicine() {
               {doctorStatus === 'online' ? 'Go Offline' : 'Go Online'}
             </button>
           </div>
+
+          {/* Consultation Fee Input */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 12px',
+            borderRadius: 20,
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0'
+          }}>
+            <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Fee: ₹</span>
+            <input 
+              type="number"
+              value={teleFee}
+              onChange={e => setTeleFee(e.target.value)}
+              placeholder="0"
+              style={{
+                width: 60,
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#1a2236',
+                padding: 0,
+              }}
+            />
+            <button 
+              onClick={handleSaveFee}
+              disabled={savingFee}
+              className="btn btn-sm"
+              style={{
+                padding: '2px 8px',
+                fontSize: 11,
+                minHeight: 'auto',
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                background: '#0f4c81',
+                border: 'none',
+                borderRadius: 12,
+                cursor: 'pointer'
+              }}
+            >
+              {savingFee ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+
           <span style={{ fontSize: 12, color: '#64748b' }}>
             {isConnected ? '🔗 Connected' : '⚠️ Disconnected'}
           </span>

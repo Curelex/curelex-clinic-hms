@@ -225,7 +225,7 @@ export default function ClinicSearch({ patientId, patientName }) {
                     Dr. {doc.name}
                   </div>
                   <div style={{ fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {doc.department || 'General'} · ₹{doc.consultationFee || 0}
+                    {doc.department || 'General'} · In-Person: ₹{doc.consultationFee || 0} · Online: ₹{doc.telemedicineFee || 0}
                     {doc.clinic?.name ? ` · ${doc.clinic.name}` : ''}
                   </div>
                 </div>
@@ -348,7 +348,7 @@ export default function ClinicSearch({ patientId, patientName }) {
                 Dr. {doc.name}
               </div>
               <div style={{ fontSize: 11, color: '#64748b' }}>
-                {doc.department || 'General'} · ₹{doc.consultationFee || 0}
+                {doc.department || 'General'} · In-Person: ₹{doc.consultationFee || 0} · Online: ₹{doc.telemedicineFee || 0}
               </div>
             </div>
           </div>
@@ -542,7 +542,7 @@ export default function ClinicSearch({ patientId, patientName }) {
                   Book Token — Dr. {bookingDoctor.name}
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
-                  {bookingDoctor.department || 'General'} · ₹{bookingDoctor.consultationFee || 0}
+                  {bookingDoctor.department || 'General'} · ₹{form.consultationType === 'online' ? (bookingDoctor.telemedicineFee || 0) : (bookingDoctor.consultationFee || 0)}
                   {bookingClinic?.name ? ` · ${bookingClinic.name}` : ''}
                 </p>
               </div>

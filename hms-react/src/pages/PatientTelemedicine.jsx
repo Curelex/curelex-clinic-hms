@@ -608,7 +608,7 @@ export default function PatientTelemedicine() {
                               <option key={doc._id} value={doc._id}>
                                 Dr. {doc.name} ({doc.department || 'General'})
                                 {isOnline ? ' 🟢 Online' : ' 🔴 Offline'}
-                                {doc.consultationFee > 0 && ` - ₹${doc.consultationFee}`}
+                                {` - ₹${doc.telemedicineFee || 0}`}
                               </option>
                             );
                           })}
@@ -734,7 +734,7 @@ export default function PatientTelemedicine() {
             }}>
               <span style={{ fontSize: 12, color: '#64748b' }}>Consultation Fee</span>
               <span style={{ fontWeight: 700, fontSize: 16, color: '#0f4c81' }}>
-                {doc.consultationFee > 0 ? `₹${doc.consultationFee}` : 'Free'}
+                {doc.telemedicineFee > 0 ? `₹${doc.telemedicineFee}` : 'Free'}
               </span>
             </div>
 

@@ -110,7 +110,7 @@ router.post('/generate', auth, async (req, res) => {
 
     const date = todayStr();
 
-    const doctor = await User.findById(doctorId).select('consultationFee name department clinicId');
+    const doctor = await User.findById(doctorId).select('consultationFee telemedicineFee name department clinicId');
     if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
     // Verify doctor belongs to the same clinic
@@ -203,14 +203,14 @@ router.post('/generate', auth, async (req, res) => {
       symptoms: symptoms || undefined,
 
       consultationType: consultationType || 'in-person',
-      consultationFee: doctor.consultationFee || 0,
+      consultationFee: consultationType === 'online' ? (doctor.telemedicineFee || 0) : (doctor.consultationFee || 0),
 
       paymentMethod: paymentMethod || null,
       paymentStatus: 'pending',
     });
 
     await token.populate([
-      { path: 'doctor', select: 'name department consultationFee' },
+      { path: 'doctor', select: 'name department consultationFee telemedicineFee' },
       { path: 'generatedBy', select: 'name role' },
       { path: 'patient', select: 'name patientId' },
     ]);

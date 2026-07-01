@@ -88,7 +88,7 @@ export const requestTelemedicine = async (req, res) => {
       symptoms:             symptoms || '',
       preferredTime:        preferredTime || null,
       urgency:              urgency || 'normal',
-      consultationFee:      doctor.consultationFee || 0,
+      consultationFee:      doctor.telemedicineFee || 0,
       status:               'requested',
       paymentStatus:        'pending',
       doctorPayoutStatus:   'pending',
@@ -916,6 +916,30 @@ export const updateBankDetails = async (req, res) => {
     res.json({ success: true, message: 'Bank details updated successfully', bankDetails: user.bankDetails });
   } catch (error) {
     console.error('Update bank details error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTelemedicineFee = async (req, res) => {
+  try {
+    const { telemedicineFee } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role !== 'doctor') {
+      return res.status(403).json({ success: false, message: 'Only doctors can update consultation fee' });
+    }
+
+    user.telemedicineFee = Number(telemedicineFee) || 0;
+    await user.save();
+
+    res.json({ success: true, message: 'Telemedicine consultation fee updated successfully', telemedicineFee: user.telemedicineFee });
+  } catch (error) {
+    console.error('Update telemedicine fee error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
