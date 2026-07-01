@@ -8,12 +8,19 @@ import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
 
 // ── Helper: Generate meeting link ──
+// Uses Jitsi Meet's free public server (meet.jit.si) — real, working video
+// rooms, no signup / API key / backend video infra required.
+// Both doctor and patient read the same `telemedicine.meetingLink` field,
+// so they always see the identical link.
 function generateMeetingLink(meetingId) {
-  return `https://meet.curelex.com/${meetingId}`;
+  return `https://meet.jit.si/Curelex-${meetingId}`;
 }
 
 function generateMeetingId() {
-  return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+  // Long, random, unguessable room name
+  const random = Math.random().toString(36).substring(2, 10) +
+                 Math.random().toString(36).substring(2, 10);
+  return random + Date.now().toString(36);
 }
 
 // ── Helper: Calculate fees (0% commission) ──
@@ -363,6 +370,14 @@ export const startTelemedicine = async (req, res) => {
 
     if (telemedicine.paymentStatus !== 'paid') {
       return res.status(400).json({ success: false, message: 'Payment not completed' });
+    }
+
+    // Safety net: if for any reason a meeting link wasn't generated yet
+    // (e.g. older records), generate one now so Start never breaks.
+    if (!telemedicine.meetingLink) {
+      const meetingId = generateMeetingId();
+      telemedicine.meetingId   = meetingId;
+      telemedicine.meetingLink = generateMeetingLink(meetingId);
     }
 
     telemedicine.status    = 'ongoing';

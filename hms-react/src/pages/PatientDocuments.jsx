@@ -41,6 +41,7 @@ export default function PatientDocuments() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
 
   // ── Responsive hook ──────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
@@ -152,7 +153,7 @@ export default function PatientDocuments() {
   };
 
   const handleLogout = () => { logout(); navigate('/patient-login'); };
-  const goTo = (path) => { setSidebarOpen(false); navigate(path); };
+  const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
 
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -171,17 +172,48 @@ export default function PatientDocuments() {
     <div className="pd-layout">
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-            <i className="fas fa-bars"></i>
-          </button>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars"></i>
+            </button>
+          )}
           <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
         </div>
         <div className="pd-topbar__right">
           <div className="pd-user-menu">
-            <div className="pd-user-menu__trigger">
+            <div className="pd-user-menu__trigger" onClick={() => setUserDropdown(!userDropdown)}>
               <div className="pd-user-menu__avatar">{initials}</div>
               <span className="pd-user-menu__name">{patientName}</span>
+              <i className="fas fa-chevron-down" style={{ fontSize: 10, color: 'var(--text-secondary)' }} />
             </div>
+            {userDropdown && (
+              <>
+                <div className="pd-user-dropdown-overlay" onClick={() => setUserDropdown(false)} />
+                <div className="pd-user-dropdown">
+                  <div className="pd-user-dropdown__info">
+                    <strong>{patientName}</strong>
+                    <span>{patientEmail}</span>
+                  </div>
+                  <div className="pd-user-dropdown__divider" />
+                  {[
+                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
+                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
+                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
+                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                  ].map(item => (
+                    <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
+                      <i className={`fas ${item.icon}`} /> {item.label}
+                    </button>
+                  ))}
+                  <div className="pd-user-dropdown__divider" />
+                  <button className="pd-user-dropdown__item pd-user-dropdown__item--danger" onClick={handleLogout}>
+                    <i className="fas fa-sign-out-alt" /> Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -201,15 +233,56 @@ export default function PatientDocuments() {
 
         <div className="pd-main">
           <main className="pd-body">
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1a2236' }}>
-                📁 My Documents
-              </h2>
-              <p style={{ margin: '4px 0 0', color: '#6b7a99', fontSize: 14 }}>
-                Upload your lab reports, scans, and other medical documents — your doctor can view them
-                directly during your visit, no need to carry physical copies.
-              </p>
-            </div>
+            {isMobile ? (
+              /* ── MOBILE: compact, impressive header banner ── */
+              <div
+                style={{
+                  marginBottom: 20,
+                  borderRadius: 16,
+                  padding: '18px 20px',
+                  background: 'linear-gradient(135deg, #2d6be4 0%, #1e40af 100%)',
+                  boxShadow: '0 8px 20px rgba(45, 107, 228, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                }}
+              >
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 12,
+                    background: 'rgba(255,255,255,0.18)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    flexShrink: 0,
+                  }}
+                >
+                  📁
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
+                    My Documents
+                  </h2>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>
+                    {documents.length} {documents.length === 1 ? 'file' : 'files'} safely stored
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* ── DESKTOP: original header ── */
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1a2236' }}>
+                  📁 My Documents
+                </h2>
+                <p style={{ margin: '4px 0 0', color: '#6b7a99', fontSize: 14 }}>
+                  Upload your lab reports, scans, and other medical documents — your doctor can view them
+                  directly during your visit, no need to carry physical copies.
+                </p>
+              </div>
+            )}
 
             {/* ── Upload card ── */}
             <div className="pd-card" style={{ marginBottom: 20 }}>
