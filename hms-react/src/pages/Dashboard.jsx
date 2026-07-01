@@ -666,10 +666,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Token queue ── */}
       {showTokenQueue && <TokenDashboard clinicId={clinicId} />}
 
-      {/* ── Empty permissions state ── */}
       {permList.filter(p => p !== 'dashboard').length === 0 && (
         <div className="card" style={{ marginTop: 24, textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
