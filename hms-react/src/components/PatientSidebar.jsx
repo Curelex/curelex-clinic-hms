@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function PatientSidebar({
   activeItem,
+  sidebarOpen,
   onClose,
   admission,
   patientName,
@@ -20,24 +21,27 @@ export default function PatientSidebar({
   };
 
   const goTo = (path) => {
-    if (window.innerWidth <= 768 && onClose) {
-      onClose();
-    }
+    if (onClose) onClose();
     navigate(path);
   };
 
   const navItems = [
-    { key: 'dashboard', label: 'Dashboard', icon: 'fa-home', path: '/patient-dashboard' },
-    { key: 'appointments', label: 'My Appointments', icon: 'fa-calendar-check', path: '/patient-appointments' },
-    { key: 'admission', label: 'Hospital Admission', icon: 'fa-procedures', path: '/patient-admission' },
-    { key: 'telemedicine', label: 'Telemedicine', icon: 'fa-video', path: '/patient-telemedicine' },
-    { key: 'prescriptions', label: 'Prescriptions', icon: 'fa-prescription-bottle-alt', path: '/patient-prescriptions' },
-    { key: 'documents', label: 'My Documents', icon: 'fa-folder-open', path: '/patient-documents' },
-    { key: 'profile', label: 'Profile', icon: 'fa-user-circle', path: '/patient-profile' },
+    { key: 'dashboard',     label: 'Dashboard',          icon: 'fa-home',                     path: '/patient-dashboard' },
+    { key: 'appointments',  label: 'My Appointments',    icon: 'fa-calendar-check',           path: '/patient-appointments' },
+    { key: 'admission',     label: 'Hospital Admission', icon: 'fa-procedures',               path: '/patient-admission' },
+    { key: 'telemedicine',  label: 'Telemedicine',       icon: 'fa-video',                    path: '/patient-telemedicine' },
+    { key: 'prescriptions', label: 'Prescriptions',      icon: 'fa-prescription-bottle-alt', path: '/patient-prescriptions' },
+    { key: 'documents',     label: 'My Documents',       icon: 'fa-folder-open',              path: '/patient-documents' },
+    { key: 'profile',       label: 'Profile',            icon: 'fa-user-circle',              path: '/patient-profile' },
   ];
 
   return (
-    <aside className="pd-sidebar">
+    <aside className={`pd-sidebar${sidebarOpen ? ' open' : ''}`}>
+      {/* ── Mobile close button ── */}
+      <button className="pd-sidebar__close" onClick={onClose} aria-label="Close menu">
+        <i className="fas fa-times" />
+      </button>
+
       <div className="pd-sidebar__profile">
         <div className="pd-sidebar__avatar">{initials || 'P'}</div>
         <div>
@@ -45,6 +49,7 @@ export default function PatientSidebar({
           <div className="pd-sidebar__phone">{patientEmail || ''}</div>
         </div>
       </div>
+
       <nav className="pd-sidebar__nav">
         {navItems.map((item) => (
           <div
@@ -74,6 +79,7 @@ export default function PatientSidebar({
           </div>
         ))}
       </nav>
+
       <div className="pd-sidebar__footer">
         <button className="pd-logout-btn" onClick={handleLogout}>
           <i className="fas fa-sign-out-alt"></i> Logout

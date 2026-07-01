@@ -96,10 +96,6 @@ const TelemedicineSchema = new mongoose.Schema({
   doctorPayoutAmount: {
     type: Number,
   },
-  clinicCommissionAmount: {
-    type: Number,
-    default: 0,
-  },
   payoutId: {
     type: String,
     sparse: true,

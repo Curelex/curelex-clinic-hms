@@ -2,7 +2,7 @@
 import mongoose from 'mongoose';
 
 const LabSchema = new mongoose.Schema({
-  labId:    { type: String, unique: true },
+  labId:    { type: String },
   clinicId: { type: String, required: true, index: true, default: 'default' }, // ← NEW
   patient:  { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   appointment: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
@@ -28,6 +28,8 @@ const LabSchema = new mongoose.Schema({
   },
   remarks: String,
 }, { timestamps: true });
+ 
+LabSchema.index({ clinicId: 1, labId: 1 }, { unique: true });
 
 LabSchema.pre('save', async function (next) {
   if (!this.labId) {

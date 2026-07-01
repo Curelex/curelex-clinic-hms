@@ -6,6 +6,7 @@ import API from '../utils/api';
 import ClinicSearch from '../components/ClinicSearch';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 // ── Responsive hook — updates on resize ──────────────────────────────────────
 function useIsMobile(breakpoint = 768) {
@@ -120,28 +121,33 @@ export default function PatientDashboard() {
     return new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const patientName  = patient?.name  || user?.name  || 'Patient';
+  const patientName = patient?.name || user?.name || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
-  const patientId    = patient?._id   || patient?.id || user?.id || user?._id;
+  const patientId = patient?._id || patient?.id || user?.id || user?._id;
 
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   const upcomingAppointments = appointments.filter(a => new Date(a.appointmentTime) > new Date());
 
   // ── Shared scroll-row style (used for both card rows) ────────────────────
-  const scrollRowStyle = {
-    display: 'flex',
-    gap: '12px',
-    overflowX: 'auto',
-    overflowY: 'visible',
-    WebkitOverflowScrolling: 'touch',   // momentum scroll on iOS
-    scrollSnapType: 'x mandatory',
-    paddingBottom: '10px',
-    paddingLeft: isMobile ? '4px' : 0,
-    paddingRight: isMobile ? '4px' : 0,
-    // hide scrollbar visually but keep it functional
-    msOverflowStyle: 'none',
-    scrollbarWidth: 'none',
-  };
+  const scrollRowStyle = isMobile
+  ? {
+      display: 'flex',
+      gap: '12px',
+      overflowX: 'auto',
+      overflowY: 'visible',
+      WebkitOverflowScrolling: 'touch',
+      scrollSnapType: 'x mandatory',
+      paddingBottom: '10px',
+      paddingLeft: '4px',
+      paddingRight: '4px',
+      msOverflowStyle: 'none',
+      scrollbarWidth: 'none',
+    }
+  : {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+      gap: '14px',
+    };
 
   if (loading) {
     return (
@@ -159,10 +165,14 @@ export default function PatientDashboard() {
       {/* ── TOPBAR ── */}
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-            <i className="fas fa-bars" />
-          </button>
-          <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars" />
+            </button>
+          )}
+          <Link to="/patient-dashboard" className="pd-topbar__title">
+            {isMobile ? `Hi, ${patientName.split(' ')[0]}` : 'My Health'}
+          </Link>
         </div>
         <div className="pd-topbar__right">
           <div
@@ -194,12 +204,12 @@ export default function PatientDashboard() {
                   </div>
                   <div className="pd-user-dropdown__divider" />
                   {[
-                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
-                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
-                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
-                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
-                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
-                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                    { icon: 'fa-user-circle', label: 'Profile', path: '/patient-profile' },
+                    { icon: 'fa-calendar-check', label: 'Appointments', path: '/patient-appointments' },
+                    { icon: 'fa-procedures', label: 'Hospital Admission', path: '/patient-admission' },
+                    { icon: 'fa-video', label: 'Telemedicine', path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open', label: 'My Documents', path: '/patient-documents' },
                   ].map(item => (
                     <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
                       <i className={`fas ${item.icon}`} /> {item.label}
@@ -232,11 +242,14 @@ export default function PatientDashboard() {
           <main className="pd-body">
 
             {/* Welcome Banner */}
-            <div style={{
-              background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
-              borderRadius: 16, padding: '24px 28px', marginBottom: 24,
-              border: '1px solid #bfdbfe',
-            }}>
+            <div
+              className="pd-welcome-banner"
+              style={{
+                background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
+                borderRadius: 16, padding: '24px 28px', marginBottom: 24,
+                border: '1px solid #bfdbfe',
+              }}
+            >
               <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1e3a8a' }}>
                 Welcome back, {patientName}! 👋
               </h2>
@@ -248,6 +261,7 @@ export default function PatientDashboard() {
             {/* Admission banner */}
             {admission && (
               <div
+                className="pd-admission-banner"
                 onClick={() => navigate('/patient-admission')}
                 style={{
                   background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
@@ -279,10 +293,10 @@ export default function PatientDashboard() {
             {/* Quick Stats */}
             <div className="pd-stats">
               {[
-                { icon: 'fa-calendar-check',      label: 'Upcoming',           value: stats.upcomingAppointments, color: '#2d6be4' },
-                { icon: 'fa-prescription-bottle', label: 'Prescriptions',      value: stats.prescriptionsCount,   color: '#00b386' },
-                { icon: 'fa-file-medical',        label: 'Total Appointments', value: stats.totalAppointments,    color: '#f59e0b' },
-                { icon: 'fa-user-md',             label: 'Doctors Consulted',  value: stats.doctorsConsulted,     color: '#7c3aed' },
+                { icon: 'fa-calendar-check', label: 'Upcoming', value: stats.upcomingAppointments, color: '#2d6be4' },
+                { icon: 'fa-prescription-bottle', label: 'Prescriptions', value: stats.prescriptionsCount, color: '#00b386' },
+                { icon: 'fa-file-medical', label: 'Total Appointments', value: stats.totalAppointments, color: '#f59e0b' },
+                { icon: 'fa-user-md', label: 'Doctors Consulted', value: stats.doctorsConsulted, color: '#7c3aed' },
               ].map(s => (
                 <div className="pd-stat-card" key={s.label}>
                   <div className="pd-stat-card__icon" style={{ background: s.color + '18', color: s.color }}>
@@ -388,9 +402,9 @@ export default function PatientDashboard() {
                     prescriptions.slice(0, 3).map((rx, i) => {
                       const isLast = i === Math.min(prescriptions.length, 3) - 1;
                       const rxStatus = {
-                        active:    { bg: '#dbeafe', color: '#1e40af', label: 'Active' },
+                        active: { bg: '#dbeafe', color: '#1e40af', label: 'Active' },
                         completed: { bg: '#d1fae5', color: '#065f46', label: 'Completed' },
-                        draft:     { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
+                        draft: { bg: '#f1f5f9', color: '#475569', label: 'Draft' },
                         cancelled: { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
                         dispensed: { bg: '#fef3c7', color: '#92400e', label: 'Dispensed' },
                       }[rx.status] || { bg: '#f1f5f9', color: '#475569', label: rx.status };
@@ -472,13 +486,54 @@ export default function PatientDashboard() {
                             <div style={{ fontSize: 13, color: '#6b7a99', marginBottom: 14 }}><i className="fas fa-clock" style={{ marginRight: 5 }} /> ~5 min wait</div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <div>
-                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Consultation fee</div>
+                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Appointment Fee</div>
                                 <div style={{ fontSize: 20, fontWeight: 700, color: '#1a2236' }}>₹{doc.consultationFee || 299}</div>
                               </div>
+                              <div>
+                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Telemedicine Fee</div>
+                                <div style={{ fontSize: 20, fontWeight: 700, color: '#1a2236' }}>₹{doc.telemedicineFee || 299}</div>
+                              </div>
+
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <button
-                                onClick={() => navigate('/patient-telemedicine', { state: { preSelectDoctor: doc._id } })}
-                                style={{ background: 'linear-gradient(135deg, #2d6be4, #1e40af)', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'inherit' }}>
-                                <i className="fas fa-video" style={{ fontSize: 13 }} /> Consult Now
+                                onClick={() =>
+                                  navigate('/patient-telemedicine', {
+                                    state: { preSelectDoctor: doc._id },
+                                  })
+                                }
+                                style={{
+                                  width: '100%',
+                                  marginTop: 16,
+                                  background: 'linear-gradient(135deg, #2d6be4, #1e40af)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: 12,
+                                  padding: '12px 18px',
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: 8,
+                                  fontFamily: 'inherit',
+                                  boxShadow: '0 4px 12px rgba(45,107,228,0.25)',
+                                  transition: 'all 0.2s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(-2px)';
+                                  e.currentTarget.style.boxShadow =
+                                    '0 8px 18px rgba(45,107,228,0.35)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                  e.currentTarget.style.boxShadow =
+                                    '0 4px 12px rgba(45,107,228,0.25)';
+                                }}
+                              >
+                                <i className="fas fa-video" style={{ fontSize: 14 }} />
+                                Consult Now
                               </button>
                             </div>
                           </>
@@ -505,9 +560,12 @@ export default function PatientDashboard() {
                   <h2 style={{ margin: 0, fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
                     Consult top doctors online for any health concern
                   </h2>
-                  <p style={{ margin: '5px 0 0', fontSize: 13, color: '#64748b' }}>
-                    Private online consultations with verified doctors in all specialists
-                  </p>
+                  {/* Subtitle hidden on mobile (was cramped/unnecessary on small screens) */}
+                  {!isMobile && (
+                    <p style={{ margin: '5px 0 0', fontSize: 13, color: '#64748b' }}>
+                      Private online consultations with verified doctors in all specialists
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => navigate('/patient-telemedicine')}
@@ -520,12 +578,12 @@ export default function PatientDashboard() {
               {/* ── Swipeable speciality cards ── */}
               <div style={scrollRowStyle}>
                 {[
-                  { label: 'Period doubts or Pregnancy',  icon: 'fa-venus',           color: '#ec4899' },
-                  { label: 'Acne, pimple or skin issues', icon: 'fa-face-meh',        color: '#f59e0b' },
-                  { label: 'Performance issues in bed',   icon: 'fa-heart-pulse',     color: '#ef4444' },
-                  { label: 'Cold, cough or fever',        icon: 'fa-head-side-cough', color: '#3b82f6' },
-                  { label: 'Child not feeling well',      icon: 'fa-baby',            color: '#22c55e' },
-                  { label: 'Depression or anxiety',       icon: 'fa-brain',           color: '#8b5cf6' },
+                  { label: 'Period doubts or Pregnancy', icon: 'fa-venus', color: '#ec4899' },
+                  { label: 'Acne, pimple or skin issues', icon: 'fa-face-meh', color: '#f59e0b' },
+                  { label: 'Performance issues in bed', icon: 'fa-heart-pulse', color: '#ef4444' },
+                  { label: 'Cold, cough or fever', icon: 'fa-head-side-cough', color: '#3b82f6' },
+                  { label: 'Child not feeling well', icon: 'fa-baby', color: '#22c55e' },
+                  { label: 'Depression or anxiety', icon: 'fa-brain', color: '#8b5cf6' },
                 ].map((item, i) => (
                   <div
                     key={i}
@@ -594,12 +652,12 @@ export default function PatientDashboard() {
             <div style={{ marginTop: 28 }}>
               <div style={scrollRowStyle}>
                 {[
-                  { icon: 'fa-video',                   label: 'Video Consultation', color: '#2d6be4', action: () => navigate('/patient-telemedicine') },
-                  { icon: 'fa-user-md',                 label: 'Find Doctors',       color: '#00b386', action: () => alert('Find doctors coming soon!') },
-                  { icon: 'fa-flask',                   label: 'Lab Tests',          color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
-                  { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions',      color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
-                  { icon: 'fa-folder-open',             label: 'My Documents',       color: '#0f4c81', action: () => navigate('/patient-documents') },
-                  { icon: 'fa-comment-dots',            label: 'Feedback',           color: '#7c3aed', action: () => alert('Feedback coming soon!') },
+                  { icon: 'fa-video', label: 'Video Consultation', color: '#2d6be4', action: () => navigate('/patient-telemedicine') },
+                  { icon: 'fa-user-md', label: 'Find Doctors', color: '#00b386', action: () => alert('Find doctors coming soon!') },
+                  { icon: 'fa-flask', label: 'Lab Tests', color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
+                  { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
+                  { icon: 'fa-folder-open', label: 'My Documents', color: '#0f4c81', action: () => navigate('/patient-documents') },
+                  { icon: 'fa-comment-dots', label: 'Feedback', color: '#7c3aed', action: () => alert('Feedback coming soon!') },
                 ].map(item => (
                   <button
                     key={item.label}
@@ -633,6 +691,9 @@ export default function PatientDashboard() {
           </main>
         </div>
       </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <BottomNav activeItem="dashboard" />
     </div>
   );
 }

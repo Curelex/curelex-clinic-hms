@@ -16,10 +16,15 @@ router.get('/', async (req, res) => {
       filter.name = { $regex: search.trim(), $options: 'i' };
     }
 
+    console.log('🔍 GET CLINICS QUERY:', { search, filter });
+    const allClinics = await Clinic.find({});
+    console.log('🔍 ALL CLINICS IN DB:', allClinics);
+
     const clinics = await Clinic.find(filter, '_id name email phone address')
       .sort({ name: 1 })
       .limit(20); // cap results so the dropdown stays fast
 
+    console.log('🔍 SEARCH RESULTS:', clinics);
     res.json({ success: true, clinics });
   } catch (err) {
     console.error('Error fetching clinics:', err);
@@ -42,7 +47,7 @@ router.get('/search-all', async (req, res) => {
       Clinic.find({ name: regex }, '_id name address').limit(8),
       User.find(
         { role: 'doctor', isActive: true, $or: [{ name: regex }, { department: regex }] },
-        'name department consultationFee avatar clinicId'
+        'name department consultationFee telemedicineFee avatar clinicId'
       )
         .populate('clinicId', 'name address')
         .limit(8),
@@ -61,6 +66,7 @@ router.get('/search-all', async (req, res) => {
         name: d.name,
         department: d.department,
         consultationFee: d.consultationFee,
+        telemedicineFee: d.telemedicineFee || 0,
         avatar: d.avatar,
         clinic: d.clinicId
           ? { _id: d.clinicId._id, name: d.clinicId.name, address: d.clinicId.address }
@@ -82,7 +88,7 @@ router.get('/:clinicId/doctors', async (req, res) => {
 
     const doctors = await User.find(
       { clinicId, role: 'doctor', isActive: true },
-      'name department consultationFee avatar'
+      'name department consultationFee telemedicineFee avatar'
     ).sort({ name: 1 });
 
     res.json({ success: true, doctors });

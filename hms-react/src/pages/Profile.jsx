@@ -26,7 +26,7 @@ export default function Profile() {
 
   const patientName  = patient?.name  || user?.name  || 'User';
   const patientEmail = patient?.email || user?.email || '';
-  const displayName  = user?.name || user?.fullName || 'Unknown';
+  const displayName  = user?.name || 'Unknown';
   const avatarLetter = displayName.charAt(0).toUpperCase();
   const initials     = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   const memberSince  = user?.createdAt

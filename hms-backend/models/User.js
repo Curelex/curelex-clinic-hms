@@ -23,7 +23,7 @@ const UserSchema = new mongoose.Schema({
   clinicId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Clinic',
-    
+    default: null
   },
 
   permissions: {
@@ -33,6 +33,10 @@ const UserSchema = new mongoose.Schema({
 
   // Consultation fee — only relevant for doctors
   consultationFee: {
+    type: Number,
+    default: 0,
+  },
+  telemedicineFee: {
     type: Number,
     default: 0,
   },
@@ -54,6 +58,7 @@ const UserSchema = new mongoose.Schema({
       default: 'weekly'
     },
   },
+  lastLoginAt: { type: Date, default: null },
 
 }, { timestamps: true });
 

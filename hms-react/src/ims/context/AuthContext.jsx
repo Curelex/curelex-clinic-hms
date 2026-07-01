@@ -1,7 +1,7 @@
 import { createContext, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { getMe, login as loginApi, signup as signupApi } from "../services/authService";
-import api from "../services/api";
+import { authApi } from "../services/api";
 
 export const AuthContext = createContext(null);
 
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         exchangeInFlight.current = true;
 
         try {
-          const { data } = await api.post("/auth/sso-exchange", { token: ssoToken });
+          const { data } = await authApi.post("/auth/sso-exchange", { token: ssoToken });
           localStorage.setItem("ims_token", data.token);
           setUser(data.user);
           setLoading(false);

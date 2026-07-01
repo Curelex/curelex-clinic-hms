@@ -1,9 +1,14 @@
 import {body} from 'express-validator'
 
 export const authSignupValidator = [
-  body("fullName").notEmpty().withMessage("Full name is required"),
+  body("name").notEmpty().withMessage("Full name is required"),
   body("email").isEmail().withMessage("Valid email is required"),
-  body("password").isLength({ min: 6 }).withMessage("Password must have at least 6 characters")
+  body("password").isLength({ min: 6 }).withMessage("Password must have at least 6 characters"),
+  body("clinicName")
+    .if(body("role").not().exists().withMessage(""))  // default role = admin
+    .if(body("role").equals("admin"))
+    .trim()
+    .notEmpty().withMessage("Clinic name is required for admin registration"),
 ];
 
 export const authLoginValidator = [

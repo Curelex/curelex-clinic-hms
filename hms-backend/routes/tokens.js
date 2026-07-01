@@ -50,9 +50,16 @@ async function createPatientFromToken({ clinicId, doctorId, name, phone, email, 
     throw err;
   }
 
-  // Check if patient already exists in this clinic
-  const existing = await Patient.findOne({ email, clinicId });
+  // Check if patient already exists (globally by email or phone)
+  let existing = null;
+  if (email) existing = await Patient.findOne({ email });
+  if (!existing && phone) existing = await Patient.findOne({ phone });
+  
   if (existing) {
+    if (clinicId && !existing.clinicIds.includes(clinicId)) {
+      existing.clinicIds.push(clinicId);
+      await existing.save();
+    }
     return existing;
   }
 
@@ -62,7 +69,7 @@ async function createPatientFromToken({ clinicId, doctorId, name, phone, email, 
     email,
     age: age ?? null,
     gender: gender || null,
-    clinicId,
+    clinicIds: clinicId ? [clinicId] : [],
     assignedDoctor: doctorId || null,
     registeredBy: registeredBy || null,
     status: 'Active',
@@ -103,7 +110,7 @@ router.post('/generate', auth, async (req, res) => {
 
     const date = todayStr();
 
-    const doctor = await User.findById(doctorId).select('consultationFee name department clinicId');
+    const doctor = await User.findById(doctorId).select('consultationFee telemedicineFee name department clinicId');
     if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
     // Verify doctor belongs to the same clinic
@@ -114,43 +121,32 @@ router.post('/generate', auth, async (req, res) => {
     let patientDoc = null;
 
     if (patientId) {
-      patientDoc = await Patient.findOne({ _id: patientId, clinicId: effectiveClinicId });
-
+      patientDoc = await Patient.findById(patientId);
       if (!patientDoc) {
-        // The patient exists, but has no record at THIS clinic yet — this
-        // happens when they book via the unified doctor/clinic search and
-        // pick a clinic they've never visited before. Auto-register them
-        // at this clinic instead of rejecting the booking.
-        const globalPatient = await Patient.findById(patientId);
-        if (!globalPatient) {
-          return res.status(404).json({ message: 'Patient not found' });
-        }
+        return res.status(404).json({ message: 'Patient not found' });
+      }
 
-        try {
-          patientDoc = await createPatientFromToken({
-            clinicId: effectiveClinicId,
-            doctorId,
-            name: patientName || globalPatient.name,
-            phone: phone || globalPatient.phone,
-            email: email || globalPatient.email,
-            age: age ?? globalPatient.age,
-            gender: gender ?? globalPatient.gender,
-            registeredBy: req.user.id,
-          });
-        } catch (err) {
-          return res.status(err.status || 500).json({ message: err.message });
-        }
+      // Append clinicId if not present
+      if (effectiveClinicId && !patientDoc.clinicIds.includes(effectiveClinicId)) {
+        patientDoc.clinicIds.push(effectiveClinicId);
+        await patientDoc.save();
       }
     } else {
-      // Try to find existing patient by email/phone in this clinic
+      // Try to find existing patient by email/phone globally
       if (email) {
-        patientDoc = await Patient.findOne({ email, clinicId: effectiveClinicId });
+        patientDoc = await Patient.findOne({ email });
       }
       if (!patientDoc && phone) {
-        patientDoc = await Patient.findOne({ phone, clinicId: effectiveClinicId });
+        patientDoc = await Patient.findOne({ phone });
       }
 
-      if (!patientDoc) {
+      if (patientDoc) {
+        // Append clinicId if not present
+        if (effectiveClinicId && !patientDoc.clinicIds.includes(effectiveClinicId)) {
+          patientDoc.clinicIds.push(effectiveClinicId);
+          await patientDoc.save();
+        }
+      } else {
         // Create new patient if we have enough info
         if (!phone || !email) {
           // For walk-ins, we can create with just name and phone
@@ -207,14 +203,14 @@ router.post('/generate', auth, async (req, res) => {
       symptoms: symptoms || undefined,
 
       consultationType: consultationType || 'in-person',
-      consultationFee: doctor.consultationFee || 0,
+      consultationFee: consultationType === 'online' ? (doctor.telemedicineFee || 0) : (doctor.consultationFee || 0),
 
       paymentMethod: paymentMethod || null,
       paymentStatus: 'pending',
     });
 
     await token.populate([
-      { path: 'doctor', select: 'name department consultationFee' },
+      { path: 'doctor', select: 'name department consultationFee telemedicineFee' },
       { path: 'generatedBy', select: 'name role' },
       { path: 'patient', select: 'name patientId' },
     ]);

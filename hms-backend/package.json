@@ -28,14 +28,14 @@
     "mongoose": "^7.3.1",
     "morgan": "^1.11.0",
     "multer": "^2.1.1",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.5.0",
     "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "chai": "^6.2.2",
-    "mocha": "^11.7.6",
+    "mocha": "^11.3.0",
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.0.1",
     "supertest": "^7.2.2"

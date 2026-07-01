@@ -27,6 +27,7 @@ router.patch('/:id/end', roleCheck('doctor', 'admin'), telemedicineController.en
 router.post('/:id/request-payout', roleCheck('doctor'), telemedicineController.requestPayout);
 router.get('/earnings/:doctorId', telemedicineController.getDoctorEarnings);
 router.put('/bank-details', roleCheck('doctor'), telemedicineController.updateBankDetails);
+router.put('/consultation-fee', roleCheck('doctor'), telemedicineController.updateTelemedicineFee);
 
 // ── Super Admin routes (payout management) ──
 router.get('/pending-payouts', roleCheck('super_admin'), telemedicineController.getPendingPayouts);

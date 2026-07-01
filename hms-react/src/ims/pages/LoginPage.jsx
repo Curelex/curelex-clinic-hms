@@ -6,7 +6,7 @@ const LoginPage = () => {
   const { user, login, signup } = useAuth();
   const navigate = useNavigate();
   const [isSignup, setIsSignup] = useState(false);
-  const [form, setForm] = useState({ fullName: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,7 +22,7 @@ const LoginPage = () => {
       setError("Email and password are required.");
       return;
     }
-    if (isSignup && !form.fullName) {
+    if (isSignup && !form.name) {
       setError("Full name is required.");
       return;
     }
@@ -31,7 +31,7 @@ const LoginPage = () => {
     try {
       if (isSignup) {
         await signup({
-          fullName: form.fullName,
+          name: form.name,
           email: form.email,
           password: form.password,
         });
@@ -77,9 +77,9 @@ const LoginPage = () => {
             <input
               className="w-full rounded-lg border border-brand-100 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               placeholder="Full name"
-              value={form.fullName}
+              value={form.name}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, fullName: e.target.value }))
+                setForm((prev) => ({ ...prev, name: e.target.value }))
               }
               onKeyDown={handleKeyDown}
               autoComplete="name"
@@ -126,7 +126,7 @@ const LoginPage = () => {
           onClick={() => {
             setIsSignup((prev) => !prev);
             setError("");
-            setForm({ fullName: "", email: "", password: "" });
+            setForm({ name: "", email: "", password: "" });
           }}
         >
           {isSignup ? "Already have an account? Login" : "Need an account? Sign up"}

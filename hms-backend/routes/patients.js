@@ -54,7 +54,7 @@ router.get('/', auth, async (req, res) => {
       return res.json({ patients: [], total: 0, page: 1, pages: 0 });
     }
 
-    let query = { clinicId };
+    let query = { clinicIds: clinicId };
     
     if (search && search.trim() !== '') {
       query.$or = [
@@ -91,7 +91,7 @@ router.get('/:id', auth, async (req, res) => {
     
     const patient = await Patient.findOne({ 
       _id: req.params.id, 
-      clinicId 
+      clinicIds: clinicId 
     })
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name');
@@ -115,8 +115,8 @@ router.get('/by-patient-id/:patientId', auth, async (req, res) => {
     }
     
     const patient = await Patient.findOne({ 
-      patientId: req.params.patientId, 
-      clinicId 
+      patientId: String(req.params.patientId).trim(), 
+      clinicIds: clinicId 
     })
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name');
@@ -160,8 +160,8 @@ router.post('/', auth, async (req, res) => {
     // Check if patient already exists in this clinic
     const existingPatient = await Patient.findOne({ 
       $or: [
-        { email, clinicId },
-        { phone, clinicId }
+        { email, clinicIds: clinicId },
+        { phone, clinicIds: clinicId }
       ]
     });
     
@@ -200,7 +200,7 @@ router.post('/', auth, async (req, res) => {
       name,
       email,
       phone,
-      clinicId: clinicId,
+      clinicIds: [clinicId],
       status: 'Active',
       registrationDate: new Date(),
       registeredBy: req.user.id,
@@ -267,7 +267,7 @@ router.put('/:id', auth, async (req, res) => {
     delete body.updatedAt;
 
     const patient = await Patient.findOneAndUpdate(
-      { _id: req.params.id, clinicId },
+      { _id: req.params.id, clinicIds: clinicId },
       body,
       { new: true, runValidators: true }
     ).populate('assignedDoctor', 'name department')
@@ -293,7 +293,7 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
     
-    const patient = await Patient.findOne({ _id: req.params.id, clinicId });
+    const patient = await Patient.findOne({ _id: req.params.id, clinicIds: clinicId });
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
@@ -303,7 +303,7 @@ router.delete('/:id', auth, async (req, res) => {
       await User.findByIdAndDelete(patient.userId);
     }
 
-    await Patient.findOneAndDelete({ _id: req.params.id, clinicId });
+    await Patient.findOneAndDelete({ _id: req.params.id, clinicIds: clinicId });
     res.json({ message: 'Patient and associated user account deleted' });
   } catch (err) {
     console.error('Delete patient error:', err);
@@ -321,7 +321,7 @@ router.get('/user/:userId', auth, async (req, res) => {
     
     const patient = await Patient.findOne({ 
       userId: req.params.userId, 
-      clinicId 
+      clinicIds: clinicId 
     })
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name');
@@ -348,7 +348,7 @@ router.get('/doctor/:doctorId', auth, async (req, res) => {
 
     let query = { 
       assignedDoctor: req.params.doctorId, 
-      clinicId 
+      clinicIds: clinicId 
     };
     
     if (search && search.trim() !== '') {
@@ -395,15 +395,15 @@ router.get('/stats/summary', auth, async (req, res) => {
     }
 
     const [total, active, inactive, discharged, deceased] = await Promise.all([
-      Patient.countDocuments({ clinicId }),
-      Patient.countDocuments({ clinicId, status: 'Active' }),
-      Patient.countDocuments({ clinicId, status: 'Inactive' }),
-      Patient.countDocuments({ clinicId, status: 'Discharged' }),
-      Patient.countDocuments({ clinicId, status: 'Deceased' }),
+      Patient.countDocuments({ clinicIds: clinicId }),
+      Patient.countDocuments({ clinicIds: clinicId, status: 'Active' }),
+      Patient.countDocuments({ clinicIds: clinicId, status: 'Inactive' }),
+      Patient.countDocuments({ clinicIds: clinicId, status: 'Discharged' }),
+      Patient.countDocuments({ clinicIds: clinicId, status: 'Deceased' }),
     ]);
 
     const byGender = await Patient.aggregate([
-      { $match: { clinicId } },
+      { $match: { clinicIds: clinicId } },
       { $group: { _id: '$gender', count: { $sum: 1 } } }
     ]);
 
@@ -414,13 +414,13 @@ router.get('/stats/summary', auth, async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentRegistrations = await Patient.countDocuments({
-      clinicId,
+      clinicIds: clinicId,
       createdAt: { $gte: thirtyDaysAgo }
     });
 
     // Patients with assigned doctors
     const withAssignedDoctor = await Patient.countDocuments({
-      clinicId,
+      clinicIds: clinicId,
       assignedDoctor: { $ne: null }
     });
 
@@ -445,7 +445,7 @@ router.get('/stats/summary', auth, async (req, res) => {
 router.get('/debug/all', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    const query = clinicId ? { clinicId } : {};
+    const query = clinicId ? { clinicIds: clinicId } : {};
     const all = await Patient.find(query).limit(10).lean();
     res.json({ 
       count: all.length,

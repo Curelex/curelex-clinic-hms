@@ -5,7 +5,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
-
+import SsoToken from '../ims/src/models/SsoToken.js';
 import User from '../models/User.js';
 import Clinic from '../models/Clinic.js';
 import Patient from '../models/Patient.js';
@@ -18,17 +18,17 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// ── SSO Token Schema ──────────────────────────────────────────────────────
-const ssoTokenSchema = new mongoose.Schema({
-  token:     { type: String, required: true },
-  email:     { type: String, required: true },
-  userId:    { type: String, required: true },
-  role:      { type: String, default: 'staff' },
-  clinicId:  { type: String, required: true },
-  expiresAt: { type: Date,   required: true },
-}, { timestamps: false });
+// // ── SSO Token Schema ──────────────────────────────────────────────────────
+// const ssoTokenSchema = new mongoose.Schema({
+//   token:     { type: String, required: true },
+//   email:     { type: String, required: true },
+//   userId:    { type: String, required: true },
+//   role:      { type: String, default: 'staff' },
+//   clinicId:  { type: String, required: true },
+//   expiresAt: { type: Date,   required: true },
+// }, { timestamps: false });
 
-const SsoToken = mongoose.models.SsoToken || mongoose.model('SsoToken', ssoTokenSchema);
+// const SsoToken = mongoose.models.SsoToken || mongoose.model('SsoToken', ssoTokenSchema);
 
 router.post('/register-super-admin', async (req, res) => {
   try {
@@ -199,35 +199,13 @@ router.post('/register-patient', async (req, res) => {
       return res.status(400).json({ message: 'A patient with this email already exists' });
     }
 
-    // ── Find or create clinic ──
-    let targetClinicId = clinicId || req.body.clinicId;
-
-    if (!targetClinicId && assignedDoctor) {
-      const doctorUser = await User.findById(assignedDoctor);
-      if (doctorUser && doctorUser.clinicId) {
-        targetClinicId = doctorUser.clinicId;
-      }
-    }
-
-    if (!targetClinicId) {
-      let clinic = await Clinic.findOne();
-      if (!clinic) {
-        clinic = await Clinic.create({ 
-          name: 'Default Clinic', 
-          email: 'admin@defaultclinic.com', 
-          phone: phone || '',
-        });
-      }
-      targetClinicId = clinic._id;
-    }
-
     // ── STEP 1: Create User with role: 'patient' ──
     const user = await User.create({
       name,
       email,
       password,
       role: 'patient',
-      clinicId: targetClinicId,
+      clinicId: null, // Patients are global
       phone: phone || '',
       permissions: ['patient-dashboard'],
       isActive: true,
@@ -239,7 +217,7 @@ router.post('/register-patient', async (req, res) => {
       name: user.name,
       email: user.email,
       phone: user.phone || phone,
-      clinicId: targetClinicId,
+      clinicIds: [], // Empty at first, populated on booking/visit
       status: 'Active',
       registrationDate: new Date(),
       registeredBy: req.user?.id || null,
@@ -262,6 +240,10 @@ router.post('/register-patient', async (req, res) => {
     if (medicalHistory) patientData.medicalHistory = medicalHistory;
     if (notes) patientData.notes = notes;
     if (assignedDoctor) patientData.assignedDoctor = assignedDoctor;
+    
+    if (req.body.clinicId) {
+      patientData.clinicIds = [req.body.clinicId];
+    }
 
     const patient = await Patient.create(patientData);
 
@@ -273,7 +255,7 @@ router.post('/register-patient', async (req, res) => {
         const date = new Date().toISOString().split('T')[0];
         
         const last = await Token.findOne({ 
-          clinicId: targetClinicId, 
+          clinicId: req.body.clinicId, 
           doctor: assignedDoctor, 
           date 
         }).sort({ tokenNumber: -1 }).select('tokenNumber');
@@ -281,7 +263,7 @@ router.post('/register-patient', async (req, res) => {
         const tokenNumber = last ? last.tokenNumber + 1 : 1;
 
         tokenData = await Token.create({
-          clinicId: targetClinicId,
+          clinicId: req.body.clinicId,
           tokenNumber,
           date,
           doctor: assignedDoctor,
@@ -303,14 +285,18 @@ router.post('/register-patient', async (req, res) => {
     }
 
     const { password: _, ...userOut } = user.toObject();
-    const finalClinic = await Clinic.findById(targetClinicId);
+    
+    let finalClinic = null;
+    if (req.body.clinicId) {
+      finalClinic = await Clinic.findById(req.body.clinicId);
+    }
 
     res.status(201).json({ 
       success: true, 
       message: 'Patient registered successfully with login credentials', 
       user: userOut,
       patient: patient,
-      clinic: { id: targetClinicId, name: finalClinic ? finalClinic.name : 'Clinic' },
+      clinic: finalClinic ? { id: finalClinic._id, name: finalClinic.name } : null,
       token: tokenData || undefined
     });
 
@@ -341,6 +327,18 @@ router.post('/login', async (req, res) => {
       // If user is patient, get patient data
       if (user.role === 'patient') {
         patient = await Patient.findOne({ userId: user._id });
+        if (!patient) {
+          // Auto-create missing patient record to fix inconsistent DB state
+          patient = await Patient.create({
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone || '',
+            clinicIds: [],
+            status: 'Active',
+            registrationDate: new Date(),
+          });
+        }
       }
     } else {
       // ── STEP 3: Check if patient exists in Patient table ──────────────
@@ -428,6 +426,18 @@ router.get('/profile', auth, async (req, res) => {
     let patientData = null;
     if (user.role === 'patient') {
       patientData = await Patient.findOne({ userId: user._id });
+      if (!patientData) {
+        // Auto-create missing patient record to fix inconsistent DB state
+        patientData = await Patient.create({
+          userId: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          clinicIds: [],
+          status: 'Active',
+          registrationDate: new Date(),
+        });
+      }
     }
     
     res.json({ user, patient: patientData });
@@ -696,7 +706,7 @@ router.get('/available-doctors', auth, async (req, res) => {
   try {
     const doctors = await User.find(
       { role: 'doctor', isActive: true },
-      'name department consultationFee phone email avatar'
+      'name department consultationFee telemedicineFee phone email avatar'
     ).sort({ name: 1 });
     res.json({ success: true, doctors });
   } catch (err) {
@@ -763,6 +773,60 @@ router.patch('/users/:id/toggle-active', auth, roleCheck('super_admin'), async (
     res.json({ success: true, isActive: user.isActive });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/sso-exchange', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ message: 'SSO token required' });
+
+    // Atomic findOneAndDelete — expired or already-used tokens return null
+    const record = await SsoToken.findOneAndDelete({
+      token,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!record) {
+      return res.status(401).json({ message: 'Invalid or expired SSO token' });
+    }
+
+    // Find existing user by email
+    let user = await User.findOne({ email: record.email });
+
+    if (!user) {
+      // First-time IMS access — auto-provision an HMS account
+      const role     = record.role === 'admin' ? 'admin' : 'receptionist';
+      const clinicId = record.clinicId !== 'super_admin' ? record.clinicId : null;
+      user = await User.create({
+        name:        record.email.split('@')[0],
+        email:       record.email,
+        password:    crypto.randomBytes(16).toString('hex'),
+        role,
+        clinicId,
+        permissions: ['dashboard'],
+        isActive:    true,
+      });
+    }
+
+    // Patch missing clinicId onto existing user
+    if (record.clinicId && record.clinicId !== 'super_admin' && !user.clinicId) {
+      user.clinicId = record.clinicId;
+      await user.save();
+    }
+
+    const jwtToken = jwt.sign(
+      { id: user._id, role: user.role, clinicId: user.clinicId || null },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password: _, ...userOut } = user.toObject();
+    res.json({ token: jwtToken, user: userOut });
+
+  } catch (err) {
+    console.error('SSO exchange error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

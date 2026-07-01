@@ -14,11 +14,11 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
-      '/ims/api/v1': {
-        target: 'http://localhost:5001',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/ims\/api\/v1/, '/api/v1')
-      }
+      // '/ims/api/v1': {
+      //   target: 'http://localhost:5001',
+      //   changeOrigin: true,
+      //   rewrite: (path) => path.replace(/^\/ims\/api\/v1/, '/api/v1')
+      // }
     }
   }
 })

@@ -57,7 +57,8 @@ async function getLinkedPatientIds(patient) {
 // ── GET /:id/dashboard ───────────────────────────────────────────────────
 router.get('/:id/dashboard', patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -92,7 +93,8 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
 // ── GET /:id/profile ─────────────────────────────────────────────────────
 router.get('/:id/profile', patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -105,7 +107,8 @@ router.get('/:id/profile', patientAuth, async (req, res) => {
 // ── GET /:id/appointments ────────────────────────────────────────────────
 router.get('/:id/appointments', patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -117,7 +120,7 @@ router.get('/:id/appointments', patientAuth, async (req, res) => {
     const patientIds = await getLinkedPatientIds(patient);
 
     const tokens = await Token.find({ patient: { $in: patientIds } })
-      .populate('doctor', 'name department consultationFee')
+      .populate('doctor', 'name department consultationFee telemedicineFee')
       .populate('clinicId', 'name')
       .sort({ createdAt: -1 });
 
@@ -134,7 +137,7 @@ router.get('/doctors/:clinicId', patientAuth, async (req, res) => {
 
     const doctors = await User.find(
       { clinicId, role: 'doctor', isActive: true },
-      'name department consultationFee'
+      'name department consultationFee telemedicineFee'
     ).sort({ name: 1 });
 
     res.json({ success: true, doctors });
@@ -185,7 +188,8 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
       paymentStatus, transactionId, paidAt, method,
     } = req.body;
 
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -229,6 +233,7 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
       date,
       patient: patient._id,
       patientName: name,
+      generatedBy: patient.userId,
       age: Number(age),
       gender,
       symptoms,
@@ -261,7 +266,8 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
 // ── GET /:id/prescriptions ───────────────────────────────────────────────
 router.get('/:id/prescriptions', patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -277,7 +283,8 @@ router.get('/:id/prescriptions', patientAuth, async (req, res) => {
 // computed with the identical day-counting logic, so totals always match.
 router.get('/:id/admission', patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -326,7 +333,8 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
 // ── GET /:id/admissions/history — past (discharged) admissions ───────────
 router.get('/:id/admissions/history', patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }

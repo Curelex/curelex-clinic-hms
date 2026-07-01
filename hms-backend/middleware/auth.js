@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 // ── Staff / Admin Authentication ─────────────────────────────────────────
 // Used by clinic staff routes. Requires clinicId inside the JWT,
 // EXCEPT for super_admin whose clinicId is intentionally null.
+const NULL_CLINIC_ROLES = ['super_admin', 'patient'];
 export const auth = function (req, res, next) {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
@@ -15,7 +16,7 @@ export const auth = function (req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // super_admin has clinicId: null by design — let them through
-    if (!decoded.clinicId && decoded.role !== 'super_admin') {
+    if (!decoded.clinicId && !NULL_CLINIC_ROLES.includes(decoded.role)) {
       return res.status(401).json({ message: 'Invalid token: missing clinicId' });
     }
 

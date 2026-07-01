@@ -8,12 +8,19 @@ import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
 
 // ── Helper: Generate meeting link ──
+// Uses Jitsi Meet's free public server (meet.jit.si) — real, working video
+// rooms, no signup / API key / backend video infra required.
+// Both doctor and patient read the same `telemedicine.meetingLink` field,
+// so they always see the identical link.
 function generateMeetingLink(meetingId) {
-  return `https://meet.curelex.com/${meetingId}`;
+  return `https://meet.jit.si/Curelex-${meetingId}`;
 }
 
 function generateMeetingId() {
-  return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+  // Long, random, unguessable room name
+  const random = Math.random().toString(36).substring(2, 10) +
+                 Math.random().toString(36).substring(2, 10);
+  return random + Date.now().toString(36);
 }
 
 // ── Helper: Calculate fees (0% commission) ──
@@ -57,11 +64,10 @@ export const requestTelemedicine = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Doctor is not available' });
     }
 
-    // Temporarily skip bank details check so requests work even without bank setup
-    // Uncomment below if you want to enforce it:
-    // if (!doctor.bankDetails?.accountNumber) {
-    //   return res.status(400).json({ success: false, message: 'Doctor has not set up payment details yet.' });
-    // }
+    
+    if (!doctor.bankDetails?.accountNumber) {
+      return res.status(400).json({ success: false, message: 'Doctor has not set up payment details yet.' });
+    }
 
     const isDoctorOnline = global.doctorStatus?.get(String(doctorId))?.status === 'online';
 
@@ -81,7 +87,7 @@ export const requestTelemedicine = async (req, res) => {
       symptoms:             symptoms || '',
       preferredTime:        preferredTime || null,
       urgency:              urgency || 'normal',
-      consultationFee:      doctor.consultationFee || 0,
+      consultationFee:      doctor.telemedicineFee || 0,
       status:               'requested',
       paymentStatus:        'pending',
       doctorPayoutStatus:   'pending',
@@ -185,15 +191,11 @@ export const processPayment = async (req, res) => {
     const { paymentMethod, paymentDetails } = req.body;
     const userId = req.user.id;
 
-    console.log('💳 PAYMENT REQUEST - ID:', id, 'User:', userId);
-
-    // FIX: find by _id only
     const telemedicine = await Telemedicine.findById(id);
     if (!telemedicine) {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
 
-    // FIX: find patient by userId only
     const patient = await Patient.findOne({ userId });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient profile not found' });
@@ -207,39 +209,38 @@ export const processPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: `Payment not required. Status: ${telemedicine.status}` });
     }
 
-    const { doctorFee, clinicCommission } = calculateFees(telemedicine.consultationFee, 0);
+    // Doctor gets 100% — no commission deducted
+    const doctorFee     = telemedicine.consultationFee;
     const transactionId = `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
     const transaction = new Transaction({
-      patientId:            telemedicine.patientId,
-      doctorId:             telemedicine.doctorId,
-      clinicId:             telemedicine.clinicId,
-      telemedicineId:       telemedicine._id,
-      amount:               telemedicine.consultationFee,
-      doctorFee,
-      clinicCommission,
-      commissionPercentage: 0,
-      paymentMethod:        paymentMethod || 'mock',
-      paymentGateway:       'mock',
-      paymentDetails:       paymentDetails || {},
-      paidAt:               new Date(),
-      paymentStatus:        'paid',
-      payoutStatus:         'pending',
+      patientId:      telemedicine.patientId,
+      doctorId:       telemedicine.doctorId,
+      clinicId:       telemedicine.clinicId || null,   // optional
+      telemedicineId: telemedicine._id,
+      amount:         telemedicine.consultationFee,
+      doctorFee,                                       // = consultationFee, no deduction
+      paymentMethod:  paymentMethod || 'mock',
+      paymentGateway: 'mock',
+      paymentDetails: paymentDetails || {},
+      paidAt:         new Date(),
+      paymentStatus:  'paid',
+      payoutStatus:   'pending',
       transactionId,
     });
     await transaction.save();
 
-    telemedicine.status              = 'payment_completed';
-    telemedicine.paymentStatus       = 'paid';
-    telemedicine.paymentMethod       = paymentMethod || 'mock';
-    telemedicine.transactionId       = transactionId;
-    telemedicine.paymentDetails      = paymentDetails || {};
-    telemedicine.paidAt              = new Date();
-    telemedicine.doctorPayoutAmount  = doctorFee;
-    telemedicine.clinicCommissionAmount = clinicCommission;
-    telemedicine.doctorPayoutStatus  = 'pending';
+    telemedicine.status             = 'payment_completed';
+    telemedicine.paymentStatus      = 'paid';
+    telemedicine.paymentMethod      = paymentMethod || 'mock';
+    telemedicine.transactionId      = transactionId;
+    telemedicine.paymentDetails     = paymentDetails || {};
+    telemedicine.paidAt             = new Date();
+    telemedicine.doctorPayoutAmount = doctorFee;
+    telemedicine.doctorPayoutStatus = 'pending';
 
-    const meetingId = generateMeetingId();
+    // Generate meeting link
+    const meetingId          = generateMeetingId();
     telemedicine.meetingId   = meetingId;
     telemedicine.meetingLink = generateMeetingLink(meetingId);
     telemedicine.status      = 'scheduled';
@@ -270,14 +271,14 @@ export const processPayment = async (req, res) => {
         scheduledTime: telemedicine.scheduledTime,
         doctorName:    telemedicine.doctorName,
         timestamp:     new Date(),
-        message:       '✅ Payment successful! Consultation confirmed.'
+        message:       '✅ Payment successful! Consultation confirmed.',
       });
       io.to(`doctor_${telemedicine.doctorId}`).emit('telemedicine:payment-received', {
         requestId:   telemedicine._id,
         patientName: telemedicine.patientName,
         doctorFee,
         timestamp:   new Date(),
-        message:     `✅ Payment received ₹${telemedicine.consultationFee}`
+        message:     `✅ Payment received ₹${telemedicine.consultationFee}`,
       });
     }
 
@@ -287,7 +288,6 @@ export const processPayment = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // ── Doctor rejects request ──
 export const rejectTelemedicine = async (req, res) => {
   try {
@@ -363,6 +363,14 @@ export const startTelemedicine = async (req, res) => {
 
     if (telemedicine.paymentStatus !== 'paid') {
       return res.status(400).json({ success: false, message: 'Payment not completed' });
+    }
+
+    // Safety net: if for any reason a meeting link wasn't generated yet
+    // (e.g. older records), generate one now so Start never breaks.
+    if (!telemedicine.meetingLink) {
+      const meetingId = generateMeetingId();
+      telemedicine.meetingId   = meetingId;
+      telemedicine.meetingLink = generateMeetingLink(meetingId);
     }
 
     telemedicine.status    = 'ongoing';
@@ -901,6 +909,30 @@ export const updateBankDetails = async (req, res) => {
     res.json({ success: true, message: 'Bank details updated successfully', bankDetails: user.bankDetails });
   } catch (error) {
     console.error('Update bank details error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTelemedicineFee = async (req, res) => {
+  try {
+    const { telemedicineFee } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role !== 'doctor') {
+      return res.status(403).json({ success: false, message: 'Only doctors can update consultation fee' });
+    }
+
+    user.telemedicineFee = Number(telemedicineFee) || 0;
+    await user.save();
+
+    res.json({ success: true, message: 'Telemedicine consultation fee updated successfully', telemedicineFee: user.telemedicineFee });
+  } catch (error) {
+    console.error('Update telemedicine fee error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

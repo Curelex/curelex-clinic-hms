@@ -9,7 +9,9 @@ import dotenv from 'dotenv';
 import http from 'http';
 import { Server } from 'socket.io';
 import cron from 'node-cron';
-
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 // Models (USED IN CRON + SEED)
 import Task from './models/Task.js';
 import Notification from './models/Notification.js';
@@ -42,6 +44,9 @@ import medicineRoutes from './routes/medicines.js';
 import documentRoutes from './routes/documents.js';
 import telemedicineRoutes from './routes/telemedicine.js';
 
+import imsRoutes from './ims/src/routes/index.js';
+import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
+
 dotenv.config();
 
 // __dirname fix (ESM)
@@ -71,9 +76,24 @@ app.use((req, res, next) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    // 'https://curelex.in',
+    // 'https://www.curelex.in',
+    'http://localhost:5173',
+  ],
+  credentials: true,
+}));
+
+app.use('/api/v1/ims/reports/download-pdf', helmet({ contentSecurityPolicy: false }));
+app.use('/api/reports/download-pdf',        helmet({ contentSecurityPolicy: false }));
+app.use(helmet());
+
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(cookieParser());
+
+app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 500 }));
 
 // Debug logger
 app.use((req, res, next) => {
@@ -427,6 +447,8 @@ app.use('/api/medicines', medicineRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/telemedicine', telemedicineRoutes);
 
+app.use('/api/v1/ims', imsRoutes);
+
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -434,6 +456,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/', (req, res) => {
   res.json({ message: 'HMS API Running' });
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;

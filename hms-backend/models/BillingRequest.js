@@ -2,44 +2,46 @@
 import mongoose from 'mongoose';
 
 const BillingRequestSchema = new mongoose.Schema({
-  requestId: { type: String, unique: true },
+  requestId: { type: String },
   clinicId:  { type: String, required: true, index: true, default: 'default' }, // ← NEW
-
+ 
   // Source — lab OR pharmacy
   lab:        { type: mongoose.Schema.Types.ObjectId, ref: 'Lab' },
   labId:      { type: String },
   pharmacy:   { type: mongoose.Schema.Types.ObjectId, ref: 'Pharmacy' },
   pharmacyId: { type: String },
-
+ 
   type: { type: String, enum: ['Lab', 'Pharmacy'], default: 'Lab' },
-
+ 
   // Patient
   patient:     { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   patientId:   { type: String },
   patientName: { type: String },
-
+ 
   // Line items
   tests: [{
     testName: String,
     price:    Number,
   }],
   totalAmount: { type: Number, required: true },
-
+ 
   requestedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   requestedByName: { type: String },
-
+ 
   status: {
     type:    String,
     enum:    ['Pending', 'Approved', 'Rejected'],
     default: 'Pending',
   },
-
+ 
   reviewedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt:   { type: Date },
   rejectReason: { type: String },
-
+ 
   billing: { type: mongoose.Schema.Types.ObjectId, ref: 'Billing' },
 }, { timestamps: true });
+ 
+BillingRequestSchema.index({ clinicId: 1, requestId: 1 }, { unique: true });
 
 // Safe requestId generation — scoped per clinic
 BillingRequestSchema.pre('save', async function (next) {

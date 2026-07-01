@@ -66,6 +66,7 @@ export const createProduct = asyncHandler(async (req, res) => {
   // ✅ FIXED: mrpPrice extracted from body (was missing before)
   const { name, category, mrpPrice, price, costPrice, sku, description, gstRate } = req.body;
   const clinicId = req.user.clinicId;
+  
 
   // ── Validation ────────────────────────────────────────────────
   if (!clinicId) {
@@ -111,13 +112,13 @@ export const createProduct = asyncHandler(async (req, res) => {
     imageUrl:    req.file ? `/uploads/products/${req.file.filename}` : "",
   });
 
-  await Inventory.create({ product: product._id, quantity: 0, updatedBy: req.user._id });
+  await Inventory.create({ product: product._id, quantity: 0, updatedBy: req.user._id, clinicId });
   await logAudit({
     action:     "product.create",
     entityType: "Product",
     entityId:   product._id,
     metadata:   { sku: product.sku },
-    actor:      req.user._id,
+    actor:      req.user.id,
   });
 
   res.status(201).json(product);

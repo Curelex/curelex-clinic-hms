@@ -1,7 +1,7 @@
 /* hms-react/src/css/PatientDashboard.css */
 /* ===========================
    PatientDashboard.css
-   Practo-inspired clean design
+   Practo-inspired clean design — fully mobile-responsive
    =========================== */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
@@ -36,6 +36,7 @@
 
   --header-h: 64px;
   --sidebar-w: 260px;
+  --bottom-nav-h: 64px;
 }
 
 /* ---- Reset ---- */
@@ -51,6 +52,8 @@ body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
   color: var(--text-primary);
+  /* FIX: prevent horizontal scroll caused by wide content on mobile */
+  overflow-x: hidden;
 }
 
 a {
@@ -80,7 +83,9 @@ ul {
 .pd-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  /* FIX: prevent horizontal overflow from child elements */
+  overflow-x: hidden;
 }
 
 /* ---- Top Header — full width ---- */
@@ -96,6 +101,9 @@ ul {
   top: 0;
   z-index: 200;
   width: 100%;
+  /* FIX: don't clip the user dropdown */
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 /* Row below header: sidebar + main */
@@ -104,6 +112,7 @@ ul {
   flex: 1;
   min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* ---- Sidebar ---- */
@@ -121,12 +130,38 @@ ul {
   transition: transform 0.3s ease;
 }
 
+/* Close button — hidden on desktop */
+.pd-sidebar__close {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--text-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  z-index: 1;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.pd-sidebar__close:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
 .pd-sidebar__profile {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 
 .pd-sidebar__avatar {
@@ -154,6 +189,10 @@ ul {
   font-size: 12px;
   color: var(--text-secondary);
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
 }
 
 .pd-sidebar__nav {
@@ -240,13 +279,18 @@ ul {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* FIX: prevent content from pushing past viewport */
+  min-width: 0;
   overflow: hidden;
 }
 
+/* ---- Top bar parts ---- */
 .pd-topbar__left {
   display: flex;
   align-items: center;
   gap: 14px;
+  /* FIX: don't shrink the logo/hamburger side */
+  flex-shrink: 0;
 }
 
 .pd-hamburger {
@@ -259,6 +303,7 @@ ul {
   color: var(--text-secondary);
   font-size: 18px;
   transition: background 0.18s;
+  flex-shrink: 0;
 }
 
 .pd-hamburger:hover {
@@ -270,12 +315,14 @@ ul {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .pd-topbar__right {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .pd-topbar__location {
@@ -290,6 +337,7 @@ ul {
   color: var(--text-secondary);
   cursor: pointer;
   transition: border-color 0.18s, background 0.18s;
+  white-space: nowrap;
 }
 
 .pd-topbar__location:hover {
@@ -344,6 +392,8 @@ ul {
   padding: 28px;
   flex: 1;
   overflow-y: auto;
+  /* FIX: stop horizontal scroll from inner wide elements */
+  overflow-x: hidden;
 }
 
 /* ============================
@@ -384,25 +434,10 @@ ul {
   flex-shrink: 0;
 }
 
-.pd-stat-card__icon--blue {
-  background: var(--brand-light);
-  color: var(--brand);
-}
-
-.pd-stat-card__icon--green {
-  background: var(--accent-light);
-  color: var(--accent);
-}
-
-.pd-stat-card__icon--orange {
-  background: #fff7ed;
-  color: #ea580c;
-}
-
-.pd-stat-card__icon--purple {
-  background: #f5f3ff;
-  color: #7c3aed;
-}
+.pd-stat-card__icon--blue  { background: var(--brand-light); color: var(--brand); }
+.pd-stat-card__icon--green { background: var(--accent-light); color: var(--accent); }
+.pd-stat-card__icon--orange { background: #fff7ed; color: #ea580c; }
+.pd-stat-card__icon--purple { background: #f5f3ff; color: #7c3aed; }
 
 .pd-stat-card__num {
   font-family: 'Poppins', sans-serif;
@@ -488,25 +523,10 @@ ul {
   font-weight: 600;
 }
 
-.badge--green {
-  background: var(--accent-light);
-  color: var(--accent);
-}
-
-.badge--yellow {
-  background: var(--warning-light);
-  color: var(--warning);
-}
-
-.badge--red {
-  background: var(--danger-light);
-  color: var(--danger);
-}
-
-.badge--blue {
-  background: var(--brand-light);
-  color: var(--brand);
-}
+.badge--green  { background: var(--accent-light); color: var(--accent); }
+.badge--yellow { background: var(--warning-light); color: var(--warning); }
+.badge--red    { background: var(--danger-light); color: var(--danger); }
+.badge--blue   { background: var(--brand-light); color: var(--brand); }
 
 /* ============================
    APPOINTMENT CARD
@@ -519,9 +539,7 @@ ul {
   border-bottom: 1px solid var(--border);
 }
 
-.pd-appt-item:last-child {
-  border-bottom: none;
-}
+.pd-appt-item:last-child { border-bottom: none; }
 
 .pd-appt-date {
   background: var(--brand-light);
@@ -574,9 +592,7 @@ ul {
   border-bottom: 1px solid var(--border);
 }
 
-.pd-rx-item:last-child {
-  border-bottom: none;
-}
+.pd-rx-item:last-child { border-bottom: none; }
 
 .pd-rx-avatar {
   width: 40px;
@@ -591,10 +607,7 @@ ul {
   flex-shrink: 0;
 }
 
-.pd-rx-info {
-  flex: 1;
-  min-width: 0;
-}
+.pd-rx-info { flex: 1; min-width: 0; }
 
 .pd-rx-info h4 {
   font-size: 13px;
@@ -611,11 +624,7 @@ ul {
   margin-top: 1px;
 }
 
-.pd-rx-date {
-  font-size: 11px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
+.pd-rx-date { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 
 /* ============================
    EMPTY STATES
@@ -632,6 +641,21 @@ ul {
   font-size: 32px;
   margin-bottom: 10px;
   opacity: 0.4;
+}
+
+/* ============================
+   CLINIC SEARCH
+   ============================ */
+/* Desktop wrapper — full width search bar */
+.cs-desktop-wrapper {
+  flex: 1;
+  min-width: 0;
+  max-width: 480px;
+}
+
+/* Mobile search icon button — hidden on desktop, shown on mobile */
+.cs-mobile-search-btn {
+  display: none;
 }
 
 /* ============================
@@ -654,9 +678,7 @@ ul {
   user-select: none;
 }
 
-.pd-user-menu__trigger:hover {
-  background: var(--bg);
-}
+.pd-user-menu__trigger:hover { background: var(--bg); }
 
 .pd-user-menu__avatar {
   width: 30px;
@@ -720,10 +742,7 @@ ul {
   display: block;
 }
 
-.pd-user-dropdown__divider {
-  height: 1px;
-  background: var(--border);
-}
+.pd-user-dropdown__divider { height: 1px; background: var(--border); }
 
 .pd-user-dropdown__item {
   display: flex;
@@ -744,9 +763,7 @@ ul {
   font-size: 13px;
 }
 
-.pd-user-dropdown__item:hover {
-  background: var(--bg);
-}
+.pd-user-dropdown__item:hover { background: var(--bg); }
 
 .pd-user-dropdown__item.active {
   background: var(--brand-light);
@@ -754,21 +771,10 @@ ul {
   font-weight: 600;
 }
 
-.pd-user-dropdown__item.active i {
-  color: var(--brand);
-}
-
-.pd-user-dropdown__item--danger {
-  color: var(--danger);
-}
-
-.pd-user-dropdown__item--danger i {
-  color: var(--danger);
-}
-
-.pd-user-dropdown__item--danger:hover {
-  background: var(--danger-light);
-}
+.pd-user-dropdown__item.active i { color: var(--brand); }
+.pd-user-dropdown__item--danger { color: var(--danger); }
+.pd-user-dropdown__item--danger i { color: var(--danger); }
+.pd-user-dropdown__item--danger:hover { background: var(--danger-light); }
 
 /* ============================
    SIDEBAR OVERLAY (mobile)
@@ -777,32 +783,280 @@ ul {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 199;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 299;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 /* ============================
-   RESPONSIVE
+   BOTTOM NAVIGATION (mobile only)
+   ============================ */
+.pd-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* FIX: use auto height so safe-area can expand it properly */
+  min-height: var(--bottom-nav-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 190;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  /* Safe area for iPhone notch at bottom */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pd-bottom-nav__inner {
+  display: flex;
+  align-items: stretch;
+  height: var(--bottom-nav-h);
+}
+
+.pd-bottom-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 6px 2px 4px;
+  position: relative;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  /* FIX: ensure minimum 44px touch target */
+  min-height: 44px;
+}
+
+.pd-bottom-nav__item:active { background: var(--bg); }
+
+.pd-bottom-nav__item i {
+  font-size: 19px;
+  color: var(--text-muted);
+  transition: color 0.18s, transform 0.18s;
+  line-height: 1;
+}
+
+.pd-bottom-nav__item span {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  transition: color 0.18s;
+  line-height: 1;
+}
+
+.pd-bottom-nav__item.active i,
+.pd-bottom-nav__item.active span {
+  color: var(--brand);
+}
+
+.pd-bottom-nav__item.active i {
+  transform: translateY(-2px);
+}
+
+/* FIX: active dot indicator repositioned correctly */
+.pd-bottom-nav__item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 3px;
+  background: var(--brand);
+  border-radius: 0 0 3px 3px;
+}
+
+/* ============================
+   APPOINTMENT TABLE → CARDS (mobile)
+   ============================ */
+.pd-appt-mobile-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+
+.pd-appt-mobile-card:last-child { margin-bottom: 0; }
+.pd-appt-mobile-card:hover { box-shadow: var(--shadow); }
+
+.pd-appt-mobile-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  /* FIX: prevent header items from overflowing */
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.pd-appt-mobile-card__token {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--brand-light);
+  border-radius: 6px;
+  padding: 3px 8px;
+  flex-shrink: 0;
+}
+
+.pd-appt-mobile-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+
+.pd-appt-mobile-card__row:last-child { margin-bottom: 0; }
+
+.pd-appt-mobile-card__label {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+.pd-appt-mobile-card__value {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* ============================
+   BUTTON STYLES
+   ============================ */
+.pd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  border: none;
+  white-space: nowrap;
+}
+
+.pd-btn--primary {
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(45, 107, 228, 0.25);
+}
+
+.pd-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(45, 107, 228, 0.35);
+}
+
+.pd-btn--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pd-btn--outline {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-primary);
+}
+
+.pd-btn--outline:hover {
+  background: var(--bg);
+  border-color: var(--text-secondary);
+}
+
+/* ============================
+   FORM ELEMENTS
+   ============================ */
+.pd-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.pd-form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.pd-form-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(45, 107, 228, 0.1);
+}
+
+/* ============================
+   RESPONSIVE — TABLET (≤1024px)
    ============================ */
 @media (max-width: 1024px) {
-  :root {
-    --sidebar-w: 220px;
-  }
+  :root { --sidebar-w: 220px; }
 
   .pd-stats {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
+/* ============================
+   RESPONSIVE — MOBILE (≤768px)
+   ============================ */
 @media (max-width: 768px) {
   :root {
-    --sidebar-w: 260px;
+    --sidebar-w: 280px;
+    --header-h: 56px;
   }
 
-  .pd-hamburger {
-    display: flex;
+  /* Topbar */
+  .pd-topbar {
+    padding: 0 12px;
+    gap: 6px;
   }
 
+  .pd-hamburger { display: flex; }
+  .pd-topbar__location { display: none; }
+  .pd-topbar__search { display: none; }
+  .pd-user-menu { display: flex; }
+
+  /* Search bar — hide desktop bar, show icon button */
+  .cs-desktop-wrapper { display: none; }
+  .cs-mobile-search-btn { display: flex !important; }
+
+  /* Topbar right: tight, no gap overflow */
+  .pd-topbar__right {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Sidebar slides in from left */
   .pd-sidebar {
     position: fixed;
     top: var(--header-h);
@@ -811,6 +1065,10 @@ ul {
     transform: translateX(-100%);
     z-index: 300;
     box-shadow: none;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* FIX: ensure sidebar clips its content cleanly */
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .pd-sidebar.open {
@@ -818,31 +1076,20 @@ ul {
     box-shadow: var(--shadow-md);
   }
 
-  .pd-sidebar-overlay.visible {
-    display: block;
-  }
+  .pd-sidebar__close { display: flex; }
 
-  .pd-topbar {
-    padding: 0 12px;
-    gap: 8px;
-  }
+  /* FIX: more padding-right so name doesn't collide with close button */
+  .pd-sidebar__profile { padding-right: 52px; }
 
-  .pd-topbar__location {
-    display: none;
-  }
+  .pd-sidebar-overlay.visible { display: block; }
 
-  .pd-topbar__search {
-    display: none;
-  }
-
-  .pd-user-menu {
-    display: flex;
-  }
-
+  /* Body — extra bottom pad for bottom nav + safe area */
   .pd-body {
-    padding: 12px;
+    padding: 16px 12px calc(var(--bottom-nav-h) + 16px + env(safe-area-inset-bottom, 0px));
+    overflow-x: hidden;
   }
 
+  /* Stats grid — 2 columns on mobile */
   .pd-stats {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
@@ -853,6 +1100,9 @@ ul {
     padding: 14px 12px;
     gap: 10px;
     border-radius: var(--radius-sm);
+    /* FIX: row direction on 768px – only go column at 480px */
+    flex-direction: row;
+    align-items: center;
   }
 
   .pd-stat-card__icon {
@@ -863,60 +1113,171 @@ ul {
     flex-shrink: 0;
   }
 
-  .pd-stat-card__num {
-    font-size: 20px;
-  }
+  .pd-stat-card__num { font-size: 20px; }
+  .pd-stat-card__label { font-size: 11px; }
 
-  .pd-stat-card__label {
-    font-size: 10px;
-  }
+  /* Dashboard grid — single column */
+  .pd-grid { grid-template-columns: 1fr; gap: 12px; }
 
-  .pd-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
+  .pd-card { border-radius: var(--radius); }
+  .pd-card__head { padding: 14px 16px; }
+  .pd-card__head h3 { font-size: 14px; }
+  .pd-card__body { padding: 12px 16px; }
 
-  .pd-card {
-    border-radius: var(--radius);
-  }
+  /* Bottom nav — show it */
+  .pd-bottom-nav { display: block; }
 
-  .pd-card__head {
-    padding: 14px 16px;
-  }
+  /* User menu — hide name + chevron, keep avatar only */
+  .pd-user-menu__name { display: none; }
+  /* FIX: hide the dropdown chevron icon too on mobile */
+  .pd-user-menu__trigger .fa-chevron-down { display: none; }
+  .pd-user-menu__trigger { padding: 5px; gap: 0; border: none; background: transparent; }
+  .pd-user-menu__avatar { width: 34px; height: 34px; font-size: 13px; }
 
-  .pd-card__head h3 {
-    font-size: 14px;
-  }
-
-  .pd-card__body {
-    padding: 12px 16px;
+  /* FIX: user dropdown must not overflow the right edge on mobile */
+  .pd-user-dropdown {
+    right: 0;
+    left: auto;
+    min-width: 200px;
+    max-width: calc(100vw - 24px);
   }
 }
 
+/* ============================
+   RESPONSIVE — SMALL MOBILE (≤480px)
+   ============================ */
 @media (max-width: 480px) {
+  :root { --bottom-nav-h: 60px; }
+
+  .pd-topbar { padding: 0 10px; gap: 4px; }
+  .pd-topbar__title { font-size: 15px; }
+
+  .pd-body {
+    padding: 12px 10px calc(var(--bottom-nav-h) + 12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Stats: 2-col with stacked icon+text */
   .pd-stats {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 
   .pd-stat-card {
     padding: 12px 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
   }
 
-  .pd-stat-card__icon {
+  .pd-stat-card__icon { width: 34px; height: 34px; font-size: 14px; border-radius: 8px; }
+  .pd-stat-card__num { font-size: 20px; }
+  .pd-stat-card__label { font-size: 10px; }
+
+  /* Cards tighter */
+  .pd-card__head { padding: 12px 14px; }
+  .pd-card__body { padding: 10px 14px; }
+
+  /* Bottom nav labels even smaller */
+  .pd-bottom-nav__item span { font-size: 8px; letter-spacing: 0; }
+  .pd-bottom-nav__item i { font-size: 17px; }
+
+  /* Mobile card rows */
+  .pd-appt-mobile-card { padding: 12px 14px; }
+  .pd-appt-mobile-card__label { min-width: 64px; font-size: 11px; }
+  .pd-appt-mobile-card__value { font-size: 12px; }
+}
+
+/* ============================
+   MOBILE MODAL SHEET PATTERN
+   Shared by Appointments + Documents preview
+   ============================ */
+@media (max-width: 768px) {
+  /* Make the full-screen backdrop push modal to bottom on mobile */
+  .pd-modal-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .pd-modal-sheet {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    width: 100% !important;
+    /* pull handle */
+    padding-top: 12px !important;
+  }
+
+  .pd-modal-sheet::before {
+    content: '';
+    display: block;
     width: 36px;
-    height: 36px;
-    font-size: 15px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 2px;
+    margin: 0 auto 14px;
   }
 
-  .pd-stat-card__num {
-    font-size: 18px;
+  /* Make token-create modal a bottom sheet */
+  .pd-appt-modal-wrap {
+    align-items: flex-end !important;
+    padding: 0 !important;
   }
 
-  .pd-stat-card__label {
-    font-size: 9px;
+  .pd-appt-modal-inner {
+    border-radius: 22px 22px 0 0 !important;
+    max-width: 100% !important;
+    max-height: 93vh !important;
+    width: 100% !important;
+    overflow-y: auto !important;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* ============================
+   WELCOME BANNER — mobile fix
+   ============================ */
+@media (max-width: 768px) {
+  .pd-welcome-banner {
+    padding: 16px !important;
+    border-radius: 14px !important;
+    margin-bottom: 16px !important;
   }
 
-  .pd-body {
-    padding: 10px;
+  .pd-welcome-banner h2 {
+    font-size: 17px !important;
+    line-height: 1.3 !important;
   }
+
+  .pd-welcome-banner p {
+    font-size: 12px !important;
+    margin-top: 3px !important;
+  }
+
+  /* Admission banner — stack vertically on very small screens */
+  .pd-admission-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 14px 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .pd-admission-banner > span:last-child {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 10px !important;
+    border-radius: 8px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pd-sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+  .pd-sidebar.open { transform: translateX(0); }
 }

@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 function fmt(date) {
   if (!date) return '—';
@@ -39,6 +40,15 @@ export default function PatientAdmission() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
+
+  // ── Mobile detection ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
 
   const patientId = patient?._id || patient?.id || user?.id || user?._id;
   const patientName = patient?.name || user?.name || 'Patient';
@@ -86,7 +96,7 @@ export default function PatientAdmission() {
   }, [loadAdmission, loadHistory]);
 
   const handleLogout = () => { logout(); navigate('/patient-login'); };
-  const goTo = (path) => { setSidebarOpen(false); navigate(path); };
+  const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
 
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -106,17 +116,48 @@ export default function PatientAdmission() {
       {/* TOPBAR */}
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-            <i className="fas fa-bars"></i>
-          </button>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars"></i>
+            </button>
+          )}
           <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
         </div>
         <div className="pd-topbar__right">
           <div className="pd-user-menu">
-            <div className="pd-user-menu__trigger">
+            <div className="pd-user-menu__trigger" onClick={() => setUserDropdown(!userDropdown)}>
               <div className="pd-user-menu__avatar">{initials}</div>
               <span className="pd-user-menu__name">{patientName}</span>
+              <i className="fas fa-chevron-down" style={{ fontSize: 10, color: 'var(--text-secondary)' }} />
             </div>
+            {userDropdown && (
+              <>
+                <div className="pd-user-dropdown-overlay" onClick={() => setUserDropdown(false)} />
+                <div className="pd-user-dropdown">
+                  <div className="pd-user-dropdown__info">
+                    <strong>{patientName}</strong>
+                    <span>{patientEmail}</span>
+                  </div>
+                  <div className="pd-user-dropdown__divider" />
+                  {[
+                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
+                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
+                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
+                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                  ].map(item => (
+                    <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
+                      <i className={`fas ${item.icon}`} /> {item.label}
+                    </button>
+                  ))}
+                  <div className="pd-user-dropdown__divider" />
+                  <button className="pd-user-dropdown__item pd-user-dropdown__item--danger" onClick={handleLogout}>
+                    <i className="fas fa-sign-out-alt" /> Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -126,7 +167,7 @@ export default function PatientAdmission() {
 
         {/* SIDEBAR */}
         <PatientSidebar
-          activeItem="xxxx"
+          activeItem="admission"
           sidebarOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           patientName={patientName}
@@ -174,7 +215,7 @@ export default function PatientAdmission() {
                     }}>
                       ● Admitted
                     </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, auto)', gap: '4px 28px', fontSize: 12, marginTop: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px 20px', fontSize: 12, marginTop: 12 }}>
                       <span style={{ color: '#64748b' }}>Admission ID</span>
                       <span style={{ color: '#64748b' }}>Room</span>
                       <span style={{ color: '#64748b' }}>Doctor</span>
@@ -198,12 +239,12 @@ export default function PatientAdmission() {
                 }}>
                   {[
                     ['Medicines total', `₹${admission.medicinesTotal.toLocaleString()}`],
-                    [`Room rent (${admission.days}d × ₹${(admission.roomRatePerDay || 0).toLocaleString()})`, `₹${admission.roomRent.toLocaleString()}`],
+                    [`Room (${admission.days}d × ₹${(admission.roomRatePerDay || 0).toLocaleString()})`, `₹${admission.roomRent.toLocaleString()}`],
                     ['Running total', `₹${admission.grandTotal.toLocaleString()}`],
                   ].map(([l, v], i) => (
-                    <div key={l} style={{ flex: 1, minWidth: 130 }}>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>{l}</div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: i === 2 ? '#0f4c81' : '#1e293b' }}>{v}</div>
+                    <div key={l} style={{ flex: 1, minWidth: isMobile ? 'calc(50% - 8px)' : 130, minHeight: 0 }}>
+                      <div style={{ fontSize: 11, color: '#94a3b8', wordBreak: 'break-word' }}>{l}</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: i === 2 ? '#0f4c81' : '#1e293b', marginTop: 2 }}>{v}</div>
                     </div>
                   ))}
                 </div>
@@ -221,7 +262,29 @@ export default function PatientAdmission() {
                   <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8', fontSize: 13 }}>
                     No medicines recorded yet
                   </div>
+                ) : isMobile ? (
+                  /* ── MOBILE: medicine cards ── */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {admission.medicineLog.map((m, i) => (
+                      <div key={m._id || i} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{m.medicineName}</span>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: '#0f4c81' }}>₹{(m.total || 0).toLocaleString()}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {m.dosage && <span style={{ fontSize: 11, background: '#eff6ff', color: '#1e40af', borderRadius: 20, padding: '2px 8px', fontWeight: 600 }}>{m.dosage}</span>}
+                          <span style={{ fontSize: 11, background: '#f1f5f9', color: '#475569', borderRadius: 20, padding: '2px 8px' }}>Qty: {m.quantity}</span>
+                          <span style={{ fontSize: 11, background: '#f1f5f9', color: '#475569', borderRadius: 20, padding: '2px 8px' }}>₹{(m.unitPrice || 0).toLocaleString()}/unit</span>
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
+                          {m.givenByName && <span>By {m.givenByName} · </span>}
+                          {fmtTime(m.givenAt)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
+                  /* ── DESKTOP: table ── */
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
@@ -324,6 +387,9 @@ export default function PatientAdmission() {
           </main>
         </div>
       </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <BottomNav activeItem="admission" />
     </div>
   );
 }

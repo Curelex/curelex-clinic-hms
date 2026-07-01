@@ -1,6 +1,6 @@
 import api from "./api";
 
-const API_BASE = import.meta.env.VITE_IMS_API_URL || "https://curelex.in/ims/api/v1";
+const API_BASE = import.meta.env.VITE_IMS_API_URL || "https://curelex.in/api";
 
 export const fetchSales = async (params = {}) => {
   const { data } = await api.get("/sales", { params });
