@@ -75,7 +75,7 @@ export default function DoctorTelemedicine() {
     const handlePaymentReceived = (data) => {
       console.log('💳 Payment received:', data);
       setStatusAlert({
-        message: `✅ Payment received from ${data.patientName}: ₹${data.doctorFee}`,
+        message: `✅ Payment received from ${data.patientName}: ₹${data.telemedicineFee}`,
         type: 'payment_received'
       });
       loadRequests();

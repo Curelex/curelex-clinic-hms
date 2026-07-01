@@ -83,7 +83,7 @@ ul {
 .pd-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   /* FIX: prevent horizontal overflow from child elements */
   overflow-x: hidden;
 }
@@ -103,6 +103,7 @@ ul {
   width: 100%;
   /* FIX: don't clip the user dropdown */
   overflow: visible;
+  flex-shrink: 0;
 }
 
 /* Row below header: sidebar + main */
@@ -111,6 +112,7 @@ ul {
   flex: 1;
   min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* ---- Sidebar ---- */
@@ -1266,4 +1268,16 @@ ul {
     padding: 10px !important;
     border-radius: 8px !important;
   }
+}
+
+@media (max-width: 768px) {
+  .pd-sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+  .pd-sidebar.open { transform: translateX(0); }
 }

@@ -23,7 +23,7 @@ const UserSchema = new mongoose.Schema({
   clinicId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Clinic',
-    
+    default: null
   },
 
   permissions: {

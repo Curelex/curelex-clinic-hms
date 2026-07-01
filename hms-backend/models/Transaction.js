@@ -34,14 +34,6 @@ const TransactionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  clinicCommission: {
-    type: Number,
-    default: 0,
-  },
-  commissionPercentage: {
-    type: Number,
-    default: 0,
-  },
 
   // Payment status
   paymentStatus: {
