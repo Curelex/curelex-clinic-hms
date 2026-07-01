@@ -127,7 +127,7 @@ router.post('/', auth, async (req, res) => {
     if (!patientId) return res.status(400).json({ message: 'patientId is required' });
 
     // Verify the patient belongs to this clinic
-    const patient = await Patient.findOne({ _id: patientId, clinicId });
+    const patient = await Patient.findOne({ _id: patientId, clinicIds: clinicId });
     if (!patient) return res.status(404).json({ message: 'Patient not found in this clinic' });
 
     // Check if already admitted in this clinic
@@ -174,7 +174,7 @@ router.post('/', auth, async (req, res) => {
     );
 
     // Update patient status
-    await Patient.findOneAndUpdate({ _id: patientId, clinicId }, { status: 'Active' });
+    await Patient.findOneAndUpdate({ _id: patientId, clinicIds: clinicId }, { status: 'Active' });
 
     const populated = await Admission.findById(admission._id)
       .populate('patient', 'name patientId phone')
@@ -210,7 +210,7 @@ router.patch('/:id/discharge', auth, async (req, res) => {
     );
 
     await Patient.findOneAndUpdate(
-      { _id: admission.patient, clinicId },
+      { _id: admission.patient, clinicIds: clinicId },
       { status: 'Discharged' }
     );
 

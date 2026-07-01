@@ -199,35 +199,13 @@ router.post('/register-patient', async (req, res) => {
       return res.status(400).json({ message: 'A patient with this email already exists' });
     }
 
-    // ── Find or create clinic ──
-    let targetClinicId = clinicId || req.body.clinicId;
-
-    if (!targetClinicId && assignedDoctor) {
-      const doctorUser = await User.findById(assignedDoctor);
-      if (doctorUser && doctorUser.clinicId) {
-        targetClinicId = doctorUser.clinicId;
-      }
-    }
-
-    if (!targetClinicId) {
-      let clinic = await Clinic.findOne();
-      if (!clinic) {
-        clinic = await Clinic.create({ 
-          name: 'Default Clinic', 
-          email: 'admin@defaultclinic.com', 
-          phone: phone || '',
-        });
-      }
-      targetClinicId = clinic._id;
-    }
-
     // ── STEP 1: Create User with role: 'patient' ──
     const user = await User.create({
       name,
       email,
       password,
       role: 'patient',
-      clinicId: targetClinicId,
+      clinicId: null, // Patients are global
       phone: phone || '',
       permissions: ['patient-dashboard'],
       isActive: true,
@@ -239,7 +217,7 @@ router.post('/register-patient', async (req, res) => {
       name: user.name,
       email: user.email,
       phone: user.phone || phone,
-      clinicId: targetClinicId,
+      clinicIds: [], // Empty at first, populated on booking/visit
       status: 'Active',
       registrationDate: new Date(),
       registeredBy: req.user?.id || null,
@@ -262,6 +240,10 @@ router.post('/register-patient', async (req, res) => {
     if (medicalHistory) patientData.medicalHistory = medicalHistory;
     if (notes) patientData.notes = notes;
     if (assignedDoctor) patientData.assignedDoctor = assignedDoctor;
+    
+    if (req.body.clinicId) {
+      patientData.clinicIds = [req.body.clinicId];
+    }
 
     const patient = await Patient.create(patientData);
 
@@ -273,7 +255,7 @@ router.post('/register-patient', async (req, res) => {
         const date = new Date().toISOString().split('T')[0];
         
         const last = await Token.findOne({ 
-          clinicId: targetClinicId, 
+          clinicId: req.body.clinicId, 
           doctor: assignedDoctor, 
           date 
         }).sort({ tokenNumber: -1 }).select('tokenNumber');
@@ -281,7 +263,7 @@ router.post('/register-patient', async (req, res) => {
         const tokenNumber = last ? last.tokenNumber + 1 : 1;
 
         tokenData = await Token.create({
-          clinicId: targetClinicId,
+          clinicId: req.body.clinicId,
           tokenNumber,
           date,
           doctor: assignedDoctor,
@@ -303,14 +285,18 @@ router.post('/register-patient', async (req, res) => {
     }
 
     const { password: _, ...userOut } = user.toObject();
-    const finalClinic = await Clinic.findById(targetClinicId);
+    
+    let finalClinic = null;
+    if (req.body.clinicId) {
+      finalClinic = await Clinic.findById(req.body.clinicId);
+    }
 
     res.status(201).json({ 
       success: true, 
       message: 'Patient registered successfully with login credentials', 
       user: userOut,
       patient: patient,
-      clinic: { id: targetClinicId, name: finalClinic ? finalClinic.name : 'Clinic' },
+      clinic: finalClinic ? { id: finalClinic._id, name: finalClinic.name } : null,
       token: tokenData || undefined
     });
 
@@ -341,6 +327,18 @@ router.post('/login', async (req, res) => {
       // If user is patient, get patient data
       if (user.role === 'patient') {
         patient = await Patient.findOne({ userId: user._id });
+        if (!patient) {
+          // Auto-create missing patient record to fix inconsistent DB state
+          patient = await Patient.create({
+            userId: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone || '',
+            clinicIds: [],
+            status: 'Active',
+            registrationDate: new Date(),
+          });
+        }
       }
     } else {
       // ── STEP 3: Check if patient exists in Patient table ──────────────
@@ -428,6 +426,18 @@ router.get('/profile', auth, async (req, res) => {
     let patientData = null;
     if (user.role === 'patient') {
       patientData = await Patient.findOne({ userId: user._id });
+      if (!patientData) {
+        // Auto-create missing patient record to fix inconsistent DB state
+        patientData = await Patient.create({
+          userId: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          clinicIds: [],
+          status: 'Active',
+          registrationDate: new Date(),
+        });
+      }
     }
     
     res.json({ user, patient: patientData });

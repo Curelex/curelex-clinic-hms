@@ -23,7 +23,7 @@ export const createPrescription = async (req, res) => {
     }
 
     // Validate patient
-    const patient = await Patient.findOne({ _id: patientId, clinicId });
+    const patient = await Patient.findOne({ _id: patientId, clinicIds: clinicId });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
@@ -107,20 +107,29 @@ export const getPrescriptionsByPatient = async (req, res) => {
   try {
     const patientId = req.params.id;
     const clinicId = req.user?.clinicId;
+    const isPatientRole = req.user?.role === 'patient';
 
-    if (!clinicId) {
+    if (!isPatientRole && !clinicId) {
       return res.status(400).json({ success: false, message: 'Clinic ID is required' });
     }
 
-    const patient = await Patient.findOne({ _id: patientId, clinicId });
+    let patient = await Patient.findById(patientId);
+    if (!patient) patient = await Patient.findOne({ userId: patientId });
+
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const prescriptions = await Prescription.find({
-      patientId: patient._id,
-      clinicId,
-    })
+    if (!isPatientRole && clinicId && !patient.clinicIds.includes(clinicId)) {
+      return res.status(404).json({ success: false, message: 'Patient not found in this clinic' });
+    }
+
+    const query = { patientId: patient._id };
+    if (!isPatientRole && clinicId) {
+      query.clinicId = clinicId;
+    }
+
+    const prescriptions = await Prescription.find(query)
       .populate('doctorId', 'name specialization department')
       .populate('medicines.medicineId', 'name dosageForm strength')
       .sort({ createdAt: -1 });
@@ -357,18 +366,28 @@ export const getPatientPrescriptionsPaginated = async (req, res) => {
   try {
     const patientId = req.params.id;
     const clinicId = req.user?.clinicId;
+    const isPatientRole = req.user?.role === 'patient';
     const { page = 1, limit = 10, status } = req.query;
 
-    if (!clinicId) {
+    if (!isPatientRole && !clinicId) {
       return res.status(400).json({ success: false, message: 'Clinic ID is required' });
     }
 
-    const patient = await Patient.findOne({ _id: patientId, clinicId });
+    let patient = await Patient.findById(patientId);
+    if (!patient) patient = await Patient.findOne({ userId: patientId });
+
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const query = { patientId: patient._id, clinicId };
+    if (!isPatientRole && clinicId && !patient.clinicIds.includes(clinicId)) {
+      return res.status(404).json({ success: false, message: 'Patient not found in this clinic' });
+    }
+
+    const query = { patientId: patient._id };
+    if (!isPatientRole && clinicId) {
+      query.clinicId = clinicId;
+    }
     if (status) query.status = status;
 
     const total = await Prescription.countDocuments(query);
