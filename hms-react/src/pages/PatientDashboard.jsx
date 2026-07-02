@@ -657,7 +657,7 @@ export default function PatientDashboard() {
                   { icon: 'fa-flask', label: 'Lab Tests', color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
                   { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
                   { icon: 'fa-folder-open', label: 'My Documents', color: '#0f4c81', action: () => navigate('/patient-documents') },
-                  { icon: 'fa-comment-dots', label: 'Feedback', color: '#7c3aed', action: () => alert('Feedback coming soon!') },
+                  { icon: 'fa-star', label: 'Feedback', color: '#fbbf24', action: () => navigate('/patient-feedback') },
                 ].map(item => (
                   <button
                     key={item.label}

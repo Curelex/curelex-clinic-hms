@@ -43,7 +43,7 @@ import prescriptionRoutes from './routes/prescriptions.js';
 import medicineRoutes from './routes/medicines.js';
 import documentRoutes from './routes/documents.js';
 import telemedicineRoutes from './routes/telemedicine.js';
-
+import feedbackRoutes from './routes/feedback.js';
 import imsRoutes from './ims/src/routes/index.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 
@@ -446,6 +446,7 @@ app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/telemedicine', telemedicineRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 app.use('/api/v1/ims', imsRoutes);
 
