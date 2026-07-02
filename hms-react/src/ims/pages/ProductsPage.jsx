@@ -84,7 +84,6 @@ export default function ProductsPage() {
 
   const onCreate = async (event) => {
     event.preventDefault();
-    if (/^\d+$/.test(form.sku.trim())) { toast.error("SKU should be a code like MED-001, not just a number."); return; }
     setSaving(true);
     try {
       await createProduct({ name: form.name.trim(), sku: form.sku.trim(), mrpPrice: Number(form.mrpPrice), costPrice: Number(form.costPrice), price: Number(form.price), description: form.description.trim(), category: "General" });

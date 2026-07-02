@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-// ✅ FIXED: was '/api' — missing '/clinic', causing 404 on all patient/file requests
 const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL
   ? `${import.meta.env.VITE_CLINIC_API_URL}`
-  : '/api/clinic';
+  : '/api';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 function getTodayIST() {
@@ -214,7 +213,7 @@ function FileRow({ file, patientId }) {
   async function download() {
     setLoading(true);
     try {
-      const res = await fetch(`${CLINIC_BASE}/patients/${patientId}/files/${file._id}`, {
+      const res = await fetch(`${CLINIC_BASE}/documents/file/${file._id}`, {
         headers: authHeader(),
       });
       if (!res.ok) throw new Error('Download failed');
@@ -240,9 +239,9 @@ function FileRow({ file, patientId }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f7f9fc', border: '1px solid #e8eff6', borderRadius: 8, marginBottom: 4 }}>
       <span style={{ fontSize: 14, flexShrink: 0 }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0a3d62' }}>{file.filename}</div>
+        <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0a3d62' }}>{file.originalName}</div>
         <div style={{ fontSize: 11, color: '#8fa8bc' }}>
-          {(file.size / 1024).toFixed(1)} KB · {file.uploadedBy} · {new Date(file.uploadedAt).toLocaleDateString('en-IN')}
+          {(file.fileSize / 1024).toFixed(1)} KB · {new Date(file.createdAt || file.uploadedAt).toLocaleDateString('en-IN')}
         </div>
       </div>
       <button
@@ -268,8 +267,8 @@ function PatientRow({ patient: p, isLast, clinicName }) {
     if (loadedF) return;
     setLoadingF(true);
     try {
-      const data = await apiFetch(`/patients/${pid}/files`);
-      setFiles(Array.isArray(data) ? data : (data?.files || []));
+      const data = await apiFetch(`/documents/patient/${pid}`);
+      setFiles(data.documents || []);
       setLoadedF(true);
     } catch (e) {
       console.error('Files load error:', e);

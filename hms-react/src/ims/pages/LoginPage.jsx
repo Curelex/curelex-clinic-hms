@@ -12,7 +12,7 @@ const LoginPage = () => {
 
   // Already logged in — go straight to dashboard
   if (user) {
-    return <Navigate to="/ims/dashboard" replace />;
+    return <Navigate to="/dashboard/pharmacy/dashboard" replace />;
   }
 
   const handleSubmit = async () => {
@@ -39,7 +39,7 @@ const LoginPage = () => {
       } else {
         await login({ email: form.email, password: form.password });
         const redirectPath =
-          sessionStorage.getItem("ims_redirectPath") || "/ims/dashboard";
+          sessionStorage.getItem("ims_redirectPath") || "/dashboard/pharmacy/dashboard";
         sessionStorage.removeItem("ims_redirectPath");
         // Use React Router navigate — not window.location.href
         // which causes a full page reload and remounts AuthProvider

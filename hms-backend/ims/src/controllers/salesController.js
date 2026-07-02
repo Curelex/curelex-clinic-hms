@@ -11,7 +11,7 @@ const listSales = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, status } = req.query;
   const clinicId = req.user.clinicId;
 
-  const filter = { clinicId };
+  const filter = clinicId ? { clinicId } : {};
   if (status) filter.status = status;
 
   const skip = (Number(page) - 1) * Number(limit);
@@ -47,7 +47,10 @@ const finalizeSaleTransaction = asyncHandler(async (req, res) => {
 
 const cancelDraftSale = asyncHandler(async (req, res) => {
   const clinicId = req.user.clinicId;
-  const sale = await Sale.findOne({ _id: req.params.id, clinicId });
+  const filter = { _id: req.params.id };
+  if (clinicId) filter.clinicId = clinicId;
+
+  const sale = await Sale.findOne(filter);
   if (!sale) { res.status(404); throw new Error("Sale not found"); }
   if (sale.status !== "draft") { res.status(400); throw new Error("Only draft sales can be cancelled"); }
   sale.status = "cancelled";
@@ -93,12 +96,17 @@ const downloadInvoicePdf = asyncHandler(async (req, res) => {
   }
 
   const clinicId = req.user?.clinicId;
-  const sale = await Sale.findOne({ _id: req.params.id, clinicId })
+  const filter = { _id: req.params.id };
+  if (clinicId) filter.clinicId = clinicId;
+
+  const sale = await Sale.findOne(filter)
     .populate("customer", "name phone email address");
   if (!sale) { res.status(404); throw new Error("Sale not found"); }
 
   // ── ADDED: Fetch clinic details dynamically ──────────────────────
-  const clinic = await Clinic.findOne({ _id: clinicId }).lean();
+  // If sale has a clinicId, use it; otherwise fallback to req clinicId
+  const invoiceClinicId = sale.clinicId || clinicId;
+  const clinic = await Clinic.findOne({ _id: invoiceClinicId }).lean();
   const clinicName     = clinic?.name    || "Clinic";
   const clinicPhone    = clinic?.phone   || "";
   const clinicWhatsapp = clinic?.whatsapp || "";
