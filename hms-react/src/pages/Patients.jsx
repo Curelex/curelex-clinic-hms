@@ -216,7 +216,7 @@ export default function Patients() {
   };
 
   const handleEdit = (p) => {
-    setForm({ ...p, allergies: p.allergies?.join(', ') || '', dob: p.dob ? p.dob.substring(0, 10) : '' });
+    setForm({ ...p, allergies: Array.isArray(p.allergies) ? p.allergies.join(', ') : p.allergies || '', dob: p.dob ? p.dob.substring(0, 10) : '' });
     setEditId(p._id); setModal(true);
   };
 
@@ -659,7 +659,7 @@ export default function Patients() {
                   ['Address',     viewPatient.address || '—'],
                   ['Status',      admittedIds.has(String(viewPatient._id)) ? '🏥 Currently Admitted (IPD)' : viewPatient.status],
                   ['Doctor',      viewPatient.assignedDoctor?.name || '—'],
-                  ['Allergies',   viewPatient.allergies?.join(', ') || 'None'],
+                  ['Allergies',   Array.isArray(viewPatient.allergies) ? viewPatient.allergies.join(', ') : viewPatient.allergies || 'None'],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <div className="text-muted text-small">{k}</div>

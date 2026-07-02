@@ -8,4 +8,4 @@ const counterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Counter || mongoose.model("ImsCounter", counterSchema);
+export default mongoose.models.ImsCounter || mongoose.model("ImsCounter", counterSchema);

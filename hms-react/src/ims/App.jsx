@@ -1,6 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import MainLayout from "./components/layout/MainLayout";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import CustomersPage from "./pages/CustomersPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -26,7 +25,7 @@ function IMSAppContent() {
           path="/"
           element={
             <ProtectedRoute>
-              <MainLayout />
+              <Outlet />
             </ProtectedRoute>
           }
         >

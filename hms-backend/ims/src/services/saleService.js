@@ -12,7 +12,7 @@ const nextInvoiceNumber = async (clinicId) => {
   const counter = await Counter.findOneAndUpdate(
     { key },
     { $inc: { seq: 1 } },
-    { returnDocument: "after", upsert: true }
+    { new: true, upsert: true }
   );
   return buildInvoiceNumber(year, counter.seq);
 };

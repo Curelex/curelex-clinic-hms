@@ -34,9 +34,9 @@ const PurchasesPage = () => {
   const [adding,    setAdding]    = useState(false);
   const [search,    setSearch]    = useState("");
   const [form, setForm] = useState({
-    supplierId: "", productId: "", quantity: "",
-    unitCost: "", billType: "non-gst", gstNumber: "",
+    supplierId: "", billType: "non-gst", gstNumber: "",
   });
+  const [items, setItems] = useState([{ productId: "", quantity: "", unitCost: "" }]);
 
   const load = async () => {
     setLoading(true);
@@ -54,11 +54,22 @@ const PurchasesPage = () => {
     fetchProducts().then(d => setProducts(d.data || []));
   }, []);
 
-  const handleProductChange = (e) => {
-    const selectedId = e.target.value;
-    const prod = products.find(p => p._id === selectedId);
-    setForm(prev => ({ ...prev, productId: selectedId, unitCost: prod ? prod.costPrice : "" }));
+  const handleProductChange = (index, value) => {
+    const prod = products.find(p => p._id === value);
+    const newItems = [...items];
+    newItems[index].productId = value;
+    newItems[index].unitCost = prod ? prod.costPrice : "";
+    setItems(newItems);
   };
+
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items];
+    newItems[index][field] = value;
+    setItems(newItems);
+  };
+
+  const addItem = () => setItems([...items, { productId: "", quantity: "", unitCost: "" }]);
+  const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
 
   const handleBillTypeChange = (e) => {
     setForm(prev => ({
@@ -73,16 +84,22 @@ const PurchasesPage = () => {
       toast.error("Please enter GST number for GST bill");
       return;
     }
+    if (items.some(i => !i.productId || !i.quantity || !i.unitCost)) {
+      toast.error("Please fill all item fields");
+      return;
+    }
+
     setAdding(true);
     try {
       await createPurchase({
         supplierId: form.supplierId,
-        items: [{ productId: form.productId, quantity: Number(form.quantity), unitCost: Number(form.unitCost) }],
+        items: items.map(i => ({ productId: i.productId, quantity: Number(i.quantity), unitCost: Number(i.unitCost) })),
         billType: form.billType,
         gstNumber: form.billType === "gst" ? form.gstNumber.trim().toUpperCase() : "",
       });
       toast.success("Purchase created & stock updated");
-      setForm({ supplierId: "", productId: "", quantity: "", unitCost: "", billType: "non-gst", gstNumber: "" });
+      setForm({ supplierId: "", billType: "non-gst", gstNumber: "" });
+      setItems([{ productId: "", quantity: "", unitCost: "" }]);
       await load();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to create purchase");
@@ -116,9 +133,10 @@ const PurchasesPage = () => {
   const gstCount   = tableRows.filter(r => r.billType === "gst").length;
 
   // Computed line total preview
-  const previewTotal = form.quantity && form.unitCost
-    ? Number(form.quantity) * Number(form.unitCost)
-    : null;
+  const previewTotal = items.reduce((sum, item) => {
+    if (item.quantity && item.unitCost) return sum + (Number(item.quantity) * Number(item.unitCost));
+    return sum;
+  }, 0);
 
   return (
     <div style={{ fontFamily: "'Inter','Segoe UI',sans-serif", maxWidth: 1100, margin: "0 auto" }}>
@@ -164,8 +182,8 @@ const PurchasesPage = () => {
         </h2>
 
         <form onSubmit={onCreate}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginBottom: 16 }}>
-
+          {/* Top Section: Supplier & Bill Details */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginBottom: 20 }}>
             {/* Supplier */}
             <div>
               <label style={labelStyle}>Supplier *</label>
@@ -183,62 +201,6 @@ const PurchasesPage = () => {
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8", fontSize: 11 }}>▾</span>
               </div>
-            </div>
-
-            {/* Product */}
-            <div>
-              <label style={labelStyle}>Product *</label>
-              <div style={{ position: "relative" }}>
-                <select
-                  value={form.productId}
-                  onChange={handleProductChange}
-                  style={selectStyle()}
-                  required
-                  onFocus={e => e.target.style.borderColor = "#2563eb"}
-                  onBlur={e  => e.target.style.borderColor = "#e2e8f0"}
-                >
-                  <option value="">Select product</option>
-                  {products.map(p => (
-                    <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>
-                  ))}
-                </select>
-                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8", fontSize: 11 }}>▾</span>
-              </div>
-            </div>
-
-            {/* Quantity */}
-            <div>
-              <label style={labelStyle}>Quantity *</label>
-              <input
-                style={inputStyle()}
-                placeholder="e.g. 100"
-                type="number" min="1"
-                value={form.quantity}
-                onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))}
-                onFocus={e => e.target.style.borderColor = "#2563eb"}
-                onBlur={e  => e.target.style.borderColor = "#e2e8f0"}
-                required
-              />
-            </div>
-
-            {/* Unit cost */}
-            <div>
-              <label style={labelStyle}>Unit Cost (₹) *</label>
-              <input
-                style={inputStyle()}
-                placeholder="0.00"
-                type="number" min="0" step="0.01"
-                value={form.unitCost}
-                onChange={e => setForm(p => ({ ...p, unitCost: e.target.value }))}
-                onFocus={e => e.target.style.borderColor = "#2563eb"}
-                onBlur={e  => e.target.style.borderColor = "#e2e8f0"}
-                required
-              />
-              {previewTotal !== null && (
-                <p style={{ margin: "4px 0 0", fontSize: 11, color: "#7c3aed", fontWeight: 600 }}>
-                  Line total: {currency(previewTotal)}
-                </p>
-              )}
             </div>
 
             {/* Bill type */}
@@ -290,20 +252,127 @@ const PurchasesPage = () => {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={adding}
-            style={{
-              padding: "10px 28px", borderRadius: 9, border: "none",
-              background: adding ? "#93c5fd" : "#2563eb", color: "#fff",
-              fontSize: 13, fontWeight: 600, cursor: adding ? "not-allowed" : "pointer",
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={e => { if (!adding) e.currentTarget.style.background = "#1d4ed8"; }}
-            onMouseLeave={e => { if (!adding) e.currentTarget.style.background = "#2563eb"; }}
-          >
-            {adding ? "Creating…" : "＋ Create Purchase"}
-          </button>
+          <hr style={{ border: "none", borderTop: "1px solid #f1f5f9", margin: "20px 0" }} />
+
+          {/* Line Items Section */}
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 700, color: "#475569" }}>Line Items</h3>
+            {items.map((item, index) => (
+              <div key={index} style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 12 }}>
+                {/* Product */}
+                <div style={{ flex: 2 }}>
+                  <label style={labelStyle}>Product *</label>
+                  <div style={{ position: "relative" }}>
+                    <select
+                      value={item.productId}
+                      onChange={e => handleProductChange(index, e.target.value)}
+                      style={selectStyle()}
+                      required
+                      onFocus={e => e.target.style.borderColor = "#2563eb"}
+                      onBlur={e  => e.target.style.borderColor = "#e2e8f0"}
+                    >
+                      <option value="">Select product</option>
+                      {products.map(p => (
+                        <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>
+                      ))}
+                    </select>
+                    <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8", fontSize: 11 }}>▾</span>
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Quantity *</label>
+                  <input
+                    style={inputStyle()}
+                    placeholder="e.g. 100"
+                    type="number" min="1"
+                    value={item.quantity}
+                    onChange={e => handleItemChange(index, "quantity", e.target.value)}
+                    onFocus={e => e.target.style.borderColor = "#2563eb"}
+                    onBlur={e  => e.target.style.borderColor = "#e2e8f0"}
+                    required
+                  />
+                </div>
+
+                {/* Unit cost */}
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Unit Cost (₹) *</label>
+                  <input
+                    style={inputStyle()}
+                    placeholder="0.00"
+                    type="number" min="0" step="0.01"
+                    value={item.unitCost}
+                    onChange={e => handleItemChange(index, "unitCost", e.target.value)}
+                    onFocus={e => e.target.style.borderColor = "#2563eb"}
+                    onBlur={e  => e.target.style.borderColor = "#e2e8f0"}
+                    required
+                  />
+                </div>
+
+                {/* Remove button */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    disabled={items.length === 1}
+                    style={{
+                      height: 38, width: 38, borderRadius: 9, border: "none",
+                      background: items.length === 1 ? "#f8fafc" : "#fee2e2",
+                      color: items.length === 1 ? "#cbd5e1" : "#ef4444",
+                      fontSize: 16, cursor: items.length === 1 ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "background 0.15s"
+                    }}
+                    onMouseEnter={e => { if (items.length > 1) e.currentTarget.style.background = "#fca5a5"; }}
+                    onMouseLeave={e => { if (items.length > 1) e.currentTarget.style.background = "#fee2e2"; }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addItem}
+              style={{
+                background: "none", border: "1.5px dashed #cbd5e1", borderRadius: 9,
+                color: "#64748b", fontSize: 13, fontWeight: 600, padding: "8px 16px",
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                marginTop: 4, transition: "all 0.15s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#94a3b8"; e.currentTarget.style.color = "#475569"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.color = "#64748b"; }}
+            >
+              ＋ Add another item
+            </button>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24 }}>
+            <div>
+              {previewTotal > 0 && (
+                <p style={{ margin: 0, fontSize: 14, color: "#0f172a", fontWeight: 700 }}>
+                  Invoice Total: <span style={{ color: "#7c3aed" }}>{currency(previewTotal)}</span>
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={adding}
+              style={{
+                padding: "10px 28px", borderRadius: 9, border: "none",
+                background: adding ? "#93c5fd" : "#2563eb", color: "#fff",
+                fontSize: 13, fontWeight: 600, cursor: adding ? "not-allowed" : "pointer",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { if (!adding) e.currentTarget.style.background = "#1d4ed8"; }}
+              onMouseLeave={e => { if (!adding) e.currentTarget.style.background = "#2563eb"; }}
+            >
+              {adding ? "Creating…" : "＋ Create Purchase Invoice"}
+            </button>
+          </div>
         </form>
       </div>
 

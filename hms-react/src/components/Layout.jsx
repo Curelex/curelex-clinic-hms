@@ -21,7 +21,6 @@ const NAV_SECTIONS = [
       { path: '/dashboard/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd' },
       { path: '/dashboard/billing', label: 'Billing', icon: '💳', perm: 'billing' },
       { path: '/dashboard/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing' },
-      { path: '/dashboard/pharmacy', label: 'Pharmacy', icon: '💊', perm: 'pharmacy' },
       { path: '/dashboard/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab' },
       { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
       { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients' },
@@ -46,6 +45,31 @@ const SUPER_ADMIN_SECTIONS = [
     section: 'SUPER ADMIN',
     items: [
       { path: '/super-admin', label: 'Super Admin Console', icon: '⚡', perm: 'super', end: true },
+    ],
+  },
+];
+
+// ── IMS SECTION ──
+const IMS_SECTIONS = [
+  {
+    section: 'IMS SECTION',
+    items: [
+      {
+        label: 'Pharmacy',
+        icon: '💊',
+        perm: 'pharmacy',
+        subItems: [
+          { path: '/dashboard/pharmacy/dashboard', label: 'Dashboard', icon: '📊' },
+          { path: '/dashboard/pharmacy/products', label: 'Products', icon: '📦' },
+          { path: '/dashboard/pharmacy/inventory', label: 'Inventory', icon: '🗃️' },
+          { path: '/dashboard/pharmacy/sales', label: 'Sales', icon: '💰' },
+          { path: '/dashboard/pharmacy/purchases', label: 'Purchases', icon: '🛒' },
+          { path: '/dashboard/pharmacy/customers', label: 'Customers', icon: '👥' },
+          { path: '/dashboard/pharmacy/suppliers', label: 'Suppliers', icon: '🏭' },
+          { path: '/dashboard/pharmacy/reports', label: 'Reports', icon: '📈' },
+          { path: '/dashboard/pharmacy/all-patients', label: 'All Patients', icon: '🩺' },
+        ]
+      },
     ],
   },
 ];
@@ -145,20 +169,21 @@ export default function Layout() {
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({});
   const isMobile = window.innerWidth <= 768;
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const handlePharmacySSO = async (e) => {
-  e.preventDefault();
-  try {
-    const { data } = await API.post('/auth/sso-token');
-    window.location.href = `/dashboard/pharmacy?sso=${data.token}`;
-  } catch (err) {
-    console.error('SSO token generation failed', err);
-    window.location.href = '/dashboard/pharmacy';
-  }
-};
+  const handlePharmacySSO = async (e, targetPath) => {
+    e.preventDefault();
+    try {
+      const { data } = await API.post('/auth/sso-token');
+      window.location.href = `${targetPath}?sso=${data.token}`;
+    } catch (err) {
+      console.error('SSO token generation failed', err);
+      window.location.href = targetPath;
+    }
+  };
 
   const roleMeta = ROLE_META[user?.role?.toLowerCase()] || {
     label: user?.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.15)',
@@ -177,11 +202,28 @@ export default function Layout() {
 
   // ── Add DOCTOR section only for doctors ──
   // ── Add SUPER ADMIN section for super_admin (plus doctor sections) ──
+  
+  const visibleImsSections = IMS_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => hasPerm(item.perm)),
+  })).filter(s => s.items.length > 0);
+
+  const mainSections = visibleSections.filter(s => s.section === 'MAIN');
+  const servicesSections = visibleSections.filter(s => s.section === 'SERVICES');
+  const managementSections = visibleSections.filter(s => s.section === 'MANAGEMENT');
+
+  const baseSections = [
+    ...mainSections,
+    ...servicesSections,
+    ...visibleImsSections,
+    ...managementSections
+  ];
+
   const finalSections = isSuperAdmin
-    ? [...visibleSections, ...DOCTOR_SECTIONS, ...SUPER_ADMIN_SECTIONS]
+    ? [...baseSections, ...DOCTOR_SECTIONS, ...SUPER_ADMIN_SECTIONS]
     : isDoctor
-      ? [...visibleSections, ...DOCTOR_SECTIONS]
-      : visibleSections;
+      ? [...baseSections, ...DOCTOR_SECTIONS]
+      : baseSections;
 
   return (
     <div
@@ -305,28 +347,74 @@ export default function Layout() {
               }}>
                 {section}
               </div>
-              {items.map(({ path, label, icon, end }) => (
-                <NavLink
-                  key={path} to={path} end={end}
-                  onClick={(e) => {
-                    setSidebarOpen(false);
-                    if (path === '/dashboard/pharmacy') {
-                      handlePharmacySSO(e);
-                    }
-                  }}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 20px', fontSize: 13, fontWeight: 500,
-                    color: isActive ? '#fff' : '#94a3b8',
-                    background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                    borderLeft: isActive ? '3px solid #38bdf8' : '3px solid transparent',
-                    textDecoration: 'none', transition: 'all 0.15s',
-                  })}
-                >
-                  <span style={{ fontSize: 15 }}>{icon}</span>
-                  <span>{label === 'Task Allocation' && taskCount > 0 ? `Task Allocation [${taskCount}]` : label}</span>
-                </NavLink>
-              ))}
+              {items.map(({ path, label, icon, end, subItems }) => {
+                if (subItems) {
+                  const isOpen = expandedSections[label];
+                  return (
+                    <div key={label}>
+                      <button
+                        onClick={() => setExpandedSections(p => ({ ...p, [label]: !p[label] }))}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          width: '100%', padding: '9px 20px', fontSize: 13, fontWeight: 500,
+                          color: '#94a3b8', background: 'transparent',
+                          border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 15 }}>{icon}</span>
+                          <span>{label}</span>
+                        </div>
+                        <span style={{ fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                      </button>
+                      {isOpen && (
+                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '4px 0' }}>
+                          {subItems.map((sub) => (
+                            <NavLink
+                              key={sub.path} to={sub.path}
+                              onClick={(e) => {
+                                setSidebarOpen(false);
+                                handlePharmacySSO(e, sub.path); // Trigger SSO when navigating to any IMS link with correct path
+                              }}
+                              style={({ isActive }) => ({
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '8px 20px 8px 45px', fontSize: 12, fontWeight: 500,
+                                color: isActive ? '#38bdf8' : '#94a3b8',
+                                textDecoration: 'none', transition: 'all 0.15s',
+                                background: isActive ? 'rgba(56,189,248,0.1)' : 'transparent',
+                              })}
+                            >
+                              <span style={{ fontSize: 14 }}>{sub.icon}</span>
+                              <span>{sub.label}</span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <NavLink
+                    key={path} to={path} end={end}
+                    onClick={(e) => {
+                      setSidebarOpen(false);
+                    }}
+                    style={({ isActive }) => ({
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 20px', fontSize: 13, fontWeight: 500,
+                      color: isActive ? '#fff' : '#94a3b8',
+                      background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                      borderLeft: isActive ? '3px solid #38bdf8' : '3px solid transparent',
+                      textDecoration: 'none', transition: 'all 0.15s',
+                    })}
+                  >
+                    <span style={{ fontSize: 15 }}>{icon}</span>
+                    <span>{label === 'Task Allocation' && taskCount > 0 ? `Task Allocation [${taskCount}]` : label}</span>
+                  </NavLink>
+                );
+              })}
             </div>
           ))}
         </nav>
