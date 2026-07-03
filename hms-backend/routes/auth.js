@@ -446,6 +446,25 @@ router.get('/profile', auth, async (req, res) => {
   }
 });
 
+// ── Update own profile (any authenticated user, safe fields only) ─────────
+router.put('/me', auth, async (req, res) => {
+  try {
+    const ALLOWED_FIELDS = ['name', 'phone', 'avatar'];
+    const fields = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (req.body[key] !== undefined) fields[key] = req.body[key];
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.id, fields, { new: true }).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json(user);
+  } catch (err) {
+    console.error('Error updating own profile:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ── List Staff (admin only) ───────────────────────────────────────────────
 router.get('/users', auth, roleCheck('admin'), async (req, res) => {
   try {

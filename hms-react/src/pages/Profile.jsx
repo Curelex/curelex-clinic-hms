@@ -15,6 +15,7 @@ import PatientSidebar from '../components/PatientSidebar';
 
 export default function Profile() {
   const { user, patient } = useAuth();
+  
   const isStaffRoute = !!useMatch('/dashboard/profile');
 
   const [sidebarOpen,     setSidebarOpen]     = useState(false);
@@ -37,12 +38,12 @@ export default function Profile() {
     : 'User';
 
   const [editForm, setEditForm] = useState({
-    name:       user?.name          || '',
-    phone:      user?.phone         || '',
-    dob:        patient?.dob        || '',
-    gender:     patient?.gender     || '',
-    bloodGroup: patient?.bloodGroup || '',
-  });
+  name:       user?.name          || '',
+  phone:      user?.phone         || '',
+  dob:        patient?.dob        || '',
+  gender:     patient?.gender     || '',
+  bloodGroup: patient?.bloodGroup || '',
+});
 
   const [passForm, setPassForm] = useState({
     currentPassword: '', newPassword: '', confirmPassword: '',
@@ -54,20 +55,35 @@ export default function Profile() {
   };
 
   const handleSaveProfile = async () => {
-    try {
-      let avatarData = user?.avatar || '';
-      if (selectedAvatar) {
-        avatarData = await new Promise((res, rej) => {
-          const r = new FileReader(); r.onloadend = () => res(r.result); r.onerror = rej; r.readAsDataURL(selectedAvatar);
-        });
-      }
+  try {
+    let avatarData = user?.avatar || '';
+    if (selectedAvatar) {
+      avatarData = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onloadend = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(selectedAvatar);
+      });
+    }
+
+    if (patient?._id) {
       await API.put(`/patients/${patient._id}`, {
         name: editForm.name, phone: editForm.phone, dob: editForm.dob,
         gender: editForm.gender, bloodGroup: editForm.bloodGroup, avatar: avatarData,
       });
-      setShowEditModal(false); window.location.reload();
-    } catch (err) { alert(err.response?.data?.message || 'Failed to update profile'); }
-  };
+    } else {
+      // Staff: name/phone/avatar only — no role, permissions, isActive, etc.
+      await API.put('/auth/me', {
+        name: editForm.name, phone: editForm.phone, avatar: avatarData,
+      });
+    }
+
+    setShowEditModal(false);
+    window.location.reload();
+  } catch (err) {
+    alert(err.response?.data?.message || 'Failed to update profile');
+  }
+};
 
   const handleChangePassword = async () => {
     if (passForm.newPassword !== passForm.confirmPassword) { alert('Passwords do not match'); return; }
@@ -79,15 +95,34 @@ export default function Profile() {
     } catch (err) { alert(err?.response?.data?.message || 'Failed to update password'); }
   };
 
-  const infoRows = [
-    { label: 'Full Name',     value: displayName },
-    { label: 'Email',         value: user?.email || '—' },
-    { label: 'Phone',         value: user?.phone || 'Not provided' },
-    { label: 'Date of Birth', value: patient?.dob ? new Date(patient.dob).toLocaleDateString('en-GB') : 'Not provided' },
-    { label: 'Gender',        value: patient?.gender     || 'Not provided' },
-    { label: 'Blood Group',   value: patient?.bloodGroup || 'Not provided' },
-    { label: 'Member Since',  value: memberSince },
-  ];
+  const isPatient = !!patient?._id;
+
+const infoRows = [
+  { label: "Full Name", value: displayName },
+  { label: "Email", value: user?.email || "—" },
+  { label: "Phone", value: user?.phone || "Not provided" },
+
+  {
+    label: "Date of Birth",
+    value: patient?.dob
+      ? new Date(patient.dob).toLocaleDateString("en-GB")
+      : "Not provided",
+    patientOnly: true,
+  },
+  {
+    label: "Gender",
+    value: patient?.gender || "Not provided",
+    patientOnly: true,
+  },
+  {
+    label: "Blood Group",
+    value: patient?.bloodGroup || "Not provided",
+    patientOnly: true,
+  },
+
+  { label: "Member Since", value: memberSince },
+];
+  
 
   // ── Shared styles injected once regardless of route ──────────────────────
   const styles = `
@@ -345,14 +380,22 @@ export default function Profile() {
       {/* Info table */}
       <div className="prof-section">
         <div className="prof-section-hd">Personal Information</div>
-        <div className="prof-rows">
-          {infoRows.map((row, i) => (
-            <div className="prof-row" key={i}>
-              <div className="prof-row-lbl">{row.label}</div>
-              <div className="prof-row-val">{row.value}</div>
-            </div>
-          ))}
-        </div>
+       <div className="prof-rows">
+  {infoRows
+    .filter((row) => {
+      // Hide patient-only fields for staff
+      if (row.patientOnly && !isPatient) return false;
+
+      // Hide only truly missing values
+      return row.value != null;
+    })
+    .map((row, i) => (
+      <div className="prof-row" key={i}>
+        <div className="prof-row-lbl">{row.label}</div>
+        <div className="prof-row-val">{row.value}</div>
+      </div>
+    ))}
+</div>
       </div>
     </div>
   );
@@ -361,44 +404,52 @@ export default function Profile() {
   const modals = (
     <>
       {showEditModal && (
-        <div className="prof-overlay" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
-          <div className="prof-modal">
-            <div className="prof-modal-hd">Edit Profile</div>
-            <div className="prof-section-lbl">Personal</div>
-            <div className="prof-f"><label>Full Name</label><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
-            <div className="prof-f"><label>Email</label><input value={user?.email || ''} disabled /><div className="prof-hint">Cannot be changed</div></div>
-            <div className="prof-f"><label>Phone</label><input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
-            <div className="prof-hr" />
-            <div className="prof-section-lbl">Medical</div>
-            <div className="prof-f"><label>Date of Birth</label><input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} /></div>
-            <div className="prof-f">
-              <label>Gender</label>
-              <select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="prof-f">
-              <label>Blood Group</label>
-              <select value={editForm.bloodGroup} onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}>
-                <option value="">Select</option>
-                {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-              </select>
-            </div>
-            <div className="prof-hr" />
-            <div className="prof-section-lbl">Account</div>
-            <div className="prof-f"><label>Role</label><input value={roleLabel} disabled /></div>
-            <div className="prof-f"><label>Status</label><input value={user?.isActive ? 'Active' : 'Inactive'} disabled /></div>
-            <div className="prof-f"><label>Member Since</label><input value={memberSince} disabled /></div>
-            <div className="prof-modal-ft">
-              <button className="prof-btn-s" onClick={() => setShowEditModal(false)}>Cancel</button>
-              <button className="prof-btn-p" onClick={handleSaveProfile}>Save Changes</button>
-            </div>
+  <div className="prof-overlay" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
+    <div className="prof-modal">
+      <div className="prof-modal-hd">Edit Profile</div>
+
+      <div className="prof-section-lbl">Personal</div>
+      <div className="prof-f"><label>Full Name</label><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+      <div className="prof-f"><label>Email</label><input value={user?.email || ''} disabled /><div className="prof-hint">Cannot be changed</div></div>
+      <div className="prof-f"><label>Phone</label><input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+
+      {/* Medical fields only apply to patients — staff have no Patient record */}
+      {patient?._id && (
+        <>
+          <div className="prof-hr" />
+          <div className="prof-section-lbl">Medical</div>
+          <div className="prof-f"><label>Date of Birth</label><input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} /></div>
+          <div className="prof-f">
+            <label>Gender</label>
+            <select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
+              <option value="">Select</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
-        </div>
+          <div className="prof-f">
+            <label>Blood Group</label>
+            <select value={editForm.bloodGroup} onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}>
+              <option value="">Select</option>
+              {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+            </select>
+          </div>
+        </>
       )}
+
+      <div className="prof-hr" />
+      <div className="prof-section-lbl">Account</div>
+      <div className="prof-f"><label>Role</label><input value={roleLabel} disabled /></div>
+      <div className="prof-f"><label>Status</label><input value={user?.isActive ? 'Active' : 'Inactive'} disabled /></div>
+      <div className="prof-f"><label>Member Since</label><input value={memberSince} disabled /></div>
+      <div className="prof-modal-ft">
+        <button className="prof-btn-s" onClick={() => setShowEditModal(false)}>Cancel</button>
+        <button className="prof-btn-p" onClick={handleSaveProfile}>Save Changes</button>
+      </div>
+    </div>
+  </div>
+)}
 
       {showPassModal && (
         <div className="prof-overlay" onClick={(e) => e.target === e.currentTarget && setShowPassModal(false)}>

@@ -23,11 +23,17 @@ function toObjectId(id) {
 
 /**
  * Resolves the effective clinicId for a request.
- * - Normal staff: always use their JWT clinicId.
+ * clinicId is OPTIONAL everywhere now — a patient can belong to
+ * multiple clinics (clinicIds is an array on the Patient model), and
+ * a request that doesn't specify a clinic should operate globally
+ * rather than being blocked or silently scoped to nothing.
+ *
+ * - Normal staff: use their JWT clinicId if present (may be null).
  * - super_admin: JWT has no clinicId, so fall back in order:
  *     1. x-clinic-id request header
  *     2. req.body.clinicId
  *     3. req.query.clinicId
+ * - If nothing resolves, returns null, meaning "no clinic filter".
  */
 function resolveClinicId(req) {
   if (req.user?.role === 'super_admin') {
@@ -41,21 +47,26 @@ function resolveClinicId(req) {
   return toObjectId(req.user?.clinicId);
 }
 
+/**
+ * Builds the clinic portion of a Mongo query.
+ * Because clinicIds is an array field, `{ clinicIds: clinicId }` already
+ * matches "array contains this id" — no $in / $elemMatch needed.
+ * When clinicId is null, returns {} (no filter → search all clinics).
+ */
+function clinicFilter(clinicId) {
+  return clinicId ? { clinicIds: clinicId } : {};
+}
+
 const router = express.Router();
 
-// ── Get all patients (Clinic Scoped) ──────────────────────────────────────
+// ── Get all patients (clinic-scoped if a clinic is resolved, else global) ──
 router.get('/', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
     const { search, status, page = 1, limit = 20 } = req.query;
 
-    // ── If no clinicId, return empty array ──
-    if (!clinicId) {
-      return res.json({ patients: [], total: 0, page: 1, pages: 0 });
-    }
+    let query = { ...clinicFilter(clinicId) };
 
-    let query = { clinicIds: clinicId };
-    
     if (search && search.trim() !== '') {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -85,13 +96,10 @@ router.get('/', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.status(400).json({ message: 'No clinic selected' });
-    }
-    
-    const patient = await Patient.findOne({ 
-      _id: req.params.id, 
-      clinicIds: clinicId 
+
+    const patient = await Patient.findOne({
+      _id: req.params.id,
+      ...clinicFilter(clinicId),
     })
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name');
@@ -110,13 +118,10 @@ router.get('/:id', auth, async (req, res) => {
 router.get('/by-patient-id/:patientId', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.status(400).json({ message: 'No clinic selected' });
-    }
-    
-    const patient = await Patient.findOne({ 
-      patientId: String(req.params.patientId).trim(), 
-      clinicIds: clinicId 
+
+    const patient = await Patient.findOne({
+      patientId: String(req.params.patientId).trim(),
+      ...clinicFilter(clinicId),
     })
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name');
@@ -134,14 +139,13 @@ router.get('/by-patient-id/:patientId', auth, async (req, res) => {
 // ── Create patient ──────────────────────────────────────────────────────────
 router.post('/', auth, async (req, res) => {
   try {
+    // clinicId is optional here now. If resolved, the patient is
+    // attached to that clinic. If not, the patient is created as a
+    // "global" patient with no clinic yet — clinics can be added to
+    // clinicIds later (e.g. via a dedicated "attach to clinic" action).
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.status(400).json({ 
-        message: 'No clinic selected. Please select a clinic before registering patients.' 
-      });
-    }
-    
-    const { 
+
+    const {
       name, email, phone, dob, age, gender, bloodGroup,
       address, city, state, pincode,
       emergencyContact, emergencyName, emergencyRelation,
@@ -152,22 +156,25 @@ router.post('/', auth, async (req, res) => {
 
     // Validate required fields
     if (!name || !email || !phone) {
-      return res.status(400).json({ 
-        message: 'Name, email and phone are required' 
+      return res.status(400).json({
+        message: 'Name, email and phone are required'
       });
     }
 
-    // Check if patient already exists in this clinic
-    const existingPatient = await Patient.findOne({ 
-      $or: [
-        { email, clinicIds: clinicId },
-        { phone, clinicIds: clinicId }
-      ]
+    // Check if patient already exists.
+    // If a clinic is resolved, scope the duplicate-check to that clinic
+    // (the same person can be a distinct registration in another clinic).
+    // If no clinic is resolved, check globally by email/phone.
+    const existingPatient = await Patient.findOne({
+      $or: [{ email }, { phone }],
+      ...clinicFilter(clinicId),
     });
-    
+
     if (existingPatient) {
-      return res.status(400).json({ 
-        message: 'Patient with this email or phone already exists in this clinic' 
+      return res.status(400).json({
+        message: clinicId
+          ? 'Patient with this email or phone already exists in this clinic'
+          : 'Patient with this email or phone already exists'
       });
     }
 
@@ -175,10 +182,13 @@ router.post('/', auth, async (req, res) => {
 
     // ── If createLogin is true, create User account ──────────────────────
     if (createLogin && password) {
-      const existingUser = await User.findOne({ email, clinicId });
+      const existingUserQuery = clinicId ? { email, clinicId } : { email };
+      const existingUser = await User.findOne(existingUserQuery);
       if (existingUser) {
-        return res.status(400).json({ 
-          message: 'A user with this email already exists in this clinic' 
+        return res.status(400).json({
+          message: clinicId
+            ? 'A user with this email already exists in this clinic'
+            : 'A user with this email already exists'
         });
       }
 
@@ -187,7 +197,7 @@ router.post('/', auth, async (req, res) => {
         email,
         password,
         role: 'patient',
-        clinicId: clinicId,
+        clinicId: clinicId || undefined,
         phone: phone || '',
         permissions: ['patient-dashboard'],
         isActive: true,
@@ -200,7 +210,9 @@ router.post('/', auth, async (req, res) => {
       name,
       email,
       phone,
-      clinicIds: [clinicId],
+      // clinicIds stays empty if no clinic was resolved — patient can be
+      // attached to one or more clinics later.
+      clinicIds: clinicId ? [clinicId] : [],
       status: 'Active',
       registrationDate: new Date(),
       registeredBy: req.user.id,
@@ -227,18 +239,18 @@ router.post('/', auth, async (req, res) => {
 
     const patient = new Patient(patientData);
     await patient.save();
-    
+
     await patient.populate('assignedDoctor', 'name department');
     await patient.populate('registeredBy', 'name');
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: createLogin && user ? 'Patient registered with login credentials' : 'Patient registered successfully',
       patient,
-      user: user ? { 
-        id: user._id, 
-        email: user.email, 
-        role: user.role 
+      user: user ? {
+        id: user._id,
+        email: user.email,
+        role: user.role
       } : null
     });
   } catch (err) {
@@ -247,27 +259,58 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+// ── Attach an existing patient to another clinic ───────────────────────────
+// Lets a patient belong to more than one clinic without duplicating the
+// record. Requires a clinic to be resolved (you have to attach to *some*
+// clinic), but the patient lookup itself is global (not clinic-scoped),
+// since the patient may not yet belong to the resolved clinic.
+router.post('/:id/attach-clinic', auth, async (req, res) => {
+  try {
+    const clinicId = resolveClinicId(req);
+    if (!clinicId) {
+      return res.status(400).json({ message: 'No clinic selected to attach' });
+    }
+
+    const patient = await Patient.findById(req.params.id);
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    const alreadyAttached = patient.clinicIds.some(
+      (id) => String(id) === String(clinicId)
+    );
+    if (!alreadyAttached) {
+      patient.clinicIds.push(clinicId);
+      await patient.save();
+    }
+
+    await patient.populate('assignedDoctor', 'name department');
+    await patient.populate('registeredBy', 'name');
+
+    res.json({ success: true, patient });
+  } catch (err) {
+    console.error('Attach clinic error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ── Update patient ─────────────────────────────────────────────────────────
 router.put('/:id', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.status(400).json({ 
-        message: 'No clinic selected.' 
-      });
-    }
-    
+
     const body = { ...req.body };
     // Remove fields that shouldn't be updated directly
     delete body._id;
     delete body.clinicId;
+    delete body.clinicIds;
     delete body.patientId;
     delete body.userId;
     delete body.createdAt;
     delete body.updatedAt;
 
     const patient = await Patient.findOneAndUpdate(
-      { _id: req.params.id, clinicIds: clinicId },
+      { _id: req.params.id, ...clinicFilter(clinicId) },
       body,
       { new: true, runValidators: true }
     ).populate('assignedDoctor', 'name department')
@@ -287,13 +330,8 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.status(400).json({ 
-        message: 'No clinic selected.' 
-      });
-    }
-    
-    const patient = await Patient.findOne({ _id: req.params.id, clinicIds: clinicId });
+
+    const patient = await Patient.findOne({ _id: req.params.id, ...clinicFilter(clinicId) });
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
@@ -303,7 +341,7 @@ router.delete('/:id', auth, async (req, res) => {
       await User.findByIdAndDelete(patient.userId);
     }
 
-    await Patient.findOneAndDelete({ _id: req.params.id, clinicIds: clinicId });
+    await Patient.findOneAndDelete({ _id: req.params.id, ...clinicFilter(clinicId) });
     res.json({ message: 'Patient and associated user account deleted' });
   } catch (err) {
     console.error('Delete patient error:', err);
@@ -315,13 +353,10 @@ router.delete('/:id', auth, async (req, res) => {
 router.get('/user/:userId', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.status(400).json({ message: 'No clinic selected' });
-    }
-    
-    const patient = await Patient.findOne({ 
-      userId: req.params.userId, 
-      clinicIds: clinicId 
+
+    const patient = await Patient.findOne({
+      userId: req.params.userId,
+      ...clinicFilter(clinicId),
     })
       .populate('assignedDoctor', 'name department')
       .populate('registeredBy', 'name');
@@ -340,17 +375,13 @@ router.get('/user/:userId', auth, async (req, res) => {
 router.get('/doctor/:doctorId', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.json({ patients: [], total: 0, page: 1, pages: 0 });
-    }
-    
     const { search, status, page = 1, limit = 20 } = req.query;
 
-    let query = { 
-      assignedDoctor: req.params.doctorId, 
-      clinicIds: clinicId 
+    let query = {
+      assignedDoctor: req.params.doctorId,
+      ...clinicFilter(clinicId),
     };
-    
+
     if (search && search.trim() !== '') {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -380,30 +411,18 @@ router.get('/doctor/:doctorId', auth, async (req, res) => {
 router.get('/stats/summary', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    if (!clinicId) {
-      return res.json({
-        total: 0,
-        active: 0,
-        inactive: 0,
-        discharged: 0,
-        deceased: 0,
-        byGender: {},
-        recentRegistrations: 0,
-        withAssignedDoctor: 0,
-        registrationRate: 0
-      });
-    }
+    const filter = clinicFilter(clinicId);
 
     const [total, active, inactive, discharged, deceased] = await Promise.all([
-      Patient.countDocuments({ clinicIds: clinicId }),
-      Patient.countDocuments({ clinicIds: clinicId, status: 'Active' }),
-      Patient.countDocuments({ clinicIds: clinicId, status: 'Inactive' }),
-      Patient.countDocuments({ clinicIds: clinicId, status: 'Discharged' }),
-      Patient.countDocuments({ clinicIds: clinicId, status: 'Deceased' }),
+      Patient.countDocuments({ ...filter }),
+      Patient.countDocuments({ ...filter, status: 'Active' }),
+      Patient.countDocuments({ ...filter, status: 'Inactive' }),
+      Patient.countDocuments({ ...filter, status: 'Discharged' }),
+      Patient.countDocuments({ ...filter, status: 'Deceased' }),
     ]);
 
     const byGender = await Patient.aggregate([
-      { $match: { clinicIds: clinicId } },
+      ...(clinicId ? [{ $match: { clinicIds: clinicId } }] : []),
       { $group: { _id: '$gender', count: { $sum: 1 } } }
     ]);
 
@@ -414,13 +433,13 @@ router.get('/stats/summary', auth, async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentRegistrations = await Patient.countDocuments({
-      clinicIds: clinicId,
+      ...filter,
       createdAt: { $gte: thirtyDaysAgo }
     });
 
     // Patients with assigned doctors
     const withAssignedDoctor = await Patient.countDocuments({
-      clinicIds: clinicId,
+      ...filter,
       assignedDoctor: { $ne: null }
     });
 
@@ -445,16 +464,16 @@ router.get('/stats/summary', auth, async (req, res) => {
 router.get('/debug/all', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    const query = clinicId ? { clinicIds: clinicId } : {};
+    const query = clinicFilter(clinicId);
     const all = await Patient.find(query).limit(10).lean();
-    res.json({ 
+    res.json({
       count: all.length,
-      patients: all.map(p => ({ 
-        name: p.name, 
-        clinicId: String(p.clinicId),
+      patients: all.map(p => ({
+        name: p.name,
+        clinicIds: (p.clinicIds || []).map(String),
         patientId: p.patientId
       })),
-      userClinicId: String(req.user.clinicId),
+      userClinicId: req.user.clinicId ? String(req.user.clinicId) : null,
     });
   } catch (err) {
     console.error('Debug error:', err);
