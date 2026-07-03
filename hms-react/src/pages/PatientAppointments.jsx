@@ -12,7 +12,7 @@ import BottomNav from '../components/BottomNav';
 // "Waiting"  = accepted, in the queue
 // "Called"   = doctor is ready for them
 // "Done"     = consultation complete
-// "Skipped"  = rejected or skipped
+// "Skipped"  = rejected, skipped, or cancelled by the patient
 const PATIENT_STATUS = {
   Pending: {
     label: 'Awaiting Confirmation',
@@ -52,6 +52,10 @@ const PAYMENT_STATUS_COLORS = {
   failed:  { bg: '#fee2e2', text: '#991b1b' },
 };
 
+// Statuses the patient is still allowed to self-cancel from.
+// Once a token is Called/Done/Skipped, cancellation must go through staff.
+const CANCELLABLE_STATUSES = ['Pending', 'Waiting'];
+
 const STEP_DETAILS = 'details';
 const STEP_PAYMENT = 'payment';
 
@@ -78,6 +82,7 @@ export default function PatientAppointments() {
   const [formError, setFormError]       = useState('');
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
 
   const [payMethod, setPayMethod]   = useState('card');
   const [paying, setPaying]         = useState(false);
@@ -253,6 +258,23 @@ export default function PatientAppointments() {
     setSubmitting(false);
   };
 
+  // ── Cancel an appointment (patient-initiated) ─────────────────────────
+  const handleCancelAppointment = async (tokenId) => {
+    if (!window.confirm('Cancel this appointment?')) return;
+    setCancellingId(tokenId);
+    try {
+      const res = await API.patch(`/patient-portal/${patientId}/appointments/${tokenId}/cancel`);
+      if (res.data.success) {
+        await loadAppointments();
+      } else {
+        alert(res.data.message || 'Could not cancel appointment.');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not cancel appointment.');
+    }
+    setCancellingId(null);
+  };
+
   const initials = (patientName || 'U')
     .split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -392,6 +414,7 @@ export default function PatientAppointments() {
                     {appointments.map((apt) => {
                       const ps = PATIENT_STATUS[apt.status] || PATIENT_STATUS.Pending;
                       const pc = PAYMENT_STATUS_COLORS[apt.paymentStatus] || PAYMENT_STATUS_COLORS.pending;
+                      const canCancel = CANCELLABLE_STATUSES.includes(apt.status);
                       return (
                         <div key={apt._id} className="pd-appt-mobile-card">
                           <div className="pd-appt-mobile-card__header">
@@ -446,6 +469,21 @@ export default function PatientAppointments() {
                               {apt.symptoms.length > 80 ? apt.symptoms.slice(0, 80) + '…' : apt.symptoms}
                             </div>
                           )}
+                          {canCancel && (
+                            <button
+                              onClick={() => handleCancelAppointment(apt._id)}
+                              disabled={cancellingId === apt._id}
+                              style={{
+                                marginTop: 10, width: '100%', padding: '8px', borderRadius: 8,
+                                fontSize: 13, fontWeight: 600,
+                                border: '1px solid #fca5a5', background: '#fee2e2', color: '#991b1b',
+                                cursor: cancellingId === apt._id ? 'not-allowed' : 'pointer',
+                                opacity: cancellingId === apt._id ? 0.6 : 1,
+                              }}
+                            >
+                              {cancellingId === apt._id ? 'Cancelling…' : 'Cancel Appointment'}
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -456,7 +494,7 @@ export default function PatientAppointments() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left', background: '#f8fafc' }}>
-                          {['Token #', 'Date', 'Clinic', 'Doctor', 'Type', 'Symptoms', 'Fee', 'Payment', 'Status'].map(h => (
+                          {['Token #', 'Date', 'Clinic', 'Doctor', 'Type', 'Symptoms', 'Fee', 'Payment', 'Status', 'Action'].map(h => (
                             <th key={h} style={{ padding: '12px 16px', color: '#6b7a99', fontWeight: 700, fontSize: 12 }}>
                               {h}
                             </th>
@@ -467,6 +505,7 @@ export default function PatientAppointments() {
                         {appointments.map((apt) => {
                           const ps = PATIENT_STATUS[apt.status] || PATIENT_STATUS.Pending;
                           const pc = PAYMENT_STATUS_COLORS[apt.paymentStatus] || PAYMENT_STATUS_COLORS.pending;
+                          const canCancel = CANCELLABLE_STATUSES.includes(apt.status);
                           return (
                             <tr key={apt._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
                               <td style={{ padding: '12px 16px', fontWeight: 700, color: '#1a2236' }}>#{apt.tokenNumber}</td>
@@ -492,6 +531,23 @@ export default function PatientAppointments() {
                                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: ps.dot, display: 'inline-block', flexShrink: 0 }} />
                                   {ps.label}
                                 </span>
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                {canCancel && (
+                                  <button
+                                    onClick={() => handleCancelAppointment(apt._id)}
+                                    disabled={cancellingId === apt._id}
+                                    style={{
+                                      padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                      border: '1px solid #fca5a5', background: '#fee2e2', color: '#991b1b',
+                                      cursor: cancellingId === apt._id ? 'not-allowed' : 'pointer',
+                                      opacity: cancellingId === apt._id ? 0.6 : 1,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {cancellingId === apt._id ? 'Cancelling…' : 'Cancel'}
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
