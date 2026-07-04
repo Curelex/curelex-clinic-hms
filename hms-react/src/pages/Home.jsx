@@ -205,7 +205,11 @@ const Home = () => {
     closeMobileMenu();
   };
 
-  /* ── Role selection handlers ── */
+  /* ── Role selection handlers ──
+     Patient keeps its own dedicated login route.
+     Doctor, Clinic, and Hospital all reuse the exact same
+     staff login route/logic that "Staff" used before —
+     nothing new was added, only the labels changed. ── */
   const handlePatientSelect = () => {
     setShowRoleModal(false);
     navigate('/patient-login');
@@ -608,7 +612,13 @@ const Home = () => {
                 <p>Choose your account type to proceed</p>
               </div>
             </div>
-            <div className="role-selection">
+            {/*
+              4 role cards now. Patient keeps its own route.
+              Doctor, Clinic, and Hospital all reuse handleStaffSelect —
+              the exact same /login routing "Staff" used before.
+              Nothing new was built; only labels/icons/text changed.
+            */}
+            <div className="role-selection role-selection-4">
               <button className="role-card" onClick={handlePatientSelect}>
                 <div className="role-icon"><i className="fas fa-user-injured"></i></div>
                 <h3>Patient</h3>
@@ -616,7 +626,17 @@ const Home = () => {
               </button>
               <button className="role-card" onClick={handleStaffSelect}>
                 <div className="role-icon"><i className="fas fa-user-md"></i></div>
-                <h3>Staff</h3>
+                <h3>Doctor</h3>
+                <p>Manage appointments, consultations and patient records</p>
+              </button>
+              <button className="role-card" onClick={handleStaffSelect}>
+                <div className="role-icon"><i className="fas fa-clinic-medical"></i></div>
+                <h3>Clinic</h3>
+                <p>Manage appointments, patients, billing and more</p>
+              </button>
+              <button className="role-card" onClick={handleStaffSelect}>
+                <div className="role-icon"><i className="fas fa-hospital"></i></div>
+                <h3>Hospital</h3>
                 <p>Manage appointments, patients, billing and more</p>
               </button>
             </div>
@@ -629,6 +649,16 @@ const Home = () => {
           0%   { transform: scale(0.5); opacity: 0; }
           70%  { transform: scale(1.1); }
           100% { transform: scale(1);   opacity: 1; }
+        }
+        .role-selection-4 {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 560px) {
+          .role-selection-4 {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </>
