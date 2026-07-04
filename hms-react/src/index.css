@@ -406,7 +406,7 @@ tr:hover td { background: var(--surface2); }
     height: 42px;
     border-radius: var(--radius-full);
     background: var(--bg-secondary);
-    color: var(--text-primary);
+    color:gray;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -446,7 +446,7 @@ tr:hover td { background: var(--surface2); }
     height: 42px;
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
-    color: var(--text-primary);
+    color: gray;
     font-size: 1.25rem;
     transition: all var(--transition-base);
 
@@ -489,10 +489,11 @@ tr:hover td { background: var(--surface2); }
 }
 
 .mobile-menu a {
+    color: gray !important;
     display: block;
     padding: var(--spacing-md);
     font-weight: 500;
-    color: var(--text-primary);
+    /*color: var(--text-primary);*/
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
 }
@@ -515,7 +516,8 @@ tr:hover td { background: var(--surface2); }
     width: 100%;
     padding: var(--spacing-md);
     background: var(--bg-secondary);
-    color: var(--text-primary);
+    color:gray;
+    /*color: var(--text-primary);*/
     border-radius: var(--radius-md);
     font-weight: 500;
     display: flex;
