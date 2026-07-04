@@ -173,7 +173,7 @@ export default function PatientDashboard() {
             </button>
           )}
           <Link to="/patient-dashboard" className="pd-topbar__title">
-            {isMobile ? `Hi, ${patientName.split(' ')[0]}` : 'My Health'}
+            {`Hi, ${patientName.split(" ")[0]}`}
           </Link>
         </div>
         <div className="pd-topbar__right">
