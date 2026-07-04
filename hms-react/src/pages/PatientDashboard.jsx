@@ -460,11 +460,48 @@ export default function PatientDashboard() {
               {doctors.length === 0 ? (
                 <div className="pd-card"><div className="pd-card__body"><div className="pd-empty"><i className="fas fa-user-md" /> No doctors available right now</div></div></div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+               <div
+  style={
+    isMobile
+      ? {
+          display: 'flex',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          gap: 16,
+          paddingBottom: 10,
+          WebkitOverflowScrolling: 'touch',
+          scrollSnapType: 'x mandatory',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }
+      : {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gap: 16,
+        }
+  }
+>
                   {doctors.map((doc) => {
                     const online = isDoctorOnline?.(doc._id) ?? false;
                     return (
-                      <div key={doc._id} style={{ background: '#fff', borderRadius: 16, padding: 20, border: online ? '2px solid #2d6be4' : '1.5px solid #e5e7eb', boxShadow: online ? '0 4px 20px rgba(45,107,228,0.10)' : '0 2px 8px rgba(0,0,0,0.04)', position: 'relative', opacity: online ? 1 : 0.65 }}>
+                      <div
+  key={doc._id}
+  style={{
+    flex: isMobile ? '0 0 280px' : undefined,
+    minWidth: isMobile ? 280 : undefined,
+    scrollSnapAlign: isMobile ? 'start' : undefined,
+
+    background: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    border: online ? '2px solid #2d6be4' : '1.5px solid #e5e7eb',
+    boxShadow: online
+      ? '0 4px 20px rgba(45,107,228,0.10)'
+      : '0 2px 8px rgba(0,0,0,0.04)',
+    position: 'relative',
+    opacity: online ? 1 : 0.65,
+  }}
+>
                         <span style={{ position: 'absolute', top: 16, right: 16, width: 12, height: 12, borderRadius: '50%', background: online ? '#22c55e' : '#cbd5e1', border: '2px solid #fff', boxShadow: online ? '0 0 0 2px #bbf7d0' : 'none', display: 'inline-block' }} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
                           <div style={{ width: 56, height: 56, borderRadius: '50%', background: online ? '#dbeafe' : '#f1f5f9', color: online ? '#2d6be4' : '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, flexShrink: 0 }}>
@@ -657,7 +694,7 @@ export default function PatientDashboard() {
                   { icon: 'fa-flask', label: 'Lab Tests', color: '#f59e0b', action: () => alert('Lab tests coming soon!') },
                   { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', color: '#7c3aed', action: () => navigate('/patient-prescriptions') },
                   { icon: 'fa-folder-open', label: 'My Documents', color: '#0f4c81', action: () => navigate('/patient-documents') },
-                  { icon: 'fa-comment-dots', label: 'Feedback', color: '#7c3aed', action: () => alert('Feedback coming soon!') },
+                  { icon: 'fa-star', label: 'Feedback', color: '#fbbf24', action: () => navigate('/patient-feedback') },
                 ].map(item => (
                   <button
                     key={item.label}

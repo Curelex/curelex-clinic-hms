@@ -2,6 +2,28 @@
 import React, { useEffect, useState } from 'react';
 import API from '../utils/api';
 
+// ── Resolve clinicId from the stored JWT / user object ───────────────────────
+// Same helper used in Billing.jsx / BillingRequests.jsx / Patients.jsx.
+// Lab.jsx previously relied entirely on the backend inferring clinicId from
+// req.user.clinicId, which silently broke for super_admin (no clinicId on
+// their JWT) and fell into a stray 'default' bucket server-side — that's why
+// the patient dropdown and lab list could come back empty.
+function getClinicId() {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return 'default';
+    const parsed = JSON.parse(raw);
+    return (
+      parsed.clinicId ||
+      parsed.clinic?._id ||
+      parsed.clinic ||
+      'default'
+    );
+  } catch {
+    return 'default';
+  }
+}
+
 const emptyTest = {
   testName: '', testCode: '', category: 'Blood',
   price: '', result: '', referenceRange: '', unit: '', status: 'Pending',
@@ -17,6 +39,8 @@ const calcTotal = (tests) =>
   tests.reduce((s, t) => s + (parseFloat(t.price) || 0), 0);
 
 export default function Lab() {
+  const clinicId = getClinicId();
+
   const [labs,         setLabs]         = useState([]);
   const [total,        setTotal]        = useState(0);
   const [loading,      setLoading]      = useState(true);
@@ -24,17 +48,17 @@ export default function Lab() {
   const [form,         setForm]         = useState(emptyForm);
   const [editId,       setEditId]       = useState(null);
   const [patients,     setPatients]     = useState([]);
+  const [patientsLoading, setPatientsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
   const [page,         setPage]         = useState(1);
   const [submitting,   setSubmitting]   = useState(false);
   const [error,        setError]        = useState('');
 
-  // ── Fetch lab list ─────────────────────────────────────────────────────────
-  // Backend automatically scopes by clinicId from JWT — no extra param needed
+  // ── Fetch lab list — clinicId now sent explicitly, not inferred ───────────
   const fetchLabs = async () => {
     setLoading(true);
     try {
-      let url = `/lab?page=${page}&limit=15`;
+      let url = `/lab?page=${page}&limit=15&clinicId=${clinicId}`;
       if (filterStatus) url += `&status=${filterStatus}`;
       const { data } = await API.get(url);
       setLabs(data.labs);
@@ -46,14 +70,16 @@ export default function Lab() {
     }
   };
 
-  useEffect(() => { fetchLabs(); }, [page, filterStatus]);
+  useEffect(() => { fetchLabs(); }, [page, filterStatus]);   // eslint-disable-line
 
-  // ── Fetch patients — backend scopes by clinicId from JWT automatically ─────
+  // ── Fetch patients — clinicId now sent explicitly, same as Patients.jsx ───
   useEffect(() => {
-    API.get('/patients?limit=200')
+    setPatientsLoading(true);
+    API.get(`/patients?limit=200&clinicId=${clinicId}`)
       .then(r => setPatients(r.data.patients || []))
-      .catch(() => {});
-  }, []);
+      .catch(() => setPatients([]))
+      .finally(() => setPatientsLoading(false));
+  }, [clinicId]);
 
   // ── Update a single test field ─────────────────────────────────────────────
   const updateTest = (idx, field, val) => {
@@ -117,7 +143,8 @@ export default function Lab() {
   };
 
   // ── Submit (create or update) ──────────────────────────────────────────────
-  // clinicId is injected by the backend from req.user.clinicId — not sent from frontend
+  // clinicId is now sent explicitly in the payload — the backend no longer
+  // guesses it from req.user.clinicId alone.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -133,6 +160,7 @@ export default function Lab() {
 
     const payload = {
       ...form,
+      clinicId,
       tests: form.tests.map(t => ({
         ...t,
         price: parseFloat(t.price) || 0,
@@ -142,7 +170,7 @@ export default function Lab() {
     setSubmitting(true);
     try {
       if (editId) {
-        await API.put(`/lab/${editId}`, payload);
+        await API.put(`/lab/${editId}?clinicId=${clinicId}`, payload);
       } else {
         await API.post('/lab', payload);
       }
@@ -158,7 +186,7 @@ export default function Lab() {
   // ── Quick status change from table row ─────────────────────────────────────
   const handleStatusChange = async (id, status) => {
     try {
-      await API.put(`/lab/${id}`, { status });
+      await API.put(`/lab/${id}?clinicId=${clinicId}`, { status, clinicId });
       fetchLabs();
     } catch (err) {
       alert(err.response?.data?.message || 'Status update failed.');
@@ -332,24 +360,27 @@ export default function Lab() {
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Patient *</label>
-                    {/*
-                      Patients list is already clinic-scoped:
-                      backend GET /patients filters by req.user.clinicId from JWT.
-                      No extra query param needed here.
-                    */}
                     <select
                       className="form-control"
                       value={form.patient}
                       onChange={e => setForm(f => ({ ...f, patient: e.target.value }))}
                       required
+                      disabled={patientsLoading}
                     >
-                      <option value="">Select Patient</option>
+                      <option value="">
+                        {patientsLoading ? 'Loading patients…' : 'Select Patient'}
+                      </option>
                       {patients.map(p => (
                         <option key={p._id} value={p._id}>
                           {p.name} — {p.patientId}
                         </option>
                       ))}
                     </select>
+                    {!patientsLoading && patients.length === 0 && (
+                      <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444' }}>
+                        No patients found for this clinic. Register a patient first.
+                      </p>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Priority</label>

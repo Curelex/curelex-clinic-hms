@@ -19,7 +19,8 @@ export const protect = (req, res, next) => {
       return res.status(401).json({ message: 'Invalid token: missing clinicId' });
     }
 
-    req.user     = decoded;           // { id, role, clinicId }
+    decoded._id  = decoded.id;        // Fix: controllers expect req.user._id
+    req.user     = decoded;           // { id, _id, role, clinicId }
     req.userId   = decoded.id;
     req.clinicId = decoded.clinicId;  // null for super_admin
     next();

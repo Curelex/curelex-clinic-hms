@@ -8,6 +8,7 @@ const navItems = [
   { key: 'telemedicine',  label: 'Consult', icon: 'fa-video',                   path: '/patient-telemedicine' },
   { key: 'prescriptions', label: 'Rx',      icon: 'fa-pills',                   path: '/patient-prescriptions' },
   { key: 'documents',     label: 'Docs',    icon: 'fa-folder-open',             path: '/patient-documents' },
+  { key: 'feedback',      label: 'Feedback',icon: 'fa-star',                    path: '/patient-feedback' },
 ];
 
 export default function BottomNav({ activeItem }) {
