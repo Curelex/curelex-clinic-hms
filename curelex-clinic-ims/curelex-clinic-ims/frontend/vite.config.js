@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      port: 5173,
+      strictPort: true,
       proxy: {
         '/api/clinic': {
           target: 'http://localhost:5000',
