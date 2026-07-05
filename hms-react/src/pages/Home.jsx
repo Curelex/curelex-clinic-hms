@@ -250,14 +250,14 @@ const Home = () => {
 
       {/* ── Mobile Menu ── */}
       <div className={`mobile-menu ${isMobileMenuOpen ? 'active' : ''}`}>
-        <ul>
-          <li><a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a></li>
-          <li><Link to="/about" onClick={closeMobileMenu}>About</Link></li>
-          <li><a href="#services" onClick={(e) => { e.preventDefault(); scrollToSection('services'); }}>Services</a></li>
-          <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact Us</a></li>
+        <ul className='flex flex-col gap-3'>
+            <li><a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a></li>
+            <li><Link to="/about" onClick={closeMobileMenu}>About</Link></li>
+            <li><a href="#services" onClick={(e) => { e.preventDefault(); scrollToSection('services'); }}>Services</a></li>
+            <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact Us</a></li>
           <li>
             <button className="theme-toggle-mobile" onClick={toggleTheme}>
-              <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
+              <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'} text-gray-500 `}></i>
               <span> {theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
           </li>
