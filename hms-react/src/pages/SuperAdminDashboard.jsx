@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { data, useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 
-const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Clinic Dashboard'];
+const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Clinic Dashboard', 'Payroll'];
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -1165,6 +1165,504 @@ function ClinicDashboardTab({ clinics }) {
   );
 }
 
+function PayrollTab({ clinics, allUsers, onRefresh }) {
+  const [payrolls, setPayrolls] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  
+  // Filters
+  const [filterClinic, setFilterClinic] = React.useState('');
+  const [filterMonth, setFilterMonth]   = React.useState('');
+  const [filterYear, setFilterYear]     = React.useState('');
+  const [filterStatus, setFilterStatus] = React.useState('');
+
+  // Salary Edit State
+  const [editSalaryUser, setEditSalaryUser] = React.useState(null);
+  const [newSalary, setNewSalary] = React.useState('');
+  const [updatingSalary, setUpdatingSalary] = React.useState(false);
+
+  // Generate Payroll State
+  const [genUser, setGenUser] = React.useState(null);
+  const [genForm, setGenForm] = React.useState({
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    allowances: '',
+    deductions: '',
+    notes: ''
+  });
+  const [generating, setGenerating] = React.useState(false);
+
+  // Record Payment State
+  const [payRecord, setPayRecord] = React.useState(null);
+  const [payForm, setPayForm] = React.useState({
+    paymentMethod: 'Bank Transfer',
+    transactionId: '',
+    notes: ''
+  });
+  const [paying, setPaying] = React.useState(false);
+
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState('');
+
+  React.useEffect(() => {
+    loadPayrolls();
+  }, [filterClinic, filterMonth, filterYear, filterStatus]);
+
+  const loadPayrolls = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {};
+      if (filterClinic) params.clinicId = filterClinic;
+      if (filterMonth) params.month = filterMonth;
+      if (filterYear) params.year = filterYear;
+      if (filterStatus) params.status = filterStatus;
+
+      const { data } = await API.get('/payroll', { params });
+      setPayrolls(data.payrolls || []);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load payroll records');
+    }
+    setLoading(false);
+  };
+
+  const handleUpdateSalary = async () => {
+    if (!editSalaryUser) return;
+    setUpdatingSalary(true);
+    setError('');
+    setSuccess('');
+    try {
+      await API.put('/payroll/base-salary', {
+        staffId: editSalaryUser._id,
+        baseSalary: Number(newSalary) || 0
+      });
+      setSuccess(`Salary updated successfully`);
+      setEditSalaryUser(null);
+      onRefresh(); // Refetch staff/allUsers
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update salary');
+    }
+    setUpdatingSalary(false);
+  };
+
+  const handleGeneratePayroll = async () => {
+    if (!genUser) return;
+    setGenerating(true);
+    setError('');
+    setSuccess('');
+    try {
+      await API.post('/payroll/generate', {
+        staffId: genUser._id,
+        month: genForm.month,
+        year: genForm.year,
+        allowances: Number(genForm.allowances) || 0,
+        deductions: Number(genForm.deductions) || 0,
+        notes: genForm.notes
+      });
+      setSuccess(`Payroll record generated for ${genUser.name}`);
+      setGenUser(null);
+      loadPayrolls();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to generate payroll');
+    }
+    setGenerating(false);
+  };
+
+  const handleRecordPayment = async () => {
+    if (!payRecord) return;
+    setPaying(true);
+    setError('');
+    setSuccess('');
+    try {
+      await API.put(`/payroll/${payRecord._id}/pay`, payForm);
+      setSuccess(`Payment recorded successfully`);
+      setPayRecord(null);
+      loadPayrolls();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record payment');
+    }
+    setPaying(false);
+  };
+
+  const handleDeletePayroll = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this payroll record?')) return;
+    setError('');
+    setSuccess('');
+    try {
+      await API.delete(`/payroll/${id}`);
+      setSuccess('Payroll record deleted');
+      loadPayrolls();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete payroll record');
+    }
+  };
+
+  // Staff list (exclude patients and super admins)
+  const staffMembers = allUsers.filter(u => u.role !== 'patient' && u.role !== 'super_admin');
+
+  return (
+    <div>
+      {error && <div style={{ ...errorStyle, marginBottom: 15 }}>{error}</div>}
+      {success && <div style={{ background: '#dcfce7', color: '#16a34a', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 15, fontWeight: 500 }}>{success}</div>}
+
+      {/* ── Action Forms (Rendered Inline conditionally) ── */}
+      {editSalaryUser && (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 20 }}>
+          <h4 style={{ margin: '0 0 14px', color: '#1a2236' }}>Set Base Salary for {editSalaryUser.name}</h4>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 200 }}>
+              <label style={labelStyle}>Base Monthly Salary (₹) *</label>
+              <input 
+                type="number"
+                value={newSalary}
+                onChange={e => setNewSalary(e.target.value)}
+                style={inputStyle}
+                placeholder="Enter base salary"
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setEditSalaryUser(null)} style={btnStyle('#94a3b8')}>Cancel</button>
+              <button onClick={handleUpdateSalary} disabled={updatingSalary} style={btnStyle('#0f4c81')}>
+                {updatingSalary ? 'Saving...' : 'Update Salary'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {genUser && (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 20 }}>
+          <h4 style={{ margin: '0 0 14px', color: '#1a2236' }}>Generate Monthly Payroll for {genUser.name}</h4>
+          <p style={{ margin: '-10px 0 14px', fontSize: 12, color: '#64748b' }}>Base Salary: ₹{genUser.baseSalary || 0}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Month *</label>
+              <select 
+                value={genForm.month}
+                onChange={e => setGenForm(p => ({ ...p, month: Number(e.target.value) }))}
+                style={inputStyle}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {new Date(0, i).toLocaleString('en', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Year *</label>
+              <select 
+                value={genForm.year}
+                onChange={e => setGenForm(p => ({ ...p, year: Number(e.target.value) }))}
+                style={inputStyle}
+              >
+                {[2025, 2026, 2027, 2028].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Allowances (Bonus, OT, etc.) (₹)</label>
+              <input 
+                type="number"
+                value={genForm.allowances}
+                onChange={e => setGenForm(p => ({ ...p, allowances: e.target.value }))}
+                placeholder="0"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Deductions (Unpaid leaves, tax) (₹)</label>
+              <input 
+                type="number"
+                value={genForm.deductions}
+                onChange={e => setGenForm(p => ({ ...p, deductions: e.target.value }))}
+                placeholder="0"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>Notes</label>
+            <input 
+              type="text"
+              value={genForm.notes}
+              onChange={e => setGenForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="e.g. Performance bonus included"
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setGenUser(null)} style={btnStyle('#94a3b8')}>Cancel</button>
+            <button onClick={handleGeneratePayroll} disabled={generating} style={btnStyle('#2d6be4')}>
+              {generating ? 'Generating...' : 'Generate Pay Slip'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {payRecord && (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 20 }}>
+          <h4 style={{ margin: '0 0 14px', color: '#1a2236' }}>Record Salary Payment for {payRecord.staffId?.name}</h4>
+          <p style={{ margin: '-10px 0 14px', fontSize: 12, color: '#64748b' }}>
+            Net Amount: <strong>₹{payRecord.netSalary}</strong> ({new Date(0, payRecord.month - 1).toLocaleString('en', { month: 'long' })} {payRecord.year})
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Payment Method *</label>
+              <select 
+                value={payForm.paymentMethod}
+                onChange={e => setPayForm(p => ({ ...p, paymentMethod: e.target.value }))}
+                style={inputStyle}
+              >
+                {['Bank Transfer', 'UPI', 'Cash', 'Cheque', 'Other'].map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Transaction ID / Ref Number</label>
+              <input 
+                type="text"
+                value={payForm.transactionId}
+                onChange={e => setPayForm(p => ({ ...p, transactionId: e.target.value }))}
+                placeholder="TXN12345678"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>Notes / Description</label>
+            <input 
+              type="text"
+              value={payForm.notes}
+              onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="UPI transaction successful"
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button onClick={() => setPayRecord(null)} style={btnStyle('#94a3b8')}>Cancel</button>
+            <button onClick={handleRecordPayment} disabled={paying} style={btnStyle('#10b981')}>
+              {paying ? 'Recording...' : 'Mark as Paid'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Section: Staff Salary Management ── */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 24 }}>
+        <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700, color: '#1a2236' }}>Staff Base Salary List</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                {['Staff Member', 'Role', 'Clinic', 'Base Salary', 'Actions'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staffMembers.map(staff => {
+                const clinicName = clinics.find(c => c._id === staff.clinicId)?.name || 'Default Clinic';
+                return (
+                  <tr key={staff._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1a2236' }}>{staff.name}</td>
+                    <td style={{ padding: '10px 14px' }}><span style={roleBadge(staff.role)}>{staff.role}</span></td>
+                    <td style={{ padding: '10px 14px', color: '#475569' }}>{clinicName}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f4c81' }}>₹{staff.baseSalary || 0}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button 
+                          onClick={() => {
+                            setEditSalaryUser(staff);
+                            setNewSalary(staff.baseSalary || '');
+                            setGenUser(null);
+                            setPayRecord(null);
+                          }}
+                          style={{ ...smallBtn, color: '#0f4c81', borderColor: '#bfdbfe' }}
+                        >
+                          ⚙️ Set Salary
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setGenUser(staff);
+                            setGenForm({
+                              month: new Date().getMonth() + 1,
+                              year: new Date().getFullYear(),
+                              allowances: '',
+                              deductions: '',
+                              notes: ''
+                            });
+                            setEditSalaryUser(null);
+                            setPayRecord(null);
+                          }}
+                          style={{ ...smallBtn, background: '#2d6be4', color: '#fff', border: 'none' }}
+                        >
+                          📄 Generate Slip
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Section: Payroll Log / Slips History ── */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1a2236' }}>Payroll Records & Slips</h3>
+          
+          {/* Filters Row */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <select 
+              value={filterClinic}
+              onChange={e => setFilterClinic(e.target.value)}
+              style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 12 }}
+            >
+              <option value="">All Clinics</option>
+              {clinics.map(c => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+            
+            <select 
+              value={filterMonth}
+              onChange={e => setFilterMonth(e.target.value)}
+              style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 12 }}
+            >
+              <option value="">All Months</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {new Date(0, i).toLocaleString('en', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+
+            <select 
+              value={filterYear}
+              onChange={e => setFilterYear(e.target.value)}
+              style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 12 }}
+            >
+              <option value="">All Years</option>
+              {[2025, 2026, 2027, 2028].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+
+            <select 
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 12 }}
+            >
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 20, color: '#6b7a99' }}>Loading slips...</div>
+        ) : payrolls.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 30, color: '#6b7a99', background: '#f8fafc', borderRadius: 8 }}>
+            No payroll records found matching the filters.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
+                  {['Staff Name', 'Month/Year', 'Base Salary', 'Allowances', 'Deductions', 'Net Pay', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {payrolls.map(pr => {
+                  const monthName = new Date(0, pr.month - 1).toLocaleString('en', { month: 'short' });
+                  return (
+                    <tr key={pr._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ fontWeight: 600, color: '#1a2236' }}>{pr.staffId?.name || 'Deleted User'}</div>
+                        <div style={{ fontSize: 11, color: '#6b7a99' }}>{pr.staffId?.role}</div>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 500 }}>
+                        {monthName} {pr.year}
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#475569' }}>₹{pr.baseSalary}</td>
+                      <td style={{ padding: '10px 14px', color: '#10b981' }}>+₹{pr.allowances}</td>
+                      <td style={{ padding: '10px 14px', color: '#ef4444' }}>-₹{pr.deductions}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 800, color: '#0f4c81', fontSize: 14 }}>
+                        ₹{pr.netSalary}
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{
+                          padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          background: pr.status === 'paid' ? '#dcfce7' : '#fef3c7',
+                          color: pr.status === 'paid' ? '#15803d' : '#b45309'
+                        }}>
+                          {pr.status === 'paid' ? 'Paid' : 'Pending'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {pr.status === 'pending' && (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  setPayRecord(pr);
+                                  setPayForm({
+                                    paymentMethod: 'Bank Transfer',
+                                    transactionId: '',
+                                    notes: ''
+                                  });
+                                  setGenUser(null);
+                                  setEditSalaryUser(null);
+                                }}
+                                style={{
+                                  background: '#10b981', color: '#fff', border: 'none',
+                                  borderRadius: 6, padding: '4px 10px', fontSize: 11,
+                                  fontWeight: 600, cursor: 'pointer'
+                                }}
+                              >
+                                💳 Record Pay
+                              </button>
+                              <button 
+                                onClick={() => handleDeletePayroll(pr._id)}
+                                style={{
+                                  background: 'transparent', color: '#ef4444', border: '1px solid #fee2e2',
+                                  borderRadius: 6, padding: '4px 10px', fontSize: 11,
+                                  fontWeight: 600, cursor: 'pointer'
+                                }}
+                              >
+                                🗑️ Delete
+                              </button>
+                            </>
+                          )}
+                          {pr.status === 'paid' && (
+                            <div style={{ fontSize: 11, color: '#64748b' }}>
+                              <div>Paid via {pr.paymentMethod}</div>
+                              {pr.paymentDate && <div style={{ fontSize: 10 }}>on {new Date(pr.paymentDate).toLocaleDateString()}</div>}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Shared styles ────────────────────────────────────────────────────────────
 const inputStyle = {
   width: '100%', padding: '8px 12px', borderRadius: 8,
@@ -1312,6 +1810,7 @@ export default function SuperAdminDashboard() {
               {tab === 'Staff'            && '👥 '}
               {tab === 'Users'            && '👤 '}
               {tab === 'Clinic Dashboard' && '📊 '}
+              {tab === 'Payroll'          && '💰 '}
               {tab}
             </button>
           ))}
@@ -1330,6 +1829,7 @@ export default function SuperAdminDashboard() {
         {activeTab === 'Staff'             && <StaffTab           clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
         {activeTab === 'Users'             && <AllUsersTab        clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
         {activeTab === 'Clinic Dashboard'  && <ClinicDashboardTab clinics={clinics} />}
+        {activeTab === 'Payroll'           && <PayrollTab         clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
       </div>
     </div>
   );
