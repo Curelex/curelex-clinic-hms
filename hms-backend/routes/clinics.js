@@ -3,6 +3,7 @@ import express from 'express';
 const router = express.Router();
 import Clinic from '../models/Clinic.js';
 import User from '../models/User.js';
+import Feedback from '../models/Feedback.js';
 
 // ── GET /api/clinics - Fetch / search registered clinics ──────────────────
 // Query: ?search=xyz  → case-insensitive partial match on clinic name
@@ -46,32 +47,57 @@ router.get('/search-all', async (req, res) => {
     const [clinics, doctors] = await Promise.all([
       Clinic.find({ name: regex }, '_id name address').limit(8),
       User.find(
-        { role: 'doctor', isActive: true, $or: [{ name: regex }, { department: regex }] },
+        { role: { $in: ['doctor', 'separate_doctor'] }, isActive: true, $or: [{ name: regex }, { department: regex }] },
         'name department consultationFee telemedicineFee avatar clinicId'
       )
         .populate('clinicId', 'name address')
         .limit(8),
     ]);
 
+    const clinicIds = clinics.map(c => c._id);
+    const doctorIds = doctors.map(d => d._id);
+
+    const [clinicFeedbacks, doctorFeedbacks] = await Promise.all([
+      Feedback.find({ clinicId: { $in: clinicIds } }),
+      Feedback.find({ doctorId: { $in: doctorIds } })
+    ]);
+
+    const getAvg = (feedbacks, key, idField, id) => {
+      const related = feedbacks.filter(f => String(f[idField]) === String(id));
+      if (!related.length) return { rating: 0, reviews: 0 };
+      const sum = related.reduce((acc, curr) => acc + curr[key], 0);
+      return { rating: Number((sum / related.length).toFixed(1)), reviews: related.length };
+    };
+
     const results = [
-      ...clinics.map((c) => ({
-        type: 'clinic',
-        _id: c._id,
-        name: c.name,
-        address: c.address,
-      })),
-      ...doctors.map((d) => ({
-        type: 'doctor',
-        _id: d._id,
-        name: d.name,
-        department: d.department,
-        consultationFee: d.consultationFee,
-        telemedicineFee: d.telemedicineFee || 0,
-        avatar: d.avatar,
-        clinic: d.clinicId
-          ? { _id: d.clinicId._id, name: d.clinicId.name, address: d.clinicId.address }
-          : null,
-      })),
+      ...clinics.map((c) => {
+        const stats = getAvg(clinicFeedbacks, 'clinicRating', 'clinicId', c._id);
+        return {
+          type: 'clinic',
+          _id: c._id,
+          name: c.name,
+          address: c.address,
+          rating: stats.rating,
+          reviews: stats.reviews,
+        };
+      }),
+      ...doctors.map((d) => {
+        const stats = getAvg(doctorFeedbacks, 'doctorRating', 'doctorId', d._id);
+        return {
+          type: 'doctor',
+          _id: d._id,
+          name: d.name,
+          department: d.department,
+          consultationFee: d.consultationFee,
+          telemedicineFee: d.telemedicineFee || 0,
+          avatar: d.avatar,
+          clinic: d.clinicId
+            ? { _id: d.clinicId._id, name: d.clinicId.name, address: d.clinicId.address }
+            : null,
+          rating: stats.rating,
+          reviews: stats.reviews,
+        };
+      }),
     ];
 
     res.json({ success: true, results });
@@ -87,11 +113,30 @@ router.get('/:clinicId/doctors', async (req, res) => {
     const { clinicId } = req.params;
 
     const doctors = await User.find(
-      { clinicId, role: 'doctor', isActive: true },
+      { clinicId, role: { $in: ['doctor', 'separate_doctor'] }, isActive: true },
       'name department consultationFee telemedicineFee avatar'
     ).sort({ name: 1 });
 
-    res.json({ success: true, doctors });
+    const doctorIds = doctors.map(d => d._id);
+    const doctorFeedbacks = await Feedback.find({ doctorId: { $in: doctorIds } });
+
+    const getAvg = (feedbacks, id) => {
+      const related = feedbacks.filter(f => String(f.doctorId) === String(id));
+      if (!related.length) return { rating: 0, reviews: 0 };
+      const sum = related.reduce((acc, curr) => acc + curr.doctorRating, 0);
+      return { rating: Number((sum / related.length).toFixed(1)), reviews: related.length };
+    };
+
+    const doctorsWithRatings = doctors.map(d => {
+      const stats = getAvg(doctorFeedbacks, d._id);
+      return {
+        ...d.toObject(),
+        rating: stats.rating,
+        reviews: stats.reviews
+      };
+    });
+
+    res.json({ success: true, doctors: doctorsWithRatings });
   } catch (err) {
     console.error('Error fetching clinic doctors:', err);
     res.status(500).json({ success: false, message: 'Server error' });

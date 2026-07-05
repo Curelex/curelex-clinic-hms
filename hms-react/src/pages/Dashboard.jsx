@@ -211,7 +211,7 @@ function DoctorEmergencyAlerts() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (!socket || (user?.role !== 'doctor' && user?.role !== 'super_admin')) return;
+    if (!socket || (user?.role !== 'doctor' && user?.role !== 'separate_doctor' && user?.role !== 'super_admin')) return;
 
     socket.emit('doctor:join', user._id || user.id);
 
@@ -298,7 +298,7 @@ function DoctorEarningsWidget() {
   }, [user]);
 
   useEffect(() => {
-    if (user?.role !== 'doctor' && user?.role !== 'super_admin') return;
+    if (user?.role !== 'doctor' && user?.role !== 'separate_doctor' && user?.role !== 'super_admin') return;
     loadEarnings();
 
     if (!socket) return;
@@ -364,7 +364,7 @@ function DoctorTelemedicineQuickStats() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.role !== 'doctor' && user?.role !== 'super_admin') { setLoading(false); return; }
+    if (user?.role !== 'doctor' && user?.role !== 'separate_doctor' && user?.role !== 'super_admin') { setLoading(false); return; }
     API.get('/telemedicine/stats')
       .then(({ data }) => {
         if (data.success) setStats({ total: data.stats.total || 0, pending: data.stats.requested || 0, ongoing: data.stats.ongoing || 0 });
@@ -373,7 +373,7 @@ function DoctorTelemedicineQuickStats() {
       .finally(() => setLoading(false));
   }, [user]);
 
-  if (loading || (user?.role !== 'doctor' && user?.role !== 'super_admin')) return null;
+  if (loading || (user?.role !== 'doctor' && user?.role !== 'separate_doctor' && user?.role !== 'super_admin')) return null;
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -563,7 +563,7 @@ export default function Dashboard() {
   const { user, hasPerm, getEffectiveClinicId, superAdminClinicId, superAdminClinicName } = useAuth();
   const navigate = useNavigate();
 
-  const isDoctor     = user?.role?.toLowerCase() === 'doctor';
+  const isDoctor     = user?.role?.toLowerCase() === 'doctor' || user?.role?.toLowerCase() === 'separate_doctor';
   const isAdmin      = user?.role?.toLowerCase() === 'admin';
   const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
   const showDoctorWidgets = isDoctor || isSuperAdmin;
@@ -625,7 +625,7 @@ export default function Dashboard() {
     revenue: m.total,
   })) || [];
 
-  const showTokenQueue       = hasPerm('patients');
+  const showTokenQueue       = hasPerm('patients') && user?.role !== 'separate_doctor';
   const showInventoryAlerts  = hasPerm('inventory') || hasPerm('pharmacy');
   const showRoomSummary      = hasPerm('ipd') || hasPerm('admin');
 
@@ -652,7 +652,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showDoctorWidgets && <DoctorEmergencyAlerts />}
+      {showDoctorWidgets && user?.role !== 'separate_doctor' && <DoctorEmergencyAlerts />}
 
       <div className="page-header">
         <div>
@@ -672,7 +672,7 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="stat-grid">
-        {hasPerm('patients') && (
+        {hasPerm('patients') && user?.role !== 'separate_doctor' && (
           <>
             <StatCard label="Total Patients"  value={stats?.totalPatients  || 0} icon="👤" color="#dbeafe" />
             <StatCard label="Active Patients" value={stats?.activePatients || 0} icon="🟢" color="#d1fae5" />
