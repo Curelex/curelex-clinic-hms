@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { apiRegister, apiLogin } from '../utils/api';
@@ -661,6 +660,15 @@ export default function LandingPage() {
   const [role,    setRole]    = useState('superadmin');
   const [loading, setLoading] = useState(false);
   const [err,     setErr]     = useState('');
+
+  // ── Auto-open login/signup form if URL says so (?mode=login or ?mode=register) ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialMode = params.get('mode');
+    if (initialMode === 'login' || initialMode === 'register') {
+      setMode(initialMode);
+    }
+  }, []);
 
 //   // Dynamic city options returned from the API
   const [apiCities, setApiCities] = useState([]);

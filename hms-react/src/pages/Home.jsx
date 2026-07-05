@@ -207,9 +207,9 @@ const Home = () => {
 
   /* ── Role selection handlers ──
      Patient keeps its own dedicated login route.
-     Doctor, Clinic, and Hospital all reuse the exact same
-     staff login route/logic that "Staff" used before —
-     nothing new was added, only the labels changed. ── */
+     Doctor and Hospital reuse the exact same staff login
+     route/logic that "Staff" used before.
+     Clinic now redirects to the standalone curelex-clinic-ims app. ── */
   const handlePatientSelect = () => {
     setShowRoleModal(false);
     navigate('/patient-login');
@@ -218,6 +218,11 @@ const Home = () => {
   const handleStaffSelect = () => {
     setShowRoleModal(false);
     navigate('/login');
+  };
+
+  const handleClinicSelect = () => {
+    setShowRoleModal(false);
+    window.location.href = 'http://localhost:5173/clinic?mode=login';
   };
 
   return (
@@ -614,9 +619,9 @@ const Home = () => {
             </div>
             {/*
               4 role cards now. Patient keeps its own route.
-              Doctor, Clinic, and Hospital all reuse handleStaffSelect —
-              the exact same /login routing "Staff" used before.
-              Nothing new was built; only labels/icons/text changed.
+              Doctor and Hospital reuse handleStaffSelect — the exact
+              same /login routing "Staff" used before.
+              Clinic redirects to the standalone curelex-clinic-ims app.
             */}
             <div className="role-selection role-selection-4">
               <button className="role-card" onClick={handlePatientSelect}>
@@ -629,7 +634,7 @@ const Home = () => {
                 <h3>Doctor</h3>
                 <p>Manage appointments, consultations and patient records</p>
               </button>
-              <button className="role-card" onClick={handleStaffSelect}>
+              <button className="role-card" onClick={handleClinicSelect}>
                 <div className="role-icon"><i className="fas fa-clinic-medical"></i></div>
                 <h3>Clinic</h3>
                 <p>Manage appointments, patients, billing and more</p>
