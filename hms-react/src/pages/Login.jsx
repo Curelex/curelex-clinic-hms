@@ -13,13 +13,15 @@ export default function Login() {
     e.preventDefault();
     setError('');
     const result = await login(form.email, form.password);
-
+    console.log(result);
     if (result.success) {
       const role = result.user?.role;
       if (role === 'super_admin') {
         navigate('/super-admin');
       } else if (role === 'patient') {
         navigate('/patient-dashboard');
+      } else if (role === 'separate_doctor') {
+        navigate('/solo-doctor-dashboard');
       } else {
         navigate('/dashboard');
       }

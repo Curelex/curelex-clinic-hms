@@ -1,7 +1,7 @@
 // hms-react/src/pages/SuperAdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { data, useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 
 const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Clinic Dashboard'];
@@ -762,8 +762,11 @@ function ClinicDashboardTab({ clinics }) {
   const [roomConfigs, setRoomConfigs] = useState([]);
   const [pendingPayouts, setPendingPayouts] = useState([]);
   const [totalPayoutAmount, setTotalPayoutAmount] = useState(0);
+  const [pendingDoctorProfiles, setPendingDoctorProfiles] = useState([]);
+  const [doctorProfilesError, setDoctorProfilesError] = useState('');
   const [loading, setLoading]       = useState(false);
   const [processingPayout, setProcessingPayout] = useState(false);
+  const [processingDoctorProfile, setProcessingDoctorProfile] = useState('');
 
   const clinicId = selectedClinicId || (clinics[0]?._id ?? '');
 
@@ -783,13 +786,38 @@ function ClinicDashboardTab({ clinics }) {
       API.get(`/dashboard/stats?clinicId=${clinicId}`).catch(() => ({ data: null })),
       API.get(`/room-settings?clinicId=${clinicId}`).catch(() => ({ data: [] })),
       API.get('/telemedicine/pending-payouts').catch(() => ({ data: { pendingPayouts: [], totalAmount: 0 } })),
-    ]).then(([statsRes, roomRes, payoutRes]) => {
+      API.get('/auth/doctor-profiles/pending').then(e=>{console.log(e);}).catch(err => {
+        setDoctorProfilesError(err?.response?.data?.message || 'Unable to load doctor approval requests right now.');
+        return { data: { profiles: [] } };
+      }),
+    ]).then(([statsRes, roomRes, payoutRes, doctorProfileRes]) => {
       setStats(statsRes.data);
       setRoomConfigs(Array.isArray(roomRes.data) ? roomRes.data : []);
       setPendingPayouts(payoutRes.data?.pendingPayouts || []);
       setTotalPayoutAmount(payoutRes.data?.totalAmount || 0);
+      const profiles = doctorProfileRes.data?.profiles || [];
+      setPendingDoctorProfiles(profiles);
+      setDoctorProfilesError(profiles.length > 0 ? '' : '');
     }).finally(() => setLoading(false));
   }, [clinicId]);
+
+  useEffect(() => {
+    
+    setLoading(true);
+    Promise.all([
+      
+      API.get('/auth/doctor-profiles/pending').catch(err => {
+        setDoctorProfilesError(err?.response?.data?.message || 'Unable to load doctor approval requests right now.');
+        return { data: { profiles: [] } };
+      }),
+    ]).then(e => {
+      const profiles = e[0]?.data?.profiles || [];
+      console.log(profiles);
+      setPendingDoctorProfiles(profiles);
+      setDoctorProfilesError(profiles.length > 0 ? '' : '');
+    }).finally(() => setLoading(false));
+  }, []);
+
 
   const handleApprovePayout = async (id) => {
     if (!confirm('Approve this payout request?')) return;
@@ -808,6 +836,30 @@ function ClinicDashboardTab({ clinics }) {
       alert(err.response?.data?.message || 'Failed to approve payout');
     }
     setProcessingPayout(false);
+  };
+
+  const handleDoctorProfileAction = async (id, action) => {
+    if (action === 'reject' && !confirm('Reject this doctor profile?')) return;
+    setProcessingDoctorProfile(id);
+    try {
+      let response;
+      if (action === 'approve') {
+        response = await API.patch(`/auth/doctor-profiles/${id}/approve`);
+      } else {
+        response = await API.patch(`/auth/doctor-profiles/${id}/reject`, {
+          reason: 'Profile rejected by super admin',
+        });
+      }
+
+      const { data } = response;
+      if (data.success) {
+        alert(action === 'approve' ? '✅ Doctor profile approved!' : '⚠️ Doctor profile rejected');
+        setPendingDoctorProfiles(prev => prev.filter(p => p._id !== id));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update doctor profile');
+    }
+    setProcessingDoctorProfile('');
   };
 
   const totalRooms     = roomConfigs.reduce((s, r) => s + r.totalRooms, 0);
@@ -932,6 +984,66 @@ function ClinicDashboardTab({ clinics }) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* ── Pending Doctor Profiles ── */}
+          {(pendingDoctorProfiles.length > 0 || doctorProfilesError) && (
+            <div style={{ background: '#fff', borderRadius: 12, border: '2px solid #2563eb', marginBottom: 20, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f3f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1d4ed8' }}>🩺 Pending Doctor Profiles</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
+                    {pendingDoctorProfiles.length > 0
+                      ? `${pendingDoctorProfiles.length} profile${pendingDoctorProfiles.length > 1 ? 's' : ''} waiting for approval`
+                      : (doctorProfilesError || 'No pending doctor approval requests right now.')}
+                  </p>
+                </div>
+              </div>
+              {pendingDoctorProfiles.length > 0 ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        {['Doctor', 'Specialization', 'Contact', 'Submitted', 'Action'].map(h => (
+                          <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingDoctorProfiles.map(profile => (
+                        <tr key={profile._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+                          <td style={{ padding: '10px 16px' }}>
+                            <div style={{ fontWeight: 600 }}>{profile.name || profile.userId?.name || 'Unnamed doctor'}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{profile.userId?.email}</div>
+                          </td>
+                          <td style={{ padding: '10px 16px', color: '#475569' }}>{profile.specialization || '—'}</td>
+                          <td style={{ padding: '10px 16px', fontSize: 12, color: '#64748b' }}>{profile.mobile || profile.userId?.phone || '—'}</td>
+                          <td style={{ padding: '10px 16px', fontSize: 12, color: '#64748b' }}>{new Date(profile.createdAt).toLocaleDateString()}</td>
+                          <td style={{ padding: '10px 16px' }}>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => handleDoctorProfileAction(profile._id, 'approve')}
+                                disabled={processingDoctorProfile === profile._id}
+                                style={{ ...btnStyle(processingDoctorProfile === profile._id ? '#94a3b8' : '#10b981'), fontSize: 12, padding: '4px 12px' }}
+                              >
+                                {processingDoctorProfile === profile._id ? '…' : '✅ Approve'}
+                              </button>
+                              <button
+                                onClick={() => handleDoctorProfileAction(profile._id, 'reject')}
+                                disabled={processingDoctorProfile === profile._id}
+                                style={{ ...btnStyle(processingDoctorProfile === profile._id ? '#94a3b8' : '#ef4444'), fontSize: 12, padding: '4px 12px' }}
+                              >
+                                {processingDoctorProfile === profile._id ? '…' : '✖ Reject'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
           )}
 

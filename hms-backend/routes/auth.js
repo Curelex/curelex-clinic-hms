@@ -9,6 +9,7 @@ import SsoToken from '../ims/src/models/SsoToken.js';
 import User from '../models/User.js';
 import Clinic from '../models/Clinic.js';
 import Patient from '../models/Patient.js';
+import DoctorProfile from '../models/DoctorProfile.js';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
@@ -169,6 +170,16 @@ router.post('/register', async (req, res) => {
       clinicId, department, phone,
       permissions: ROLE_PERMISSIONS_MAP[role] || ['dashboard'],
     });
+
+    if (role === 'separate_doctor') {
+      await DoctorProfile.create({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.phone || '',
+        verificationStatus: 'pending',
+      });
+    }
 
     const token = jwt.sign(
       { id: user._id, role: user.role, clinicId },
@@ -741,6 +752,193 @@ router.get('/available-doctors', auth, async (req, res) => {
   } catch (err) {
     console.error('Error fetching available doctors:', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── Doctor profile routes ────────────────────────────────────────────────
+router.get('/doctors/:id', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user || user.role !== 'separate_doctor') {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+
+    const profile = await DoctorProfile.findOne({ userId: user._id }) || await DoctorProfile.create({
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      mobile: user.phone || '',
+      verificationStatus: 'pending',
+      isActive: false,
+    });
+
+    res.json({ success: true, doctor: { ...user.toObject(), ...profile.toObject() } });
+  } catch (err) {
+    console.error('Get doctor profile error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/doctors/:id/status', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user || user.role !== 'separate_doctor') {
+      return res.status(404).json({ success: false, message: 'Doctor status not found' });
+    }
+
+    const profile = await DoctorProfile.findOne({ userId: user._id });
+    res.json({
+      success: true,
+      doctor: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isActive: profile?.isActive === true,
+        verificationStatus: profile?.verificationStatus || 'pending',
+      },
+    });
+  } catch (err) {
+    console.error('Get doctor status error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.patch('/doctors/:id/active', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user || user.role !== 'separate_doctor') {
+      return res.status(404).json({ success: false, message: 'Doctor status not found' });
+    }
+
+    const isActive = Boolean(req.body?.isActive);
+    const profile = await DoctorProfile.findOneAndUpdate(
+      { userId: user._id },
+      { $set: { isActive } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    user.isActive = isActive;
+    await user.save();
+
+    res.json({
+      success: true,
+      isActive,
+      doctor: {
+        id: user._id,
+        name: user.name,
+        isActive,
+        verificationStatus: profile?.verificationStatus || 'pending',
+      },
+    });
+  } catch (err) {
+    console.error('Update doctor active status error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/doctors/:id', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user || user.role !== 'separate_doctor') {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    const profile = await DoctorProfile.findOneAndUpdate(
+      { userId: user._id },
+      {
+        $set: {
+          name: req.body.name || user.name,
+          email: req.body.email || user.email,
+          mobile: req.body.mobile || user.phone || '',
+          specialization: req.body.specialization || '',
+          qualification: req.body.qualification || '',
+          experience: req.body.experience ? Number(req.body.experience) : 0,
+          licenseNumber: req.body.licenseNumber || '',
+          currentInstitute: req.body.hospital || req.body.currentInstitute || '',
+          address: req.body.address || '',
+          consultationFee: req.body.consultationFee ? Number(req.body.consultationFee) : 0,
+          bio: req.body.bio || '',
+          photoUrl: req.body.photoUrl || '',
+        },
+      },
+      { new: true, upsert: true }
+    );
+
+    if (req.body.name) user.name = req.body.name;
+    if (req.body.email) user.email = req.body.email;
+    if (req.body.mobile) user.phone = req.body.mobile;
+    if (req.body.consultationFee !== undefined) user.consultationFee = Number(req.body.consultationFee);
+    await user.save();
+
+    res.json({ success: true, doctor: { ...user.toObject(), ...profile.toObject() } });
+  } catch (err) {
+    console.error('Update doctor profile error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/doctor-profiles/pending', auth, roleCheck('super_admin'), async (req, res) => {
+  try {
+    const profiles = await DoctorProfile.find({ verificationStatus: 'pending' })
+      .populate('userId', 'name email phone role isActive clinicId')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, profiles });
+  } catch (err) {
+    console.error('List pending doctor profiles error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.patch('/doctor-profiles/:id/approve', auth, roleCheck('super_admin'), async (req, res) => {
+  try {
+    const profile = await DoctorProfile.findById(req.params.id).populate('userId', 'name email');
+    if (!profile) return res.status(404).json({ message: 'Doctor profile not found' });
+
+    profile.verificationStatus = 'approved';
+    profile.reviewedBy = req.user.id;
+    profile.reviewedAt = new Date();
+    profile.rejectionReason = '';
+    profile.isActive = true;
+    await profile.save();
+
+    const user = await User.findById(profile.userId._id);
+    if (user) {
+      user.isActive = true;
+      user.verificationStatus = 'approved';
+      await user.save();
+    }
+
+    res.json({ success: true, profile });
+  } catch (err) {
+    console.error('Approve doctor profile error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.patch('/doctor-profiles/:id/reject', auth, roleCheck('super_admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const profile = await DoctorProfile.findById(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'Doctor profile not found' });
+
+    profile.verificationStatus = 'rejected';
+    profile.reviewedBy = req.user.id;
+    profile.reviewedAt = new Date();
+    profile.rejectionReason = reason || 'No reason provided';
+    profile.isActive = false;
+    await profile.save();
+
+    const user = await User.findById(profile.userId);
+    if (user) {
+      user.isActive = false;
+      user.verificationStatus = 'rejected';
+      await user.save();
+    }
+
+    res.json({ success: true, profile });
+  } catch (err) {
+    console.error('Reject doctor profile error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
