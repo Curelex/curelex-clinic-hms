@@ -169,7 +169,7 @@ router.get('/stats', auth, async (req, res) => {
     /* ──────────────────────────────────────────────────────
        DOCTOR — my patients + my appointments + labs + IPD
     ────────────────────────────────────────────────────── */
-    if (role === 'doctor') {
+    if (role === 'doctor' || role === 'separate_doctor') {
       const myPatients = await Appointment.distinct('patient', { clinicId, doctor: userId });
       const pendingLabs = await Lab.countDocuments({ clinicId, doctor: userId, status: 'Pending' });
       const myAdmittedPatients = await Admission.countDocuments({ clinicId, doctor: userId, status: 'Admitted' });

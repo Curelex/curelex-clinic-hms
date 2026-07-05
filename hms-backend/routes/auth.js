@@ -131,27 +131,37 @@ router.post('/register', async (req, res) => {
       return res.status(201).json({ token, user: userOut });
     }
 
-    // Non-admin staff registration: must provide clinicId to join an existing clinic
-    if (!clinicId) {
+    // Non-admin staff registration: must provide clinicId to join an existing clinic (except separate_doctor)
+    if (!clinicId && role !== 'separate_doctor') {
       return res.status(400).json({ message: 'clinicId is required to join an existing clinic' });
     }
 
-    const targetClinic = await Clinic.findById(clinicId);
-    if (!targetClinic) {
-      return res.status(404).json({ message: 'Clinic not found' });
-    }
+    let targetClinic = null;
+    if (clinicId) {
+      targetClinic = await Clinic.findById(clinicId);
+      if (!targetClinic) {
+        return res.status(404).json({ message: 'Clinic not found' });
+      }
 
-    const existingUser = await User.findOne({ email, clinicId });
-    if (existingUser) {
-      return res.status(400).json({ message: 'An account with this email already exists in this clinic' });
+      const existingUser = await User.findOne({ email, clinicId });
+      if (existingUser) {
+        return res.status(400).json({ message: 'An account with this email already exists in this clinic' });
+      }
+    } else {
+      // For separate_doctor with no clinicId, check global email uniqueness
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'An account with this email already exists' });
+      }
     }
 
     const ROLE_PERMISSIONS_MAP = {
-      doctor:         ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'],
-      nurse:          ['dashboard', 'patients', 'ipd'],
-      receptionist:   ['dashboard', 'patients', 'billing', 'tokens'],
-      pharmacist:     ['dashboard', 'pharmacy', 'inventory'],
-      lab_technician: ['dashboard', 'patients', 'lab'],
+      doctor:          ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'],
+      separate_doctor: ['dashboard', 'patients', 'telemedicine'],
+      nurse:           ['dashboard', 'patients', 'ipd'],
+      receptionist:    ['dashboard', 'patients', 'billing', 'tokens'],
+      pharmacist:      ['dashboard', 'pharmacy', 'inventory'],
+      lab_technician:  ['dashboard', 'patients', 'lab'],
     };
 
     const user = await User.create({
@@ -705,7 +715,7 @@ router.put('/change-password', auth, async (req, res) => {
 router.get('/available-doctors', auth, async (req, res) => {
   try {
     const doctors = await User.find(
-      { role: 'doctor', isActive: true },
+      { role: { $in: ['doctor', 'separate_doctor'] }, isActive: true },
       'name department consultationFee telemedicineFee phone email avatar'
     ).sort({ name: 1 });
     res.json({ success: true, doctors });

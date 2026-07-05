@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }) => {
     console.log('🔌 Socket setup for user:', { userId, role: user.role, clinicId });
 
     const registerWithServer = () => {
-      if (user.role === 'doctor') {
+      if (user.role === 'doctor' || user.role === 'separate_doctor') {
         console.log('🩺 Registering doctor with socket:', userId);
         // Join the socket room and register, but do NOT set status to online.
         // The doctor must manually click "Go Online" — status stays 'offline' on login.
@@ -152,7 +152,7 @@ export const AuthProvider = ({ children }) => {
 
   // ── Doctor status management ─────────────────────────────────────────────
   const setDoctorOnline = useCallback((status) => {
-    if (!user || user.role !== 'doctor') return;
+    if (!user || (user.role !== 'doctor' && user.role !== 'separate_doctor')) return;
     const doctorId = user._id || user.id;
     console.log(`🔄 Setting doctor ${doctorId} to ${status}`);
     setDoctorStatus(status);
@@ -275,7 +275,7 @@ export const AuthProvider = ({ children }) => {
 
   // ── Logout ───────────────────────────────────────────────────────────────
   const logout = () => {
-    if (user?.role === 'doctor') {
+    if (user?.role === 'doctor' || user?.role === 'separate_doctor') {
       const doctorId = user._id || user.id;
       console.log(`🔄 Logging out doctor ${doctorId}`);
       emit('doctor:status', { doctorId, status: 'offline', clinicId: user.clinicId || null });
@@ -300,7 +300,7 @@ export const AuthProvider = ({ children }) => {
     if (!user) return false;
     const role = user.role?.toLowerCase();
     if (role === 'super_admin') return true;
-    if (key === 'telemedicine') return role === 'doctor';
+    if (key === 'telemedicine') return role === 'doctor' || role === 'separate_doctor';
     if (role === 'admin') return true;
     const roleNavPerms = ROLE_PERMISSIONS[role];
     if (roleNavPerms) return roleNavPerms.includes(key);
