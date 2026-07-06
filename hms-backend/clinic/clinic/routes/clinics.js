@@ -1,7 +1,8 @@
 import express from 'express';
 import Clinic from '../models/Clinic.js';
 import auth from '../middleware/auth.js';
-
+import Sale from '../../ims/src/models/Sale.js';
+import Product from '../../ims/src/models/Product.js';
 
 const router = express.Router();
 

@@ -469,3 +469,498 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// // server.js - Unified entry point
+// import 'dotenv/config';
+// import mongoose from 'mongoose';
+// import http from 'http';
+// import express from 'express';
+// import cors from 'cors';
+// import { Server } from 'socket.io';
+// import helmet from 'helmet';
+// import cookieParser from 'cookie-parser';
+// import rateLimit from 'express-rate-limit';
+// import { fileURLToPath } from 'url';
+// import path from 'path';
+// import cron from 'node-cron';
+
+// // Import all routes and modules
+// import imsApp from './ims/app.js';
+// import clinicApp from './clinic/app.js';
+// import stripeWebhookRouter from './clinic/clinic/webhooks/stripeWebhook.js';
+
+// // Import existing HMS routes
+// import authRoutes from './routes/auth.js';
+// import patientRoutes from './routes/patients.js';
+// import billingRoutes from './routes/billing.js';
+// import billingRequestRoutes from './routes/billingRequests.js';
+// import admissionRoutes from './routes/admissions.js';
+// import pharmacyRoutes from './routes/pharmacy.js';
+// import labRoutes from './routes/lab.js';
+// import inventoryRoutes from './routes/inventory.js';
+// import vendorRoutes from './routes/vendors.js';
+// import equipmentRoutes from './routes/equipment.js';
+// import dashboardRoutes from './routes/dashboard.js';
+// import staffRoutes from './routes/staff.js';
+// import tokenRoutes from './routes/tokens.js';
+// import patientRecordRoutes from './routes/patientRecords.js';
+// import staffWorkRoutes from './routes/staffWork.js';
+// import roomRoutes from './routes/room.js';
+// import patientPortalRoutes from './routes/patientPortal.js';
+// import clinicRoutes from './routes/clinics.js';
+// import fileRoutes from './routes/files.js';
+// import emergencyRoutesFactory from './routes/emergency.js';
+// import taskRoutesFactory from './routes/tasks.js';
+// import prescriptionRoutes from './routes/prescriptions.js';
+// import medicineRoutes from './routes/medicines.js';
+// import documentRoutes from './routes/documents.js';
+// import telemedicineRoutes from './routes/telemedicine.js';
+// import feedbackRoutes from './routes/feedback.js';
+// import payrollRoutes from './routes/payroll.js';
+// import imsRoutes from './ims/src/routes/index.js';
+// import { notFound, errorHandler } from './ims/src/middleware/errorHandler.js';
+
+// // Import models
+// import Task from './models/Task.js';
+// import Notification from './models/Notification.js';
+// import User from './models/User.js';
+
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+
+// // ========== CREATE EXPRESS APP ==========
+// const app = express();
+// const server = http.createServer(app);
+
+// // ========== SOCKET.IO SETUP ==========
+// const io = new Server(server, {
+//   cors: {
+//     origin: ['http://localhost:5173', 'http://localhost:5174'],
+//     methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//     credentials: true,
+//   },
+// });
+
+// // Make io globally available
+// global.io = io;
+// app.set('io', io);
+
+// // Middleware to attach io to req
+// app.use((req, res, next) => {
+//   req.io = io;
+//   next();
+// });
+
+// // ========== MIDDLEWARE ==========
+// app.use(
+//   cors({
+//     origin: ['http://localhost:5173', 'http://localhost:5174'],
+//     credentials: true,
+//   })
+// );
+
+// // Helmet with exceptions for PDF downloads
+// app.use('/api/v1/ims/reports/download-pdf', helmet({ contentSecurityPolicy: false }));
+// app.use('/api/reports/download-pdf', helmet({ contentSecurityPolicy: false }));
+// app.use(helmet());
+
+// // Stripe webhook - MUST be before express.json()
+// app.use('/api/clinic/webhooks/stripe', stripeWebhookRouter);
+
+// app.use(express.json({ limit: '20mb' }));
+// app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// app.use(cookieParser());
+
+// // Rate limiting
+// app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 500 }));
+
+// // Debug logger
+// app.use((req, res, next) => {
+//   console.log(`${req.method} ${req.url}`);
+//   next();
+// });
+
+// // ========== SOCKET.IO EVENTS ==========
+// io.on('connection', (socket) => {
+//   console.log('🔌 New socket connection:', socket.id);
+
+//   // ---- CLINIC QUEUE SYSTEM (from mini project) ----
+//   socket.on('join_queue', ({ clinicId, doctorId, date }) => {
+//     const room = `queue_${clinicId}_${doctorId}_${date}`;
+//     socket.join(room);
+//     console.log(`📋 Client ${socket.id} joined queue room: ${room}`);
+//   });
+
+//   // ---- DOCTOR EVENTS ----
+//   socket.on('doctor:join', (doctorId) => {
+//     if (doctorId) {
+//       socket.join(`doctor_${doctorId}`);
+//       console.log(`👨‍⚕️ Doctor ${doctorId} joined room`);
+//     }
+//   });
+
+//   socket.on('staff:join', () => {
+//     socket.join('emergency_staff');
+//     console.log('🩺 Staff joined emergency room');
+//   });
+
+//   // ---- TELEMEDICINE EVENTS ----
+//   // Initialize doctor status storage
+//   if (!global.doctorStatus) {
+//     global.doctorStatus = new Map();
+//   }
+//   if (!global.socketToDoctor) {
+//     global.socketToDoctor = new Map();
+//   }
+
+//   socket.on('doctor:status', async ({ doctorId, status, clinicId }) => {
+//     if (!doctorId) return;
+
+//     global.doctorStatus.set(doctorId, {
+//       status: status,
+//       lastSeen: new Date(),
+//       clinicId: clinicId,
+//       socketId: socket.id
+//     });
+
+//     socket.join(`doctor_${doctorId}`);
+//     global.socketToDoctor.set(socket.id, doctorId);
+
+//     io.emit('doctor:status-change', {
+//       doctorId,
+//       status,
+//       timestamp: new Date()
+//     });
+
+//     console.log(`👨‍⚕️ Doctor ${doctorId} is now ${status}`);
+//   });
+
+//   socket.on('doctor:register-socket', ({ doctorId }) => {
+//     global.socketToDoctor.set(socket.id, doctorId);
+//     console.log(`📝 Registered socket ${socket.id} to doctor ${doctorId}`);
+//   });
+
+//   socket.on('patient:join-clinic', ({ clinicId, patientId }) => {
+//     if (patientId) {
+//       socket.join(`patient_${patientId}`);
+//       console.log(`👤 Patient ${patientId} joined personal room`);
+//     }
+//     if (clinicId) {
+//       socket.join(`clinic_${clinicId}_patients`);
+//       console.log(`👤 Patient ${patientId} joined clinic ${clinicId} room`);
+//     }
+//   });
+
+//   socket.on('doctor:get-online', ({ clinicId }, callback) => {
+//     const onlineDoctors = [];
+//     for (const [docId, data] of global.doctorStatus.entries()) {
+//       if (data.status === 'online') {
+//         onlineDoctors.push({
+//           doctorId: docId,
+//           lastSeen: data.lastSeen,
+//           status: data.status
+//         });
+//       }
+//     }
+
+//     if (callback && typeof callback === 'function') {
+//       callback(onlineDoctors);
+//     } else {
+//       socket.emit('doctor:online-list', { onlineDoctors });
+//     }
+//   });
+
+//   // Telemedicine specific events
+//   socket.on('telemedicine:request-sent', ({ doctorId, patientId, requestId, patientName, urgency }) => {
+//     io.to(`doctor_${doctorId}`).emit('telemedicine:new-request', {
+//       requestId,
+//       patientId,
+//       patientName,
+//       urgency,
+//       timestamp: new Date(),
+//       message: `📱 New telemedicine request from ${patientName}`
+//     });
+//   });
+
+//   socket.on('telemedicine:status-update', ({ requestId, patientId, doctorId, status, notes }) => {
+//     io.to(`patient_${patientId}`).emit('telemedicine:status-update', {
+//       requestId,
+//       status,
+//       notes,
+//       timestamp: new Date()
+//     });
+//     io.to(`doctor_${doctorId}`).emit('telemedicine:status-update', {
+//       requestId,
+//       status,
+//       notes,
+//       timestamp: new Date()
+//     });
+//   });
+
+//   socket.on('telemedicine:payment-required', ({ requestId, patientId, doctorId, consultationFee }) => {
+//     io.to(`patient_${patientId}`).emit('telemedicine:payment-required', {
+//       requestId,
+//       doctorId,
+//       consultationFee,
+//       timestamp: new Date(),
+//       message: `💳 Payment required: ₹${consultationFee}`
+//     });
+//   });
+
+//   socket.on('telemedicine:payment-success', ({ requestId, patientId, doctorId, meetingLink }) => {
+//     io.to(`patient_${patientId}`).emit('telemedicine:payment-success', {
+//       requestId,
+//       meetingLink,
+//       timestamp: new Date(),
+//       message: '✅ Payment successful! Consultation confirmed.'
+//     });
+//     io.to(`doctor_${doctorId}`).emit('telemedicine:payment-received', {
+//       requestId,
+//       patientId,
+//       timestamp: new Date(),
+//       message: '✅ Payment received'
+//     });
+//   });
+
+//   socket.on('telemedicine:payout-requested', ({ requestId, doctorId, amount }) => {
+//     io.to(`doctor_${doctorId}`).emit('telemedicine:payout-requested', {
+//       requestId,
+//       amount,
+//       timestamp: new Date(),
+//       message: `💰 Payout requested: ₹${amount}`
+//     });
+//   });
+
+//   socket.on('telemedicine:payout-approved', ({ requestId, doctorId, amount }) => {
+//     io.to(`doctor_${doctorId}`).emit('telemedicine:payout-approved', {
+//       requestId,
+//       amount,
+//       timestamp: new Date(),
+//       message: `✅ Payout approved: ₹${amount}`
+//     });
+//   });
+
+//   socket.on('telemedicine:meeting-started', ({ requestId, patientId, doctorId, meetingLink }) => {
+//     io.to(`patient_${patientId}`).emit('telemedicine:meeting-started', {
+//       requestId,
+//       meetingLink,
+//       doctorId,
+//       timestamp: new Date()
+//     });
+//   });
+
+//   socket.on('telemedicine:meeting-ended', ({ requestId, patientId, doctorId, duration }) => {
+//     io.to(`patient_${patientId}`).emit('telemedicine:meeting-ended', {
+//       requestId,
+//       duration,
+//       doctorId,
+//       timestamp: new Date()
+//     });
+//     io.to(`doctor_${doctorId}`).emit('telemedicine:meeting-ended', {
+//       requestId,
+//       duration,
+//       patientId,
+//       timestamp: new Date()
+//     });
+//   });
+
+//   socket.on('disconnect', () => {
+//     console.log('🔌 Socket disconnected:', socket.id);
+//     const doctorId = global.socketToDoctor.get(socket.id);
+//     if (doctorId && global.doctorStatus) {
+//       const status = global.doctorStatus.get(doctorId);
+//       if (status) {
+//         status.status = 'offline';
+//         status.lastSeen = new Date();
+//         global.doctorStatus.set(doctorId, status);
+
+//         io.emit('doctor:status-change', {
+//           doctorId,
+//           status: 'offline',
+//           timestamp: new Date()
+//         });
+//         console.log(`👨‍⚕️ Doctor ${doctorId} is now offline (disconnected)`);
+//       }
+//       global.socketToDoctor.delete(socket.id);
+//     }
+//   });
+// });
+
+// // ========== MOUNT ROUTES ==========
+
+// // 1. MOUNT IMS SYSTEM at /ims
+// // IMS routes are prefixed with /api/v1 internally
+// app.use('/ims', imsApp);
+// // Access IMS at: /ims/api/v1/*
+
+// // 2. MOUNT CLINIC SYSTEM at /api/clinic
+// app.use('/api/clinic', clinicApp);
+// // Access Clinic at: /api/clinic/*
+
+// // 3. MOUNT EXISTING HMS ROUTES at /api
+// app.use('/api/auth', authRoutes);
+// app.use('/api/patients', patientRoutes);
+// app.use('/api/billing', billingRoutes);
+// app.use('/api/billing-requests', billingRequestRoutes);
+// app.use('/api/admissions', admissionRoutes);
+// app.use('/api/pharmacy', pharmacyRoutes);
+// app.use('/api/lab', labRoutes);
+// app.use('/api/inventory', inventoryRoutes);
+// app.use('/api/vendors', vendorRoutes);
+// app.use('/api/equipment', equipmentRoutes);
+// app.use('/api/dashboard', dashboardRoutes);
+// app.use('/api/staff', staffRoutes);
+// app.use('/api/tokens', tokenRoutes);
+// app.use('/api/patient-records', patientRecordRoutes);
+// app.use('/api/staff-work', staffWorkRoutes);
+// app.use('/api/room-settings', roomRoutes);
+// app.use('/api/patient-portal', patientPortalRoutes);
+// app.use('/api/clinics', clinicRoutes);
+// app.use('/api/tasks', taskRoutesFactory(io));
+// app.use('/api/files', fileRoutes);
+// app.use('/api/emergency', emergencyRoutesFactory(io));
+// app.use('/api/prescriptions', prescriptionRoutes);
+// app.use('/api/medicines', medicineRoutes);
+// app.use('/api/documents', documentRoutes);
+// app.use('/api/telemedicine', telemedicineRoutes);
+// app.use('/api/feedback', feedbackRoutes);
+// app.use('/api/payroll', payrollRoutes);
+
+// // IMS routes directly
+// app.use('/api/v1/ims', imsRoutes);
+
+// // Static files
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// // ========== HEALTH CHECK ==========
+// app.get('/health', (req, res) => {
+//   res.json({
+//     status: 'OK',
+//     db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+//     systems: ['ims', 'clinic', 'hms'],
+//     endpoints: {
+//       ims: '/ims/api/v1',
+//       clinic: '/api/clinic',
+//       hms: '/api/*',
+//       webhook: '/api/clinic/webhooks/stripe'
+//     },
+//     websockets: true
+//   });
+// });
+
+// // ========== ERROR HANDLING ==========
+// app.use(notFound);
+// app.use(errorHandler);
+
+// // ========== SEED SUPER ADMIN ==========
+// async function seedSuperAdmin() {
+//   try {
+//     const existing = await User.findOne({ role: 'super_admin' });
+//     if (existing) {
+//       console.log('✅ Super Admin already exists — skipping seed');
+//       return;
+//     }
+
+//     const { SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD, SUPER_ADMIN_NAME } = process.env;
+
+//     if (!SUPER_ADMIN_EMAIL || !SUPER_ADMIN_PASSWORD) {
+//       console.warn('⚠️ SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD not set in .env — skipping super admin seed');
+//       return;
+//     }
+
+//     await User.create({
+//       name: SUPER_ADMIN_NAME || 'Super Admin',
+//       email: SUPER_ADMIN_EMAIL,
+//       password: SUPER_ADMIN_PASSWORD,
+//       role: 'super_admin',
+//       clinicId: null,
+//       permissions: [
+//         'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
+//         'prescriptions', 'pharmacy', 'lab', 'inventory',
+//         'room-settings', 'staff', 'telemedicine', 'tokens', 'emergency', 'tasks', 'super'
+//       ],
+//       isActive: true,
+//     });
+
+//     console.log(`🚀 Super Admin seeded → ${SUPER_ADMIN_EMAIL}`);
+//   } catch (err) {
+//     console.error('❌ Super admin seed failed:', err.message);
+//   }
+// }
+
+// // ========== CRON JOB ==========
+// cron.schedule('0 * * * *', async () => {
+//   try {
+//     const now = new Date();
+
+//     const overdueTasks = await Task.find({
+//       deadline: { $lt: now },
+//       status: { $ne: 'Completed' }
+//     });
+
+//     for (const task of overdueTasks) {
+//       io.to(`doctor_${task.assignedTo}`).emit('task:overdue', task);
+//     }
+
+//     const slaTasks = await Task.find({
+//       slaHours: { $gt: 0 },
+//       slaBreached: { $ne: true },
+//       status: { $ne: 'Completed' }
+//     });
+
+//     for (const task of slaTasks) {
+//       const slaDeadline = new Date(task.createdAt.getTime() + task.slaHours * 60 * 60 * 1000);
+
+//       if (now >= slaDeadline) {
+//         task.slaBreached = true;
+//         task.slaBreachedAt = now;
+//         await task.save();
+
+//         await Notification.create({
+//           userId: task.assignedTo,
+//           message: `SLA BREACHED: ${task.title}`,
+//           taskId: task._id,
+//           clinicId: task.clinicId
+//         });
+
+//         io.to(`doctor_${task.assignedTo}`).emit('task:sla-breach', task);
+//       }
+//     }
+
+//     console.log('✅ Cron executed successfully');
+//   } catch (err) {
+//     console.error('❌ Cron error:', err);
+//   }
+// });
+
+// // ========== DATABASE CONNECTION & SERVER START ==========
+// const PORT = process.env.PORT || 5000;
+
+// mongoose
+//   .connect(process.env.MONGO_URI)
+//   .then(async () => {
+//     console.log('✅ MongoDB connected');
+//     console.log(`HOST: ${mongoose.connection.host}`);
+//     console.log(`DB NAME: ${mongoose.connection.name}`);
+//     console.log(`URI: ${process.env.MONGO_URI}`);
+    
+//     await seedSuperAdmin();
+    
+//     server.listen(PORT, () => {
+//       console.log(`\n🚀 Server running on port ${PORT}`);
+//       console.log(`📦 IMS:    http://localhost:${PORT}/ims/api/v1`);
+//       console.log(`🏥 Clinic: http://localhost:${PORT}/api/clinic`);
+//       console.log(`🏥 HMS:    http://localhost:${PORT}/api`);
+//       console.log(`💳 Webhook: http://localhost:${PORT}/api/clinic/webhooks/stripe`);
+//       console.log(`❤️  Health: http://localhost:${PORT}/health\n`);
+//     });
+//   })
+//   .catch((err) => {
+//     console.error('❌ MongoDB connection failed:', err.message);
+//     console.log('⚠️ Starting server without database...');
+//     server.listen(PORT, () => {
+//       console.log(`🚀 Server running on port ${PORT} (without DB)`);
+//     });
+//   });
+
+// export default app;
