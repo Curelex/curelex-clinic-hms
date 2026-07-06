@@ -131,8 +131,6 @@ const Home = () => {
     if (isAuthenticated()) {
       if (user?.role === 'patient') {
         navigate('/patient-dashboard');
-      } else if (user?.role === 'separate_doctor') {
-        navigate('/solo-doctor-dashboard');
       } else {
         navigate('/dashboard');
       }
