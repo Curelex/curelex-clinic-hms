@@ -214,70 +214,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ── Google Login ──────────────────────────────────────────────────────────
-  const loginWithGoogle = async (googleData, isPatient = false) => {
-    setLoading(true);
-    try {
-      const { data } = await API.post('/auth/google-login', { ...googleData, isPatient });
-      console.log('✅ GOOGLE LOGIN SUCCESS:', data.user);
-
-      localStorage.setItem('hms_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      resetSocket();
-
-      setUser(data.user);
-      if (data.patient) {
-        setPatient(data.patient);
-        localStorage.setItem('patient', JSON.stringify(data.patient));
-      }
-
-      return { success: true, user: data.user, patient: data.patient };
-    } catch (err) {
-      console.error('❌ Google Login error:', err);
-      return {
-        success: false,
-        message: err.response?.data?.message || 'Google Login failed',
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Forgot Password ───────────────────────────────────────────────────────
-  const forgotPassword = async (email) => {
-    setLoading(true);
-    try {
-      const { data } = await API.post('/auth/forgot-password', { email });
-      return { success: true, message: data.message, resetLink: data.resetLink };
-    } catch (err) {
-      console.error('❌ Forgot password error:', err);
-      return {
-        success: false,
-        message: err.response?.data?.message || 'Forgot password request failed',
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Reset Password ────────────────────────────────────────────────────────
-  const resetPassword = async (email, token, newPassword) => {
-    setLoading(true);
-    try {
-      const { data } = await API.post('/auth/reset-password', { email, token, newPassword });
-      return { success: true, message: data.message };
-    } catch (err) {
-      console.error('❌ Reset password error:', err);
-      return {
-        success: false,
-        message: err.response?.data?.message || 'Reset password failed',
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // ── Register (Staff) ─────────────────────────────────────────────────────
   const register = async (formData) => {
     setLoading(true);
@@ -409,9 +345,6 @@ export const AuthProvider = ({ children }) => {
     getPatientData,
 
     registerPatient,
-    loginWithGoogle,
-    forgotPassword,
-    resetPassword,
 
     superAdminClinicId,
     superAdminClinicName,

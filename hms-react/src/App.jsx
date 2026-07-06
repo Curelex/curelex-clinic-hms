@@ -39,7 +39,6 @@ import DoctorProfileView from './pages/DoctorProfileView';
 import DoctorProfileForm from './pages/DoctorProfileForm';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SoloDoctorDashboard from './pages/SoloDoctorDashboard';
-import ResetPassword from './pages/ResetPassword';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
@@ -128,7 +127,6 @@ function App() {
           {/* ── Staff Auth Routes ────────────────────────────────── */}
           <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-          <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
 
           {/* ── Super Admin Route ────────────────────────────────── */}
           <Route
