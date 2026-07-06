@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 const ClinicSchema = new mongoose.Schema({
   name:     { type: String, required: true },
@@ -20,6 +21,6 @@ const ClinicSchema = new mongoose.Schema({
   createdAt: { type: String, default: () => new Date().toISOString().split('T')[0] },
 }, { timestamps: true });
 
-const Clinic = mongoose.model('Clinic', ClinicSchema);
+const Clinic = clinicConnection.model('Clinic', ClinicSchema);
 
 export default Clinic;

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 const queryContactSchema = new mongoose.Schema(
   {
@@ -29,6 +30,6 @@ const queryContactSchema = new mongoose.Schema(
   }
 );
 
-const Contact = mongoose.model('QueryContact', queryContactSchema);
+const Contact = clinicConnection.model('QueryContact', queryContactSchema);
 
 export default Contact;

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 // Stores queue tracking sessions for patients
 const QueueSessionSchema = new mongoose.Schema({
@@ -28,6 +29,6 @@ const QueueSessionSchema = new mongoose.Schema({
 // Auto-delete expired sessions using MongoDB TTL index
 QueueSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const QueueSession = mongoose.model('QueueSession', QueueSessionSchema);
+const QueueSession = clinicConnection.model('QueueSession', QueueSessionSchema);
 
 export default QueueSession;

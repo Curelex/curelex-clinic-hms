@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 const subscriptionSchema = new mongoose.Schema(
   {
@@ -65,5 +66,5 @@ const subscriptionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-export default mongoose.model('Subscription', subscriptionSchema);
+const Subscription = clinicConnection.model('Subscription', subscriptionSchema);
+export default Subscription;

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 // Each day's schedule slot
 const DayScheduleSchema = new mongoose.Schema({
@@ -45,6 +46,6 @@ const UserSchema = new mongoose.Schema({
 UserSchema.index({ clinicId: 1, email: 1 }, { unique: true });
 
 // ✅ Prevent OverwriteModelError (VERY IMPORTANT for your merged project)
-const User = mongoose.models.User || mongoose.model('User', UserSchema);
+const User = clinicConnection.models.User || clinicConnection.model('User', UserSchema);
 
 export default User;

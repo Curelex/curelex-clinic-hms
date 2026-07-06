@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 const PatientSchema = new mongoose.Schema({
   clinicId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Clinic', required: true },
@@ -43,5 +44,5 @@ const PatientSchema = new mongoose.Schema({
   }],
 }, { timestamps: true });
 
-const Patient = mongoose.model('Patient', PatientSchema);
+const Patient = clinicConnection.model('Patient', PatientSchema);
 export default Patient;

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 // ── Stores the doctor's personal medicine & test dictionaries ─────────────────
 // One document per doctor. Lists grow as doctor adds new items.
@@ -19,5 +20,5 @@ const DoctorMedicineListSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-const DoctorMedicineList = mongoose.model('DoctorMedicineList', DoctorMedicineListSchema);
+const DoctorMedicineList = clinicConnection.model('DoctorMedicineList', DoctorMedicineListSchema);
 export default DoctorMedicineList;

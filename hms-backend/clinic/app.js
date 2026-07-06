@@ -5,13 +5,9 @@ import http from 'http';
 import { Server } from 'socket.io';
 
 import clinicModule from './clinic/app.js';
+import mongoose from 'mongoose';
 
 const mainApp = express();
-
-// Basic middleware for main app
-mainApp.use(cors({ origin: "*", credentials: true }));
-mainApp.use(express.json());
-
 // ========== MOUNT IMS SYSTEM ==========
 // IMS routes are already prefixed with /api/v1 internally
 
@@ -22,6 +18,8 @@ mainApp.use(express.json());
 // We'll create clinic app that exports without listening
 
 // Health check for merged system
+
+
 mainApp.get("/health", (req, res) => {
   res.json({
     status: "OK",

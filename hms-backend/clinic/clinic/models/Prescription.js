@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { clinicConnection } from '../config/db.js';
 
 // ── Medicine sub-document ─────────────────────────────────────────────────────
 const MedicineSchema = new mongoose.Schema({
@@ -56,5 +57,5 @@ PrescriptionSchema.index({ clinicId: 1, date: 1 });
 PrescriptionSchema.index({ doctorId: 1, date: 1 });
 PrescriptionSchema.index({ patientId: 1 });
 
-const Prescription = mongoose.model('Prescription', PrescriptionSchema);
+const Prescription = clinicConnection.model('Prescription', PrescriptionSchema);
 export default Prescription;
