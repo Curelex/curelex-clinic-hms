@@ -47,6 +47,10 @@ export default function PatientTelemedicine() {
   const [paymentError, setPaymentError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mock');
 
+  // ── Doctor filters ───────────────────────────────────────────────────────
+  const [filterSpecialty, setFilterSpecialty] = useState('all');
+  const [filterStatusOnline, setFilterStatusOnline] = useState('all'); // all | online | offline
+
   // ── Responsive hook ──────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   useEffect(() => {
@@ -302,6 +306,28 @@ export default function PatientTelemedicine() {
   const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
 
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+  // ── Derived specialty list + filtered doctors ─────────────────────────────
+  const specialties = Array.from(
+    new Set(
+      doctors
+        .map(doc => doc.department || doc.specialization)
+        .filter(Boolean)
+    )
+  ).sort();
+
+  const filteredDoctors = doctors.filter(doc => {
+    const docSpecialty = doc.department || doc.specialization || 'General';
+    const matchesSpecialty = filterSpecialty === 'all' || docSpecialty === filterSpecialty;
+
+    const isOnline = isDoctorOnline(doc._id);
+    const matchesStatus =
+      filterStatusOnline === 'all' ||
+      (filterStatusOnline === 'online' && isOnline) ||
+      (filterStatusOnline === 'offline' && !isOnline);
+
+    return matchesSpecialty && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -676,15 +702,79 @@ export default function PatientTelemedicine() {
 {/* ── Available Doctors Cards ── */}
 {doctors.length > 0 && (
   <div style={{ marginBottom: 24 }}>
-    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', marginBottom: 12 }}>
-      👨‍⚕️ Available Doctors
-    </h3>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 12,
+    }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', margin: 0 }}>
+        👨‍⚕️ Available Doctors
+      </h3>
+
+      {/* ── Filters: Specialty + Online/Offline ── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <select
+          value={filterSpecialty}
+          onChange={(e) => setFilterSpecialty(e.target.value)}
+          style={{
+            padding: '7px 12px',
+            borderRadius: 8,
+            border: '1px solid #d1d5db',
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#374151',
+            background: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="all">🩺 All Specialties</option>
+          {specialties.map(sp => (
+            <option key={sp} value={sp}>{sp}</option>
+          ))}
+        </select>
+
+        <select
+          value={filterStatusOnline}
+          onChange={(e) => setFilterStatusOnline(e.target.value)}
+          style={{
+            padding: '7px 12px',
+            borderRadius: 8,
+            border: '1px solid #d1d5db',
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#374151',
+            background: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="all">All Status</option>
+          <option value="online">🟢 Online</option>
+          <option value="offline">🔴 Offline</option>
+        </select>
+      </div>
+    </div>
+
+    {filteredDoctors.length === 0 ? (
+      <div style={{
+        padding: '24px',
+        textAlign: 'center',
+        color: '#94a3b8',
+        background: '#f8fafc',
+        borderRadius: 12,
+        fontSize: 14,
+      }}>
+        No doctors match the selected filters.
+      </div>
+    ) : (
     <div style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
       gap: 16,
     }}>
-      {doctors.map(doc => {
+      {filteredDoctors.map(doc => {
         const isOnline = isDoctorOnline(doc._id);
         return (
           <div key={doc._id} style={{
@@ -700,15 +790,25 @@ export default function PatientTelemedicine() {
             {/* Avatar + name row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
-                width: 46, height: 46, borderRadius: '50%',
-                background: isOnline ? '#d1fae5' : '#f1f5f9',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 700,
-                color: isOnline ? '#16a34a' : '#94a3b8',
-                flexShrink: 0,
-              }}>
-                {doc.name?.charAt(0).toUpperCase()}
-              </div>
+  width: 46, height: 46, borderRadius: '50%',
+  background: isOnline ? '#d1fae5' : '#f1f5f9',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  fontSize: 20, fontWeight: 700,
+  color: isOnline ? '#16a34a' : '#94a3b8',
+  flexShrink: 0,
+  overflow: 'hidden',
+}}>
+  {doc.photoUrl ? (
+    <img
+      src={doc.photoUrl}
+      alt={doc.name}
+      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      onError={(e) => { e.target.style.display = 'none'; }}
+    />
+  ) : (
+    doc.name?.charAt(0).toUpperCase()
+  )}
+</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   Dr. {doc.name}
@@ -764,6 +864,7 @@ export default function PatientTelemedicine() {
         );
       })}
     </div>
+    )}
   </div>
 )}
             {/* Requests List */}

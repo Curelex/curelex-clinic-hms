@@ -1,11 +1,13 @@
 // hms-backend/server.js
 
+// MUST be the very first import — loads .env before any other module runs
+import 'dotenv/config';
+
 import { fileURLToPath } from 'url';
 import path from 'path';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import http from 'http';
 import { Server } from 'socket.io';
 import cron from 'node-cron';
@@ -49,8 +51,6 @@ import feedbackRoutes from './routes/feedback.js';
 import payrollRoutes from './routes/payroll.js';
 import imsRoutes from './ims/src/routes/index.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
-
-dotenv.config();
 
 // __dirname fix (ESM)
 const __filename = fileURLToPath(import.meta.url);
