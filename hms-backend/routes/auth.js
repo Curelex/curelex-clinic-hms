@@ -545,7 +545,13 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
     await user.save();
 
-    const resetLink = `http://localhost:5173/reset-password?token=${token}&email=${email}`;
+    const origin = req.headers.referer || req.headers.origin || 'http://localhost:5174';
+    let baseOrigin = 'http://localhost:5174';
+    try {
+      baseOrigin = new URL(origin).origin;
+    } catch (e) {}
+
+    const resetLink = `${baseOrigin}/reset-password?token=${token}&email=${email}`;
     console.log(`\n==================================================\nPASSWORD RESET LINK:\n${resetLink}\n==================================================\n`);
 
     res.json({
