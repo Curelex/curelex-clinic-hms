@@ -438,6 +438,157 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ── GOOGLE LOGIN ──────────────────────────────────────────────────────────
+router.post('/google-login', async (req, res) => {
+  try {
+    const { token, email: bodyEmail, name: bodyName, isPatient } = req.body;
+    let email = bodyEmail;
+    let name = bodyName;
+
+    // Verify Google token if provided
+    if (token) {
+      try {
+        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+        if (response.ok) {
+          const payload = await response.json();
+          email = payload.email;
+          name = payload.name || payload.given_name;
+        } else {
+          console.error('Google token verification failed:', await response.text());
+        }
+      } catch (err) {
+        console.error('Google API fetch error:', err);
+      }
+    }
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Google authentication failed: missing email' });
+    }
+
+    let user = await User.findOne({ email });
+    let patient = null;
+
+    if (user) {
+      if (!user.isActive) {
+        return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
+      }
+      if (user.role === 'patient') {
+        patient = await Patient.findOne({ userId: user._id });
+      }
+    } else {
+      // If user doesn't exist, handle auto-signup for patients or block for staff
+      if (isPatient) {
+        // Create User account for patient
+        user = await User.create({
+          name: name || 'Google Patient',
+          email,
+          password: crypto.randomBytes(16).toString('hex'),
+          role: 'patient',
+          permissions: ['patient-dashboard'],
+          phone: req.body.phone || '0000000000',
+          isActive: true
+        });
+
+        // Create Patient record
+        patient = await Patient.create({
+          userId: user._id,
+          name: user.name,
+          email: user.email,
+          phone: req.body.phone || '0000000000',
+          clinicIds: [],
+          status: 'Active',
+          registrationDate: new Date()
+        });
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'No staff account found with this email. Please contact your clinic administrator to register.'
+        });
+      }
+    }
+
+    // Generate JWT token
+    const jwtToken = jwt.sign(
+      { id: user._id, role: user.role, clinicId: user.clinicId },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password: _, ...userOut } = user.toObject();
+
+    res.json({
+      token: jwtToken,
+      user: userOut,
+      patient: patient || undefined
+    });
+  } catch (err) {
+    console.error('Google Login error:', err);
+    res.status(500).json({ success: false, message: 'Server error during Google Login' });
+  }
+});
+
+// ── FORGOT PASSWORD ───────────────────────────────────────────────────────
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found with this email address' });
+    }
+
+    const token = crypto.randomBytes(20).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
+    await user.save();
+
+    const resetLink = `http://localhost:5173/reset-password?token=${token}&email=${email}`;
+    console.log(`\n==================================================\nPASSWORD RESET LINK:\n${resetLink}\n==================================================\n`);
+
+    res.json({
+      success: true,
+      message: 'Password reset link generated successfully.',
+      resetLink // Return link directly to make testing extremely convenient!
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── RESET PASSWORD ────────────────────────────────────────────────────────
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body;
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email, token, and new password are required' });
+    }
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Password reset token is invalid or has expired' });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successful!' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // ── Get Profile ───────────────────────────────────────────────────────────
 router.get('/profile', auth, async (req, res) => {
   try {
