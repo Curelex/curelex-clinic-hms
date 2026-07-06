@@ -82,6 +82,7 @@ app.use(cors({
     // 'https://curelex.in',
     // 'https://www.curelex.in',
     'http://localhost:5173',
+    'http://localhost:5174'
   ],
   credentials: true,
 }));

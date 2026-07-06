@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Toast, useToast } from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
 import API from '../utils/api'
+import { useEffect } from 'react'
 
 const SPECIALIZATIONS = [
   'General Medicine', 'Cardiology', 'Neurology', 'Orthopedics',
@@ -32,7 +33,7 @@ export default function DoctorProfileForm() {
   const [loading, setLoading] = useState(false)
   const showToast = useToast()
   const navigate  = useNavigate()
-  const { user } = useAuth()
+  const { user, doctor } = useAuth()
 
   const set      = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const setUpper = k => e => setForm(f => ({ ...f, [k]: e.target.value.toUpperCase() }))
@@ -116,6 +117,27 @@ export default function DoctorProfileForm() {
       setLoading(false)
     }
   }
+
+  useEffect(()=>{
+    async function fetchDoctor() {
+      
+      const doctorId = user?.id || user?._id;
+      const { data } = await API.get(`/auth/doctors/${doctorId}`);
+      if (data?.doctor) {
+        setForm({
+        name: data.doctor.name || "",
+        email: data.doctor.email || "",
+        phone: data.doctor.phone || "",
+        specialization: data.doctor.specialization || "",
+        qualification: data.doctor.qualification || "",
+        experience: data.doctor.experience || "",
+        consultationFee: data.doctor.consultationFee || "",
+        
+      });
+      }
+    }
+    fetchDoctor();
+  },[]);
 
   /* ─────────────────────────── JSX ─────────────────────────── */
   return (
@@ -449,7 +471,7 @@ export default function DoctorProfileForm() {
 
             {step < 5 && (
               <p className="dp-back-link">
-                Already registered? <Link to="/doctor-dashboard">Go to Dashboard</Link>
+                Already registered? <Link to="/solo-doctor-dashboard">Go to Dashboard</Link>
               </p>
             )}
           </div>

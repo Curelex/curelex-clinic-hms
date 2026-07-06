@@ -1745,17 +1745,32 @@ export default function SoloDoctorDashboard() {
                 />
               </div>
               <div style={{ position: 'relative', flexShrink: 0, alignSelf: 'flex-start' }}>
-                <div style={{
-                  width: 110, height: 110, borderRadius: '50%',
-                  background: d?.photoUrl ? 'transparent' : 'linear-gradient(135deg,#2563eb,#7c3aed)',
-                  backgroundImage: d?.photoUrl ? `url(${d.photoUrl})` : undefined,
-                  backgroundSize: 'cover', backgroundPosition: 'center',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 32, fontWeight: 700, color: 'white',
-                  boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
-                }}>
-                  {!d?.photoUrl && initials}
-                </div>
+               <div
+  style={{
+    width: 110,
+    height: 110,
+    borderRadius: "50%",
+    overflow: "hidden",
+    background: d?.photoUrl
+      ? `url(${d.photoUrl}) center/cover`
+      : "linear-gradient(135deg,#eff6ff,#dbeafe)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 12px rgba(37,99,235,0.15)",
+    border: "3px solid white",
+  }}
+>
+  {!d?.photoUrl && (
+    <i
+      className="fas fa-user-md"
+      style={{
+        fontSize: 48,
+        color: "#2563eb",
+      }}
+    />
+  )}
+</div>
                 <div style={{
                   position: 'absolute', bottom: 2, right: 2,
                   width: 20, height: 20, borderRadius: '50%',
