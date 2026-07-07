@@ -46,6 +46,9 @@ export default function PatientTelemedicine() {
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mock');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackDoctor, setFeedbackDoctor] = useState(null);
+  const [doctorFeedbacks, setDoctorFeedbacks] = useState([]);
 
   // ── Doctor filters ───────────────────────────────────────────────────────
   const [filterSpecialty, setFilterSpecialty] = useState('all');
@@ -201,6 +204,20 @@ export default function PatientTelemedicine() {
       }
     } catch (err) {
       console.error('❌ Failed to load doctors:', err);
+    }
+  };
+
+  const openDoctorFeedback = async (doctor) => {
+    setFeedbackDoctor(doctor);
+    setDoctorFeedbacks([]);
+    setShowFeedbackModal(true);
+    try {
+      const { data } = await API.get(`/feedback/doctor/${doctor._id}`);
+      if (data.success) {
+        setDoctorFeedbacks(data.feedbacks || []);
+      }
+    } catch (err) {
+      console.error('Failed to load feedback:', err);
     }
   };
 
@@ -817,6 +834,21 @@ export default function PatientTelemedicine() {
                 <div style={{ fontSize: 12, color: '#6b7a99' }}>
                   {doc.department || doc.specialization || 'General'}
                 </div>
+                {doc.averageRating > 0 ? (
+                  <div 
+                    onClick={() => openDoctorFeedback(doc)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '12px', color: '#f59e0b', cursor: 'pointer' }}
+                    title="View Feedback"
+                  >
+                    <i className="fas fa-star" />
+                    <span style={{ fontWeight: 600, color: '#374151' }}>{doc.averageRating}</span>
+                    <span style={{ color: '#94a3b8' }}>({doc.totalRatings})</span>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                    No ratings yet
+                  </div>
+                )}
               </div>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
@@ -1005,6 +1037,86 @@ export default function PatientTelemedicine() {
           </main>
         </div>
       </div>
+
+      {/* ── Feedback Modal ── */}
+      {showFeedbackModal && feedbackDoctor && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }} onClick={() => setShowFeedbackModal(false)}>
+          <div style={{
+            background: 'white',
+            borderRadius: 16,
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#1a2236', fontSize: '18px' }}>Feedback for Dr. {feedbackDoctor.name}</h3>
+              <button 
+                onClick={() => setShowFeedbackModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b', lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+              {doctorFeedbacks.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                  <i className="fas fa-comment-slash" style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}></i>
+                  <p style={{ margin: 0 }}>No detailed feedback available yet.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {doctorFeedbacks.map((fb, idx) => {
+                    const patientName = fb.patientId?.name || 'Anonymous';
+                    
+                    return (
+                      <div key={fb._id || idx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontWeight: 'bold', fontSize: '14px' }}>
+                              {patientName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: '14px', color: '#334155' }}>
+                                {patientName}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                                {new Date(fb.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '2px', color: '#f59e0b', fontSize: '14px' }}>
+                            {[...Array(5)].map((_, i) => (
+                              <i key={i} className={i < fb.doctorRating ? "fas fa-star" : "far fa-star"} />
+                            ))}
+                          </div>
+                        </div>
+                        {fb.doctorFeedback && (
+                          <div style={{ fontSize: '14px', color: '#475569', marginTop: '12px', lineHeight: 1.5 }}>
+                            "{fb.doctorFeedback}"
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile bottom navigation ── */}
       <BottomNav activeItem="consult" />
