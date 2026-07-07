@@ -53,6 +53,7 @@ export const AuthProvider = ({ children }) => {
   const [doctorStatus,   setDoctorStatus]   = useState('offline');
   const [onlineDoctors,  setOnlineDoctors]  = useState([]);
   const [clinicType, setClinicType] = useState(null);
+  const [activePlan, setActivePlan] = useState('lite');
 
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
@@ -203,6 +204,11 @@ const login = async (email, password) => {
       setPatient(data.patient);
       localStorage.setItem('patient', JSON.stringify(data.patient));
     }
+    if (data.user?.activePlan) {
+  setActivePlan(data.user.activePlan);
+} else if (data.clinic?.plan) {
+  setActivePlan(data.clinic.plan);
+}
     
     // Set clinic type from response
     if (data.clinicType) {
@@ -350,6 +356,7 @@ const login = async (email, password) => {
     authReady,
     hasPerm,
     clinicType,
+    activePlan,
     isPatient,
     isDoctor,
     isAdmin,

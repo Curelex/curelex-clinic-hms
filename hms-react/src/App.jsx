@@ -50,16 +50,22 @@ import PlanSelection from './pages/PlanSelection';
 const PrivateRoute = ({ children }) => {
   const { user, authReady, clinicType } = useAuth();
   if (!authReady) return null;
-  if (clinicType === 'clinic') <Navigate to="/clinic-dashboard" /> ;
+  
+  // If clinic type is 'clinic', redirect to clinic dashboard
+  if (clinicType === 'clinic' && user?.role === 'admin') {
+    return <Navigate to="/clinic-dashboard" replace />;
+  }
+  
   return user ? children : <Navigate to="/login" replace />;
 };
 
 // Redirects to correct home if already authenticated (login/register pages)
 const PublicRoute = ({ children }) => {
-  const { user, authReady } = useAuth();
+  const { user, authReady, clinicType } = useAuth();
   if (!authReady) return null;
   if (!user) return children;
-  // super_admin goes to the admin console; they can also manually navigate to /dashboard
+  
+  // super_admin goes to the admin console
   if (user.role === 'super_admin')
     return <Navigate to="/super-admin" replace />;
 
@@ -68,6 +74,10 @@ const PublicRoute = ({ children }) => {
 
   if (user.role === 'separate_doctor')
     return <Navigate to="/solo-doctor-dashboard" replace />;
+
+  // Clinic admin goes to clinic dashboard
+  if (user.role === 'admin' && clinicType === 'clinic')
+    return <Navigate to="/clinic-dashboard" replace />;
 
   return <Navigate to="/dashboard" replace />;
 };
@@ -102,6 +112,7 @@ const StaffRoute = ({ children }) => {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'patient') return <Navigate to="/patient-dashboard" replace />;
   if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
+  if (user.role === 'admin') return <Navigate to="/clinic-dashboard" replace />;
   return children;
 };
 
@@ -145,7 +156,7 @@ const ClinicTypeRoute = ({
 
 // ── Admin Route with Plan Selection ──
 const AdminRoute = ({ children }) => {
-  const { user, authReady, clinicType } = useAuth();
+  const { user, authReady, clinicType, activePlan } = useAuth(); // Get activePlan from context
   const [choosingPlan, setChoosingPlan] = useState(false);
 
   if (!authReady) return null;
@@ -166,9 +177,10 @@ const AdminRoute = ({ children }) => {
     return <PlanSelection onDone={() => setChoosingPlan(false)} />;
   }
 
-  // Pass the choose plan function to AdminDashboard
+  // Pass the choose plan function and active plan to AdminDashboard
   return React.cloneElement(children, { 
-    onChoosePlan: () => setChoosingPlan(true) 
+    onChoosePlan: () => setChoosingPlan(true),
+    activePlan: activePlan // Pass the active plan
   });
 };
 
@@ -218,7 +230,7 @@ function App() {
             element={
               <ClinicTypeRoute requiredType="clinic" fallbackPath="/dashboard">
                 <AdminRoute>
-                  <AdminDashboard onChoosePlan={() => setChoosingPlan(true)} />
+                  <AdminDashboard />
                 </AdminRoute>
               </ClinicTypeRoute>
             }

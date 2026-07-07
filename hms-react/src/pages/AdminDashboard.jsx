@@ -6,8 +6,10 @@ import {
 } from '../components/UI';
 
 import { useClinicAdmin } from '../hooks/useClinicAdmin';
-import { isSectionVisible, canAddStaff, getPlanConfig } from '../utils/planConfig';
 import { useAuth } from '../context/AuthContext';
+import { isSectionVisible, canAddStaff, getPlanConfig, isFeatureVisible } from '../utils/planConfig';
+import { useMemo } from 'react';
+
 
 const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
 const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || '/api/clinic';
@@ -358,9 +360,8 @@ const TAB_TO_SECTION = {
   revenue: 'revenue',
 };
 
-// ── AdminDashboard ──
-export default function AdminDashboard({onChoosePlan}) {
-  const { logout, activePlan, clinicType, user } = useAuth();
+export default function AdminDashboard({ onChoosePlan, activePlan: propActivePlan }) {
+  const { logout, clinicType, user } = useAuth();
   const { 
     refreshClinic, 
     saveClinic, 
@@ -373,12 +374,9 @@ export default function AdminDashboard({onChoosePlan}) {
     updateTokenLimit,
     updateFollowUp,
     getRevenueReport,
-    isClinicAdmin,
-    isFeatureAvailable
   } = useClinicAdmin();
 
   const session = user;
-
 
   const [tab, setTab] = useState('overview');
   const [clinic, setClinic] = useState(null);
@@ -389,6 +387,8 @@ export default function AdminDashboard({onChoosePlan}) {
   const [retryCount, setRetryCount] = useState(0);
   const isLoadingRef = useRef(false);
   const initialLoadDone = useRef(false);
+  const reloadTimeoutRef = useRef(null);
+
   // ── Reload data with safe error handling ──
   const reload = useCallback(async (isRetry = false) => {
     // Prevent multiple simultaneous reloads
@@ -402,7 +402,7 @@ export default function AdminDashboard({onChoosePlan}) {
     setError(null);
 
     try {
-      console.log('🔄 Loading data... Attempt:', retryCount + 1);
+      console.log('🔄 Loading data...');
 
       // Add delay between retries to avoid rate limiting
       if (isRetry && retryCount > 0) {
@@ -438,7 +438,10 @@ export default function AdminDashboard({onChoosePlan}) {
           setRetryCount(prev => prev + 1);
           setError('Rate limited. Retrying...');
           // Retry after delay
-          setTimeout(() => reload(true), 2000);
+          if (reloadTimeoutRef.current) {
+            clearTimeout(reloadTimeoutRef.current);
+          }
+          reloadTimeoutRef.current = setTimeout(() => reload(true), 2000);
           return;
         } else {
           setError('Failed to load clinic data after multiple attempts. Please refresh the page.');
@@ -455,7 +458,10 @@ export default function AdminDashboard({onChoosePlan}) {
         setError('Too many requests. Please wait a moment and try again.');
         if (retryCount < 3) {
           setRetryCount(prev => prev + 1);
-          setTimeout(() => reload(true), 3000);
+          if (reloadTimeoutRef.current) {
+            clearTimeout(reloadTimeoutRef.current);
+          }
+          reloadTimeoutRef.current = setTimeout(() => reload(true), 3000);
         }
       } else {
         setError(err.message || 'Failed to load data');
@@ -473,9 +479,16 @@ export default function AdminDashboard({onChoosePlan}) {
       console.log('🔄 Initial load...');
       reload();
     }
-  }, []);
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+      }
+    };
+  }, []); // Empty dependency array - only runs once
 
-  // ── Reload on tab change - but with debounce ──
+  // ── Reload on tab change - with debounce ──
   const tabTimeoutRef = useRef(null);
   useEffect(() => {
     if (tab && initialLoadDone.current) {
@@ -484,17 +497,17 @@ export default function AdminDashboard({onChoosePlan}) {
         clearTimeout(tabTimeoutRef.current);
       }
       // Debounce tab changes to prevent rapid reloads
-      // tabTimeoutRef.current = setTimeout(() => {
-      //   console.log(`🔄 Tab changed to: ${tab}, reloading...`);
-      //   reload();
-      // }, 500);
+      tabTimeoutRef.current = setTimeout(() => {
+        console.log(`🔄 Tab changed to: ${tab}, reloading...`);
+        // reload();
+      }, 300);
     }
     return () => {
       if (tabTimeoutRef.current) {
         clearTimeout(tabTimeoutRef.current);
       }
     };
-  }, [tab]);
+  }, [tab]); // Only depends on tab
 
   // ── Clinic type check ──
   useEffect(() => {
@@ -504,19 +517,18 @@ export default function AdminDashboard({onChoosePlan}) {
     }
   }, [clinicType]);
 
-  // ── Reload on tab change ──
-//   useEffect(() => {
-//     reload();
-//   }, [tab, reload]);
-
   // ── Plan visibility check ──
-  const safePlan = activePlan ?? 'lite';
+  const safePlan = useMemo(() => {
+    return clinic?.plan || 'lite';
+  }, [clinic?.plan]);
+
   useEffect(() => {
     const section = TAB_TO_SECTION[tab];
     if (section && !isSectionVisible(safePlan, section)) {
+      console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
       setTab('overview');
     }
-  }, [activePlan, tab]);
+  }, [safePlan, tab]);
 
   // ── Safe data access with null checks ──
   const todayStr = new Date().toISOString().split('T')[0];
@@ -615,6 +627,23 @@ export default function AdminDashboard({onChoosePlan}) {
     );
   }
 
+  // ── Error state ──
+  if (error) {
+    return (
+      <div style={{ padding: 32, color: '#e74c3c', textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
+        <h2 style={{ marginBottom: 8 }}>Error loading dashboard</h2>
+        <p style={{ color: '#64748b', marginBottom: 16 }}>{error}</p>
+        <button 
+          onClick={() => { setRetryCount(0); reload(); }} 
+          style={{ padding: '10px 24px', background: '#0a3d62', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+        >
+          Retry Now
+        </button>
+      </div>
+    );
+  }
+
   // ── No clinic ──
   if (!clinic) {
     return <div style={{ padding: 32 }}>Clinic not found.</div>;
@@ -654,7 +683,7 @@ export default function AdminDashboard({onChoosePlan}) {
     </span>
   );
 
-  // ── Nav items ──
+  // ── Nav items with plan filtering ──
   const navItems = [
     { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
     { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
@@ -665,7 +694,10 @@ export default function AdminDashboard({onChoosePlan}) {
     { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
     { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
   ]
-    .filter(item => isSectionVisible(safePlan, item.section))
+    .filter(item => {
+      const isVisible = isSectionVisible(safePlan, item.section);
+      return isVisible;
+    })
     .map(item => ({
       icon: item.icon,
       label: item.label,
@@ -673,6 +705,10 @@ export default function AdminDashboard({onChoosePlan}) {
       onClick: () => setTab(item.tab),
       badge: item.badge,
     }));
+
+  // ── Check if pharmacists are allowed in this plan ──
+  const planConfig = getPlanConfig(safePlan);
+  const canManagePharmacists = planConfig.maxPharmacists !== 0;
 
   return (
     <>
@@ -688,12 +724,30 @@ export default function AdminDashboard({onChoosePlan}) {
           headerExtra={planBadge}
         >
           {tab === 'overview' && <Overview clinic={clinic} doctors={doctors} todayPatients={todayPatients} paidTotal={paidTotal} duesTotal={duesTotal} />}
-          {tab === 'doctors' && <DoctorManagement doctors={doctors} patients={patientList} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={activePlan} reload={reload} />}
-          {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={activePlan} />}
+          {tab === 'doctors' && <DoctorManagement doctors={doctors} patients={patientList} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={safePlan} reload={reload} />}
+          {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
           {tab === 'patients' && <AllPatients patients={patientList} clinicName={clinic?.name} />}
           {tab === 'followups' && <AdminFollowUps patients={patientList} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
           {tab === 'settings' && <ClinicSettings clinic={clinic} onSave={handleSaveClinic} />}
-          {tab === 'pharmacists' && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} />}
+          {tab === 'pharmacists' && canManagePharmacists && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
+          {tab === 'pharmacists' && !canManagePharmacists && (
+            <Card style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>💊</div>
+              <h3 style={{ marginBottom: 8 }}>Pharmacy Management Not Available</h3>
+              <p style={{ color: '#64748b', maxWidth: 400, margin: '0 auto' }}>
+                Your {safePlan} plan does not include pharmacy management. 
+                Upgrade to Plus or Pro to manage pharmacists and inventory.
+              </p>
+              {safePlan === 'lite' && (
+                <button 
+                  onClick={onChoosePlan}
+                  style={{ marginTop: 16, padding: '10px 24px', background: '#0f4c81', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  Upgrade Plan →
+                </button>
+              )}
+            </Card>
+          )}
           {tab === 'revenue' && <RevenueSection patients={patientList} doctors={doctors} pharmacists={pharmacists} session={session} getRevenueReport={getRevenueReport} />}
         </DashboardLayout>
       </div>
@@ -1965,12 +2019,29 @@ setErr('');
   );
 }
 
-function PharmacistManagement({ pharmacists, onAdd, onDelete }) {
+function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan }) {
   const [show, setShow] = useState(false);
   const [err,  setErr]  = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ name:'', email:'', phone:'', password:'' });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const canAdd = canAddStaff(activePlan, 'pharmacists', pharmacists.length);
+  const planConfig = getPlanConfig(activePlan);
+  const maxPharmacists = planConfig.maxPharmacists === -1 ? '∞' : planConfig.maxPharmacists;
+
+  if (planConfig.maxPharmacists === 0) {
+    return (
+      <Card style={{ textAlign: 'center', padding: 40 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>💊</div>
+        <h3 style={{ marginBottom: 8 }}>Pharmacy Management Not Available</h3>
+        <p style={{ color: '#64748b', maxWidth: 400, margin: '0 auto' }}>
+          Your {activePlan} plan does not include pharmacy management. 
+          Upgrade to Plus or Pro to manage pharmacists and inventory.
+        </p>
+      </Card>
+    );
+  }
 
   async function addPharmacist() {
     if (!form.name || !form.email || !form.password) { 

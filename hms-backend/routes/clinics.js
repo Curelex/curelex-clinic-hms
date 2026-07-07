@@ -147,16 +147,29 @@ router.get('/:clinicId/doctors', async (req, res) => {
 });
 
 
-// ── GET /api/clinics/me — clinic admin's own clinic ────────────────────────
+// In your backend - ensure the clinic data includes plan information
+
+// hms-backend/routes/clinics.js or auth.js
+
 router.get('/me', auth, async (req, res) => {
   try {
     if (!req.user.clinicId) {
       return res.status(400).json({ message: 'No clinic assigned to this account' });
     }
     const clinic = await Clinic.findById(req.user.clinicId);
-    if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
-    res.json(clinic);
+    if (!clinic) {
+      return res.status(404).json({ message: 'Clinic not found' });
+    }
+    
+    // Return clinic with plan information
+    res.json({
+      ...clinic.toObject(),
+      plan: clinic.plan || null,
+      planActivatedAt: clinic.planActivatedAt || null,
+      planExpiresAt: clinic.planExpiresAt || null,
+    });
   } catch (err) {
+    console.error('Error fetching clinic:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -180,34 +193,57 @@ router.put('/me', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-export default router;
+
 
 router.post('/activate-plan', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin')
+    // Check if user is admin or super_admin
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
       return res.status(403).json({ message: 'Admin only.' });
+    }
 
     const { plan } = req.body;
 
-    if (!['lite', 'plus', 'pro'].includes(plan))
+    // Validate plan
+    if (!['lite', 'plus', 'pro'].includes(plan)) {
       return res.status(400).json({ message: 'Invalid plan.' });
+    }
+
+    // Check if user has a clinic
+    if (!req.user.clinicId) {
+      return res.status(400).json({ message: 'No clinic associated with this account.' });
+    }
 
     const now = new Date();
     const exp = new Date(now);
     exp.setMonth(exp.getMonth() + 1);
 
+    // Update clinic with plan
     const clinic = await Clinic.findByIdAndUpdate(
       req.user.clinicId,
       {
-        plan,
+        plan: plan,
         planActivatedAt: now.toISOString().split('T')[0],
-        planExpiresAt:   exp.toISOString().split('T')[0],
+        planExpiresAt: exp.toISOString().split('T')[0],
       },
       { new: true }
-    ).select('-password');
+    );
 
-    res.json(clinic);
+    if (!clinic) {
+      return res.status(404).json({ message: 'Clinic not found.' });
+    }
+
+    // Return the updated clinic with plan info
+    res.json({
+      ...clinic.toObject(),
+      plan: clinic.plan,
+      planActivatedAt: clinic.planActivatedAt,
+      planExpiresAt: clinic.planExpiresAt,
+    });
   } catch (err) {
+    console.error('Activate plan error:', err);
     res.status(500).json({ message: err.message });
   }
 });
+
+export default router;
