@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { clinicConnection } from '../config/db.js';
 
 const subscriptionSchema = new mongoose.Schema(
   {

@@ -560,8 +560,11 @@ function AdminPayoutManagement() {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { user, hasPerm, getEffectiveClinicId, superAdminClinicId, superAdminClinicName } = useAuth();
+  const { user, hasPerm, getEffectiveClinicId, superAdminClinicId, superAdminClinicName, clinicType } = useAuth();
   const navigate = useNavigate();
+
+  const isClinicUser = clinicType === 'clinic';
+  const isHospitalUser = clinicType === 'hospital';
 
   const isDoctor     = user?.role?.toLowerCase() === 'doctor' || user?.role?.toLowerCase() === 'separate_doctor';
   const isAdmin      = user?.role?.toLowerCase() === 'admin';
@@ -575,6 +578,20 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState({
     lowStock: [], outOfStock: [], dueMaintenance: [], overdueMaintenance: [],
   });
+
+  useEffect(() => {
+    // If user is a clinic admin, redirect to clinic dashboard
+    if (user?.role === 'admin' && isClinicUser) {
+      navigate('/clinic-dashboard', { replace: true });
+      return;
+    }
+    
+    // If user is a hospital admin, they can stay on dashboard
+    if (user?.role === 'admin' && isHospitalUser) {
+      // Hospital admins can use the main dashboard
+      return;
+    }
+  }, [user, clinicType, navigate]);
 
   useEffect(() => {
     API.get(`/dashboard/stats?clinicId=${clinicId}`)

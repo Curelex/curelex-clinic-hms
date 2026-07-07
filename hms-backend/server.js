@@ -1,5 +1,5 @@
 // hms-backend/server.js
-
+import "./config/env.js"
 import { fileURLToPath } from 'url';
 import path from 'path';
 import express from 'express';
@@ -17,7 +17,7 @@ import Task from './models/Task.js';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
 // import clinicApp from './clinic/clinic/app.js';
-import stripeWebhookRouter from './clinic/clinic/webhooks/stripeWebhook.js';
+import stripeWebhookRouter from './webhooks/stripeWebhook.js';
 
 // Routes
 import authRoutes from './routes/auth.js';

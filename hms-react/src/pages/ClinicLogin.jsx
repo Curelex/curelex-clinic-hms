@@ -280,27 +280,6 @@ export default function ClinicLogin() {
             <div style={S.secTitle}>Sign In</div>
           </div>
 
-          <div style={S.field}>
-            <label style={S.fieldLabel}>Login As</label>
-            <select 
-              value={role} 
-              onChange={e => { setRole(e.target.value); setErr(''); }} 
-              disabled={loading}
-              style={{
-                ...S.fieldInput, 
-                cursor: 'pointer', 
-                appearance: 'none', 
-                WebkitAppearance: 'none',
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='%234a6278' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat', 
-                backgroundPosition: 'right 14px center', 
-                paddingRight: 40,
-              }}>
-              {roles.map(r => (
-                <option key={r.key} value={r.key}>{r.label}</option>
-              ))}
-            </select>
-          </div>
 
           <EmailField
             S={S}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
@@ -750,6 +750,20 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
               <>Create Clinic Account <IcoArrowRight /></>
             )}
           </button>
+
+          <div style={{ 
+            textAlign: 'center', 
+            marginTop: 10, 
+            paddingTop: 10, 
+            borderTop: '1px solid #e5e7eb',
+            fontSize: 13, 
+            color: '#64748b' 
+          }}>
+            Are you a Clinic Admin?{' '}
+            <Link to="/login-clinic" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none' }}>
+              Clinic Login →
+            </Link>
+          </div>
 
           <div style={{ textAlign:'center', marginTop:14, fontSize:12, color:'#8fa8bc' }}>
             By registering, you agree to our Terms of Service

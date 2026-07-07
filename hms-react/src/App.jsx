@@ -1,5 +1,5 @@
 // hms-react/src/App.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
@@ -42,13 +42,15 @@ import SoloDoctorDashboard from './pages/SoloDoctorDashboard';
 import ClinicRegistration from './pages/ClinicRegister';
 import ClinicLogin from './pages/ClinicLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import PlanSelection from './pages/PlanSelection';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
 // Redirects to login if not authenticated
 const PrivateRoute = ({ children }) => {
-  const { user, authReady } = useAuth();
+  const { user, authReady, clinicType } = useAuth();
   if (!authReady) return null;
+  if (clinicType === 'clinic') <Navigate to="/clinic-dashboard" /> ;
   return user ? children : <Navigate to="/login" replace />;
 };
 
@@ -59,15 +61,15 @@ const PublicRoute = ({ children }) => {
   if (!user) return children;
   // super_admin goes to the admin console; they can also manually navigate to /dashboard
   if (user.role === 'super_admin')
-  return <Navigate to="/super-admin" replace />;
+    return <Navigate to="/super-admin" replace />;
 
-if (user.role === 'patient')
-  return <Navigate to="/patient-dashboard" replace />;
+  if (user.role === 'patient')
+    return <Navigate to="/patient-dashboard" replace />;
 
-if (user.role === 'separate_doctor')
-  return <Navigate to="/solo-doctor-dashboard" replace />;
+  if (user.role === 'separate_doctor')
+    return <Navigate to="/solo-doctor-dashboard" replace />;
 
-return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
 };
 
 const SoloDoctorRoute = ({ children }) => {
@@ -118,6 +120,59 @@ const PermRoute = ({ permKey, children }) => {
   return hasPerm(permKey) ? children : <Navigate to="/dashboard" replace />;
 };
 
+const ClinicTypeRoute = ({ 
+  children, 
+  requiredType, // 'clinic' or 'hospital'
+  fallbackPath = '/dashboard' 
+}) => {
+  const { user, authReady, clinicType, isSuperAdmin } = useAuth();
+  
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  
+  // Super admins should be redirected to super-admin dashboard
+  if (isSuperAdmin()) {
+    return <Navigate to="/super-admin" replace />;
+  }
+  
+  // If clinic type doesn't match required type, redirect
+  if (clinicType !== requiredType) {
+    return <Navigate to={fallbackPath} replace />;
+  }
+  
+  return children;
+};
+
+// ── Admin Route with Plan Selection ──
+const AdminRoute = ({ children }) => {
+  const { user, authReady, clinicType } = useAuth();
+  const [choosingPlan, setChoosingPlan] = useState(false);
+
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  
+  // Check if user is admin
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Check if clinic type is 'clinic'
+  if (clinicType !== 'clinic') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // If choosing plan, show plan selection
+  if (choosingPlan) {
+    return <PlanSelection onDone={() => setChoosingPlan(false)} />;
+  }
+
+  // Pass the choose plan function to AdminDashboard
+  return React.cloneElement(children, { 
+    onChoosePlan: () => setChoosingPlan(true) 
+  });
+};
+
+// ── Main App ──
 function App() {
   return (
     <AuthProvider>
@@ -128,8 +183,12 @@ function App() {
           <Route path="/about" element={<About />} />
 
           {/* ── Staff Auth Routes ────────────────────────────────── */}
-          <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+
+          {/* ── Clinic Auth Routes ──────────────────────────────── */}
+          <Route path="/login-clinic" element={<PublicRoute><ClinicLogin /></PublicRoute>} />
+          <Route path="/register-clinic" element={<PublicRoute><ClinicRegistration /></PublicRoute>} />
 
           {/* ── Super Admin Route ────────────────────────────────── */}
           <Route
@@ -140,7 +199,6 @@ function App() {
               </SuperAdminRoute>
             }
           />
-          {/* Convenience: /super-admin/* sub-paths stay on the dashboard */}
           <Route
             path="/super-admin/*"
             element={
@@ -151,10 +209,22 @@ function App() {
           />
 
           {/* ── Patient Auth Routes ─────────────────────────────── */}
-          <Route path="/patient-login"    element={<PublicRoute><PatientLogin /></PublicRoute>} />
+          <Route path="/patient-login" element={<PublicRoute><PatientLogin /></PublicRoute>} />
           <Route path="/patient-register" element={<PublicRoute><PatientRegister /></PublicRoute>} />
 
-          {/* ── Staff Dashboard Routes (also accessible to super_admin) ──────────────────────────── */}
+          {/* ── Clinic Dashboard (Protected - Clinic type only) ── */}
+          <Route
+            path="/clinic-dashboard"
+            element={
+              <ClinicTypeRoute requiredType="clinic" fallbackPath="/dashboard">
+                <AdminRoute>
+                  <AdminDashboard onChoosePlan={() => setChoosingPlan(true)} />
+                </AdminRoute>
+              </ClinicTypeRoute>
+            }
+          />
+
+          {/* ── Staff Dashboard Routes ──────────────────────────── */}
           <Route
             path="/dashboard"
             element={
@@ -165,7 +235,6 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
-
 
             <Route
               path="patients"
@@ -270,7 +339,7 @@ function App() {
             }
           />
 
-          {/* ── NEW: Patient Documents ─────────────────────────── */}
+          {/* ── Patient Documents ────────────────────────────────── */}
           <Route
             path="/patient-documents"
             element={<PatientRoute><PatientDocuments /></PatientRoute>}
@@ -279,6 +348,8 @@ function App() {
             path="/patient-feedback"
             element={<PatientRoute><PatientFeedback /></PatientRoute>}
           />
+
+          {/* ── Solo Doctor Routes ───────────────────────────────── */}
           <Route
             path="/solo-doctor-dashboard"
             element={
@@ -303,14 +374,10 @@ function App() {
               </SoloDoctorRoute>
             }
           />
-         <Route path="/login-clinic" element={<ClinicLogin />} />
-<Route path="/register-clinic" element={<ClinicRegistration />} />
-<Route path="/clinic-dashboard" element={<AdminDashboard />} />
 
           {/* ── Catch all ────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        
       </Router>
     </AuthProvider>
   );

@@ -114,7 +114,7 @@ const placeholderStyle = `
 
 const Home = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, clinicType } = useAuth();
   const showToast = useToast();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState('light');
@@ -131,7 +131,10 @@ const Home = () => {
     if (isAuthenticated()) {
       if (user?.role === 'patient') {
         navigate('/patient-dashboard');
-      } else {
+      } else if (clinicType === 'clinic') {
+        navigate('/clinic-dashboard');
+      }
+      else {
         navigate('/dashboard');
       }
     }
@@ -222,7 +225,7 @@ const Home = () => {
 
   const handleClinicSelect = () => {
     setShowRoleModal(false);
-    navigate('/register-clinic');
+    navigate('/login-clinic');
   };
 
   return (

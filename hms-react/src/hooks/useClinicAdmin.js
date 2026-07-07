@@ -42,34 +42,205 @@ function tokenToPatient(t) {
 }
 
 export function useClinicAdmin() {
-  const { user, logout } = useAuth();
+  const { user, logout, getEffectiveClinicId, clinicType } = useAuth();
+
+  // Helper to get clinic ID
+  const getClinicId = () => {
+    return getEffectiveClinicId() || user?.clinicId;
+  };
+
+  // Helper to handle API errors
+  const handleApiError = (error, defaultMessage) => {
+    console.error(error);
+    const message = error.response?.data?.message || error.message || defaultMessage;
+    throw new Error(message);
+  };
 
   return {
     session: user,
     logout,
     activePlan: user?.activePlan || 'lite',
+    clinicType, // Add clinic type to return
 
-    refreshClinic: () => API.get('/clinics/me').then(r => r.data),
-    saveClinic:    (updates) => API.put('/clinics/me', updates).then(r => r.data),
+    // ── Clinic Management ──
+    refreshClinic: async () => {
+      try {
+        const clinicId = getClinicId();
+        if (!clinicId) {
+          throw new Error('No clinic ID found');
+        }
+        const response = await API.get(`/clinics/me`);
+        return response.data;
+      } catch (error) {
+        return handleApiError(error, 'Failed to refresh clinic data');
+      }
+    },
 
-    getUsers:   () => API.get('/auth/users').then(r => r.data),
-    addUser:    (data) => API.post('/auth/users', data).then(r => r.data),
-    updateUser: (id, data) => API.put(`/auth/users/${id}`, data).then(r => r.data),
-    deleteUser: (id) => API.delete(`/auth/users/${id}`).then(r => r.data),
-    updateTokenLimit: (doctorId, limit) =>
-      API.put(`/auth/users/${doctorId}`, { dailyTokenLimit: limit }).then(r => r.data),
+    saveClinic: async (updates) => {
+      try {
+        const clinicId = getClinicId();
+        if (!clinicId) {
+          throw new Error('No clinic ID found');
+        }
+        const response = await API.put(`/clinics/${clinicId}`, updates);
+        return response.data;
+      } catch (error) {
+        return handleApiError(error, 'Failed to save clinic data');
+      }
+    },
 
-    getPatients: () =>
-      API.get('/tokens').then(r => (r.data.tokens || []).map(tokenToPatient)),
+    // ── User Management ──
+    getUsers: async () => {
+      try {
+        const clinicId = getClinicId();
+        const params = clinicId ? { clinicId } : {};
+        const response = await API.get('/auth/users', { params });
+        return response.data;
+      } catch (error) {
+        return handleApiError(error, 'Failed to fetch users');
+      }
+    },
 
-    updatePatientStatus: (id, status) =>
-      API.patch(`/tokens/${id}/status`, { status: STATUS_TO_TOKEN[status] || 'Waiting' })
-         .then(r => tokenToPatient(r.data.token)),
+    addUser: async (data) => {
+      try {
+        const clinicId = getClinicId();
+        if (!clinicId && data.role !== 'separate_doctor') {
+          throw new Error('No clinic ID found');
+        }
+        const response = await API.post('/auth/users', {
+          ...data,
+          clinicId: data.clinicId || clinicId
+        });
+        return response.data;
+      } catch (error) {
+        return handleApiError(error, 'Failed to add user');
+      }
+    },
 
-    updateFollowUp: (id, followUpDate, followUpNote) =>
-      API.patch(`/tokens/${id}/follow-up`, { followUpDate, followUpNote })
-         .then(r => tokenToPatient(r.data)),
+    updateUser: async (id, data) => {
+      try {
+        const clinicId = getClinicId();
+        const response = await API.put(`/auth/users/${id}`, {
+          ...data,
+          clinicId: data.clinicId || clinicId
+        });
+        return response.data;
+      } catch (error) {
+        return handleApiError(error, 'Failed to update user');
+      }
+    },
 
-    getRevenueReport: () => Promise.resolve({ ok: false, status: 501, json: async () => ({ message: 'Not implemented yet' }) }),
+    deleteUser: async (id) => {
+      try {
+        const clinicId = getClinicId();
+        await API.delete(`/auth/users/${id}`, {
+          data: { clinicId }
+        });
+        return true;
+      } catch (error) {
+        return handleApiError(error, 'Failed to delete user');
+      }
+    },
+
+    updateTokenLimit: async (doctorId, limit) => {
+      try {
+        const response = await API.put(`/auth/users/${doctorId}`, { 
+          dailyTokenLimit: limit 
+        });
+        return response.data;
+      } catch (error) {
+        return handleApiError(error, 'Failed to update token limit');
+      }
+    },
+
+    // ── Patient Management ──
+    getPatients: async () => {
+      try {
+        const clinicId = getClinicId();
+        const params = clinicId ? { clinicId } : {};
+        const response = await API.get('/tokens', { params });
+        return (response.data.tokens || []).map(tokenToPatient);
+      } catch (error) {
+        return handleApiError(error, 'Failed to fetch patients');
+      }
+    },
+
+    updatePatientStatus: async (id, status) => {
+      try {
+        const response = await API.patch(`/tokens/${id}/status`, { 
+          status: STATUS_TO_TOKEN[status] || 'Waiting' 
+        });
+        return tokenToPatient(response.data.token);
+      } catch (error) {
+        return handleApiError(error, 'Failed to update patient status');
+      }
+    },
+
+    updateFollowUp: async (id, followUpDate, followUpNote) => {
+      try {
+        const response = await API.patch(`/tokens/${id}/follow-up`, { 
+          followUpDate, 
+          followUpNote 
+        });
+        return tokenToPatient(response.data);
+      } catch (error) {
+        return handleApiError(error, 'Failed to update follow-up');
+      }
+    },
+
+    // ── Revenue Management ──
+    getRevenueReport: async (fromDate, toDate) => {
+      try {
+        const clinicId = getClinicId();
+        if (!clinicId) {
+          throw new Error('No clinic ID found');
+        }
+        const response = await API.get('/reports/revenue', {
+          params: { 
+            clinicId, 
+            fromDate, 
+            toDate,
+            clinicType: clinicType // Include clinic type for filtering
+          }
+        });
+        return response.data;
+      } catch (error) {
+        // If endpoint doesn't exist yet, return mock data
+        if (error.response?.status === 404) {
+          console.warn('Revenue report endpoint not implemented yet');
+          return {
+            totalSales: 0,
+            totalProfit: 0,
+            totalOrders: 0,
+            pharmacists: []
+          };
+        }
+        return handleApiError(error, 'Failed to fetch revenue report');
+      }
+    },
+
+    // ── Helper to check if user is clinic admin ──
+    isClinicAdmin: () => {
+      return user?.role === 'admin' && clinicType === 'clinic';
+    },
+
+    // ── Helper to check if user is hospital admin ──
+    isHospitalAdmin: () => {
+      return user?.role === 'admin' && clinicType === 'hospital';
+    },
+
+    // ── Get clinic type ──
+    getClinicType: () => {
+      return clinicType;
+    },
+
+    // ── Check if feature is available based on clinic type ──
+    isFeatureAvailable: (feature) => {
+      const features = {
+        clinic: ['patients', 'billing', 'tokens', 'staff', 'prescriptions', 'pharmacy'],
+        hospital: ['patients', 'billing', 'tokens', 'staff', 'prescriptions', 'pharmacy', 'ipd', 'lab', 'inventory', 'room-settings', 'emergency']
+      };
+      return (features[clinicType] || []).includes(feature);
+    }
   };
 }
