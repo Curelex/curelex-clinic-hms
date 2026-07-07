@@ -1704,7 +1704,11 @@ tr:hover td { background: var(--surface2); }
     /* ── Site Modal ── */
     .site-modal-container { width: 92vw; padding: 16px; border-radius: 16px; max-height: 90vh; }
     .site-modal-close { width: 40px; height: 40px; font-size: 1.5rem; top: 0.5rem; right: 0.5rem; }
-    .role-selection { grid-template-columns: 1fr; gap: 12px; }
+    .role-selection {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    }
 
     /* ── Auth Pages ── */
     .auth-page-container { grid-template-columns: 1fr; }

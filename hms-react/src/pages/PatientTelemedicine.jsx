@@ -790,25 +790,25 @@ export default function PatientTelemedicine() {
             {/* Avatar + name row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
-  width: 46, height: 46, borderRadius: '50%',
-  background: isOnline ? '#d1fae5' : '#f1f5f9',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  fontSize: 20, fontWeight: 700,
-  color: isOnline ? '#16a34a' : '#94a3b8',
-  flexShrink: 0,
-  overflow: 'hidden',
-}}>
-  {doc.photoUrl ? (
-    <img
-      src={doc.photoUrl}
-      alt={doc.name}
-      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-      onError={(e) => { e.target.style.display = 'none'; }}
-    />
-  ) : (
-    doc.name?.charAt(0).toUpperCase()
-  )}
-</div>
+                width: 46, height: 46, borderRadius: '50%',
+                background: isOnline ? '#d1fae5' : '#f1f5f9',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, fontWeight: 700,
+                color: isOnline ? '#16a34a' : '#94a3b8',
+                flexShrink: 0,
+                overflow: 'hidden',
+              }}>
+                {doc.photoUrl ? (
+                  <img
+                    src={doc.photoUrl}
+                    alt={doc.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  doc.name?.charAt(0).toUpperCase()
+                )}
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   Dr. {doc.name}

@@ -260,10 +260,10 @@ const Home = () => {
       {/* ── Mobile Menu ── */}
       <div className={`mobile-menu ${isMobileMenuOpen ? 'active' : ''}`}>
         <ul className='flex flex-col gap-3'>
-            <li><a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a></li>
-            <li><Link to="/about" onClick={closeMobileMenu}>About</Link></li>
-            <li><a href="#services" onClick={(e) => { e.preventDefault(); scrollToSection('services'); }}>Services</a></li>
-            <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact Us</a></li>
+          <li><a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a></li>
+          <li><Link to="/about" onClick={closeMobileMenu}>About</Link></li>
+          <li><a href="#services" onClick={(e) => { e.preventDefault(); scrollToSection('services'); }}>Services</a></li>
+          <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact Us</a></li>
           <li>
             <button className="theme-toggle-mobile" onClick={toggleTheme}>
               <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'} text-gray-500 `}></i>
@@ -660,11 +660,35 @@ const Home = () => {
           grid-template-columns: repeat(2, 1fr);
           gap: 16px;
         }
-        @media (max-width: 560px) {
-          .role-selection-4 {
-            grid-template-columns: 1fr;
-          }
-        }
+        @media (max-width: 560px) 
+  .role-selection-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .role-card {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .role-card h3 {
+    font-size: 0.9rem;
+  }
+
+  .role-card p {
+    font-size: 0.7rem;
+    line-height: 1.25;
+  }
+
+  .auth-header {
+    text-align: center;
+    width: 100%;
+  }
+
+  .auth-header h2,
+  .auth-header p {
+    text-align: center;
+  }
+}
       `}</style>
     </>
   );

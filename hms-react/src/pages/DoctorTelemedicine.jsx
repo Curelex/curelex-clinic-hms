@@ -49,7 +49,17 @@ export default function DoctorTelemedicine() {
     }
   };
 
-  const doctorId = user?._id || user?.id;
+const doctorId = user?._id || user?.id;
+
+// ── Setup completeness check ──
+const hasFeeSet = Number(user?.telemedicineFee) > 0;
+const hasBankDetails = Boolean(
+  user?.bankDetails?.accountHolderName &&
+  user?.bankDetails?.accountNumber &&
+  user?.bankDetails?.bankName &&
+  user?.bankDetails?.ifscCode
+);
+const setupComplete = hasFeeSet && hasBankDetails;
 
 // ── Setup completeness check ──
 const hasFeeSet = Number(user?.telemedicineFee) > 0;
@@ -387,6 +397,14 @@ const setupComplete = hasFeeSet && hasBankDetails;
     {doctorStatus === 'online' ? 'Go Offline' : 'Go Online'}
   </button>
 </div>
+
+{!setupComplete && (
+  <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+    ⚠️ {!hasFeeSet && !hasBankDetails ? 'Set fee & bank details to go online' :
+        !hasFeeSet ? 'Set consultation fee to go online' :
+        'Add bank details to go online'}
+  </span>
+)}
 
 {!setupComplete && (
   <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
