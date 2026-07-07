@@ -218,9 +218,11 @@ export default function PatientFeedback() {
       {/* ── Top Bar ── */}
       <header className="pd-topbar">
         <div className="pd-topbar__left">
-          <button className="pd-hamburger" onClick={() => setSidebarOpen(true)} style={{ display: 'flex' }}>
-            <i className="fas fa-bars" />
-          </button>
+          {!isMobile && (
+            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+              <i className="fas fa-bars" />
+            </button>
+          )}
           <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
         </div>
         <div className="pd-topbar__right">
@@ -240,9 +242,12 @@ export default function PatientFeedback() {
                   </div>
                   <div className="pd-user-dropdown__divider" />
                   {[
-                    { icon: 'fa-user-circle',             label: 'Profile',            path: '/patient-profile' },
-                    { icon: 'fa-calendar-check',          label: 'Appointments',       path: '/patient-appointments' },
-                    { icon: 'fa-folder-open',             label: 'My Documents',       path: '/patient-documents' },
+                    { icon: 'fa-user-circle',            label: 'Profile',            path: '/patient-profile' },
+                    { icon: 'fa-calendar-check',         label: 'Appointments',       path: '/patient-appointments' },
+                    { icon: 'fa-procedures',             label: 'Hospital Admission', path: '/patient-admission' },
+                    { icon: 'fa-video',                  label: 'Telemedicine',       path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',      path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open',            label: 'My Documents',       path: '/patient-documents' },
                   ].map(item => (
                     <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
                       <i className={`fas ${item.icon}`} /> {item.label}

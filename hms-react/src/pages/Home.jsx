@@ -205,7 +205,11 @@ const Home = () => {
     closeMobileMenu();
   };
 
-  /* ── Role selection handlers ── */
+  /* ── Role selection handlers ──
+     Patient keeps its own dedicated login route.
+     Doctor and Hospital reuse the exact same staff login
+     route/logic that "Staff" used before.
+     Clinic now redirects to the standalone curelex-clinic-ims app. ── */
   const handlePatientSelect = () => {
     setShowRoleModal(false);
     navigate('/patient-login');
@@ -214,6 +218,11 @@ const Home = () => {
   const handleStaffSelect = () => {
     setShowRoleModal(false);
     navigate('/login');
+  };
+
+  const handleClinicSelect = () => {
+    setShowRoleModal(false);
+    window.location.href = 'http://localhost:5173/clinic?mode=login';
   };
 
   return (
@@ -250,14 +259,14 @@ const Home = () => {
 
       {/* ── Mobile Menu ── */}
       <div className={`mobile-menu ${isMobileMenuOpen ? 'active' : ''}`}>
-        <ul>
+        <ul className='flex flex-col gap-3'>
           <li><a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a></li>
           <li><Link to="/about" onClick={closeMobileMenu}>About</Link></li>
           <li><a href="#services" onClick={(e) => { e.preventDefault(); scrollToSection('services'); }}>Services</a></li>
           <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection('contact'); }}>Contact Us</a></li>
           <li>
             <button className="theme-toggle-mobile" onClick={toggleTheme}>
-              <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
+              <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'} text-gray-500 `}></i>
               <span> {theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
             </button>
           </li>
@@ -608,7 +617,13 @@ const Home = () => {
                 <p>Choose your account type to proceed</p>
               </div>
             </div>
-            <div className="role-selection">
+            {/*
+              4 role cards now. Patient keeps its own route.
+              Doctor and Hospital reuse handleStaffSelect — the exact
+              same /login routing "Staff" used before.
+              Clinic redirects to the standalone curelex-clinic-ims app.
+            */}
+            <div className="role-selection role-selection-4">
               <button className="role-card" onClick={handlePatientSelect}>
                 <div className="role-icon"><i className="fas fa-user-injured"></i></div>
                 <h3>Patient</h3>
@@ -616,7 +631,17 @@ const Home = () => {
               </button>
               <button className="role-card" onClick={handleStaffSelect}>
                 <div className="role-icon"><i className="fas fa-user-md"></i></div>
-                <h3>Staff</h3>
+                <h3>Doctor</h3>
+                <p>Manage appointments, consultations and patient records</p>
+              </button>
+              <button className="role-card" onClick={handleClinicSelect}>
+                <div className="role-icon"><i className="fas fa-clinic-medical"></i></div>
+                <h3>Clinic</h3>
+                <p>Manage appointments, patients, billing and more</p>
+              </button>
+              <button className="role-card" onClick={handleStaffSelect}>
+                <div className="role-icon"><i className="fas fa-hospital"></i></div>
+                <h3>Hospital</h3>
                 <p>Manage appointments, patients, billing and more</p>
               </button>
             </div>
@@ -630,6 +655,40 @@ const Home = () => {
           70%  { transform: scale(1.1); }
           100% { transform: scale(1);   opacity: 1; }
         }
+        .role-selection-4 {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 560px) 
+  .role-selection-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .role-card {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .role-card h3 {
+    font-size: 0.9rem;
+  }
+
+  .role-card p {
+    font-size: 0.7rem;
+    line-height: 1.25;
+  }
+
+  .auth-header {
+    text-align: center;
+    width: 100%;
+  }
+
+  .auth-header h2,
+  .auth-header p {
+    text-align: center;
+  }
+}
       `}</style>
     </>
   );

@@ -3,7 +3,20 @@ import mongoose from 'mongoose';
 
 const LabSchema = new mongoose.Schema({
   labId:    { type: String },
-  clinicId: { type: String, required: true, index: true, default: 'default' }, // ← NEW
+
+  // ✅ FIXED: was `{ type: String, default: 'default' }` — inconsistent with
+  // every other clinic-scoped model (Patient.clinicIds, Token.clinicId,
+  // User.clinicId), all of which are real ObjectId refs to Clinic.
+  // A bare String with a 'default' fallback meant super_admin requests with
+  // no clinic selected silently wrote into an orphan 'default' bucket that
+  // no real clinic could ever see or query.
+  clinicId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Clinic',
+    required: true,
+    index: true,
+  },
+
   patient:  { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
   appointment: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
   orderedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -28,7 +41,7 @@ const LabSchema = new mongoose.Schema({
   },
   remarks: String,
 }, { timestamps: true });
- 
+
 LabSchema.index({ clinicId: 1, labId: 1 }, { unique: true });
 
 LabSchema.pre('save', async function (next) {

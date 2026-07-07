@@ -3,6 +3,7 @@ import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Link, useMatch } from 'react-router-dom';
 import PatientSidebar from '../components/PatientSidebar';
+import BottomNav from '../components/BottomNav';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile is shared between two routes:
@@ -14,14 +15,25 @@ import PatientSidebar from '../components/PatientSidebar';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Profile() {
-  const { user, patient } = useAuth();
+  const { user, patient, logout } = useAuth();
+  
   const isStaffRoute = !!useMatch('/dashboard/profile');
 
   const [sidebarOpen,     setSidebarOpen]     = useState(false);
+  const [userDropdown,    setUserDropdown]     = useState(false);
   const [showEditModal,   setShowEditModal]   = useState(false);
   const [showPassModal,   setShowPassModal]   = useState(false);
   const [previewImage,    setPreviewImage]    = useState(null);
   const [selectedAvatar,  setSelectedAvatar]  = useState(null);
+
+  // ── Responsive hook ──────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
+  React.useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+
   const fileInputRef = React.useRef(null);
 
   const patientName  = patient?.name  || user?.name  || 'User';
@@ -58,15 +70,29 @@ export default function Profile() {
       let avatarData = user?.avatar || '';
       if (selectedAvatar) {
         avatarData = await new Promise((res, rej) => {
-          const r = new FileReader(); r.onloadend = () => res(r.result); r.onerror = rej; r.readAsDataURL(selectedAvatar);
+          const r = new FileReader();
+          r.onloadend = () => res(r.result);
+          r.onerror = rej;
+          r.readAsDataURL(selectedAvatar);
         });
       }
-      await API.put(`/patients/${patient._id}`, {
-        name: editForm.name, phone: editForm.phone, dob: editForm.dob,
-        gender: editForm.gender, bloodGroup: editForm.bloodGroup, avatar: avatarData,
-      });
-      setShowEditModal(false); window.location.reload();
-    } catch (err) { alert(err.response?.data?.message || 'Failed to update profile'); }
+
+      if (patient?._id) {
+        await API.put(`/patients/${patient._id}`, {
+          name: editForm.name, phone: editForm.phone, dob: editForm.dob,
+          gender: editForm.gender, bloodGroup: editForm.bloodGroup, avatar: avatarData,
+        });
+      } else {
+        await API.put('/auth/me', {
+          name: editForm.name, phone: editForm.phone, avatar: avatarData,
+        });
+      }
+
+      setShowEditModal(false);
+      window.location.reload();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update profile');
+    }
   };
 
   const handleChangePassword = async () => {
@@ -79,17 +105,22 @@ export default function Profile() {
     } catch (err) { alert(err?.response?.data?.message || 'Failed to update password'); }
   };
 
+  const handleLogout = () => { logout(); };
+  const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); window.location.href = path; };
+
+  const isPatient = !!patient?._id;
+
   const infoRows = [
-    { label: 'Full Name',     value: displayName },
-    { label: 'Email',         value: user?.email || '—' },
-    { label: 'Phone',         value: user?.phone || 'Not provided' },
-    { label: 'Date of Birth', value: patient?.dob ? new Date(patient.dob).toLocaleDateString('en-GB') : 'Not provided' },
-    { label: 'Gender',        value: patient?.gender     || 'Not provided' },
-    { label: 'Blood Group',   value: patient?.bloodGroup || 'Not provided' },
-    { label: 'Member Since',  value: memberSince },
+    { label: "Full Name", value: displayName },
+    { label: "Email", value: user?.email || "—" },
+    { label: "Phone", value: user?.phone || "Not provided" },
+    { label: "Date of Birth", value: patient?.dob ? new Date(patient.dob).toLocaleDateString("en-GB") : "Not provided", patientOnly: true },
+    { label: "Gender", value: patient?.gender || "Not provided", patientOnly: true },
+    { label: "Blood Group", value: patient?.bloodGroup || "Not provided", patientOnly: true },
+    { label: "Member Since", value: memberSince },
   ];
 
-  // ── Shared styles injected once regardless of route ──────────────────────
+  // ── Shared styles ──────────────────────────────────────────────────────
   const styles = `
     .prof-wrap {
       width: 100%;
@@ -268,7 +299,7 @@ export default function Profile() {
     .prof-hr { height: 1px; background: #f0f4f8; margin: 14px 0; }
   `;
 
-  // ── The actual profile content (shared between both routes) ──────────────
+  // ── Profile content ───────────────────────────────────────────────────────
   const profileContent = (
     <div className="prof-wrap">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -346,47 +377,59 @@ export default function Profile() {
       <div className="prof-section">
         <div className="prof-section-hd">Personal Information</div>
         <div className="prof-rows">
-          {infoRows.map((row, i) => (
-            <div className="prof-row" key={i}>
-              <div className="prof-row-lbl">{row.label}</div>
-              <div className="prof-row-val">{row.value}</div>
-            </div>
-          ))}
+          {infoRows
+            .filter((row) => {
+              if (row.patientOnly && !isPatient) return false;
+              return row.value != null;
+            })
+            .map((row, i) => (
+              <div className="prof-row" key={i}>
+                <div className="prof-row-lbl">{row.label}</div>
+                <div className="prof-row-val">{row.value}</div>
+              </div>
+            ))}
         </div>
       </div>
     </div>
   );
 
-  // ── Modals (same for both routes, rendered outside layout) ───────────────
+  // ── Modals ────────────────────────────────────────────────────────────────
   const modals = (
     <>
       {showEditModal && (
         <div className="prof-overlay" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
           <div className="prof-modal">
             <div className="prof-modal-hd">Edit Profile</div>
+
             <div className="prof-section-lbl">Personal</div>
             <div className="prof-f"><label>Full Name</label><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
             <div className="prof-f"><label>Email</label><input value={user?.email || ''} disabled /><div className="prof-hint">Cannot be changed</div></div>
             <div className="prof-f"><label>Phone</label><input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
-            <div className="prof-hr" />
-            <div className="prof-section-lbl">Medical</div>
-            <div className="prof-f"><label>Date of Birth</label><input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} /></div>
-            <div className="prof-f">
-              <label>Gender</label>
-              <select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div className="prof-f">
-              <label>Blood Group</label>
-              <select value={editForm.bloodGroup} onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}>
-                <option value="">Select</option>
-                {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-              </select>
-            </div>
+
+            {patient?._id && (
+              <>
+                <div className="prof-hr" />
+                <div className="prof-section-lbl">Medical</div>
+                <div className="prof-f"><label>Date of Birth</label><input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} /></div>
+                <div className="prof-f">
+                  <label>Gender</label>
+                  <select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="prof-f">
+                  <label>Blood Group</label>
+                  <select value={editForm.bloodGroup} onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}>
+                    <option value="">Select</option>
+                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+
             <div className="prof-hr" />
             <div className="prof-section-lbl">Account</div>
             <div className="prof-f"><label>Role</label><input value={roleLabel} disabled /></div>
@@ -417,11 +460,7 @@ export default function Profile() {
     </>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER: staff route → content only (Layout shell already exists)
-  //         patient route → full pd-layout shell
-  // ─────────────────────────────────────────────────────────────────────────
-
+  // ── Staff route → content only ────────────────────────────────────────────
   if (isStaffRoute) {
     return (
       <>
@@ -432,7 +471,7 @@ export default function Profile() {
     );
   }
 
-  // Patient route — full standalone layout
+  // ── Patient route → full standalone layout ────────────────────────────────
   return (
     <>
       <style>{styles}</style>
@@ -440,17 +479,48 @@ export default function Profile() {
       <div className="pd-layout">
         <header className="pd-topbar">
           <div className="pd-topbar__left">
-            <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
-              <i className="fas fa-bars"></i>
-            </button>
+            {!isMobile && (
+              <button className="pd-hamburger" onClick={() => setSidebarOpen(true)}>
+                <i className="fas fa-bars"></i>
+              </button>
+            )}
             <Link to="/patient-dashboard" className="pd-topbar__title">My Health</Link>
           </div>
           <div className="pd-topbar__right">
             <div className="pd-user-menu">
-              <div className="pd-user-menu__trigger">
+              <div className="pd-user-menu__trigger" onClick={() => setUserDropdown(!userDropdown)}>
                 <div className="pd-user-menu__avatar">{initials}</div>
                 <span className="pd-user-menu__name">{patientName}</span>
+                <i className="fas fa-chevron-down" style={{ fontSize: 10, color: 'var(--text-secondary)' }} />
               </div>
+              {userDropdown && (
+                <>
+                  <div className="pd-user-dropdown-overlay" onClick={() => setUserDropdown(false)} />
+                  <div className="pd-user-dropdown">
+                    <div className="pd-user-dropdown__info">
+                      <strong>{patientName}</strong>
+                      <span>{patientEmail}</span>
+                    </div>
+                    <div className="pd-user-dropdown__divider" />
+                    {[
+                      { icon: 'fa-user-circle',            label: 'Profile',            path: '/patient-profile' },
+                      { icon: 'fa-calendar-check',         label: 'Appointments',       path: '/patient-appointments' },
+                      { icon: 'fa-procedures',             label: 'Hospital Admission', path: '/patient-admission' },
+                      { icon: 'fa-video',                  label: 'Telemedicine',       path: '/patient-telemedicine' },
+                      { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',      path: '/patient-prescriptions' },
+                      { icon: 'fa-folder-open',            label: 'My Documents',       path: '/patient-documents' },
+                    ].map(item => (
+                      <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
+                        <i className={`fas ${item.icon}`} /> {item.label}
+                      </button>
+                    ))}
+                    <div className="pd-user-dropdown__divider" />
+                    <button className="pd-user-dropdown__item pd-user-dropdown__item--danger" onClick={handleLogout}>
+                      <i className="fas fa-sign-out-alt" /> Logout
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -473,6 +543,8 @@ export default function Profile() {
             </main>
           </div>
         </div>
+
+        <BottomNav activeItem="profile" />
       </div>
 
       {modals}

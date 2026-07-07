@@ -16,6 +16,8 @@ import rateLimit from 'express-rate-limit';
 import Task from './models/Task.js';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
+import clinicApp from './clinic/clinic/app.js';
+import stripeWebhookRouter from './clinic/clinic/webhooks/stripeWebhook.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -44,6 +46,7 @@ import medicineRoutes from './routes/medicines.js';
 import documentRoutes from './routes/documents.js';
 import telemedicineRoutes from './routes/telemedicine.js';
 import feedbackRoutes from './routes/feedback.js';
+import payrollRoutes from './routes/payroll.js';
 import imsRoutes from './ims/src/routes/index.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 
@@ -81,6 +84,7 @@ app.use(cors({
     // 'https://curelex.in',
     // 'https://www.curelex.in',
     'http://localhost:5173',
+    'http://localhost:5174'
   ],
   credentials: true,
 }));
@@ -88,6 +92,8 @@ app.use(cors({
 app.use('/api/v1/ims/reports/download-pdf', helmet({ contentSecurityPolicy: false }));
 app.use('/api/reports/download-pdf',        helmet({ contentSecurityPolicy: false }));
 app.use(helmet());
+
+app.use('/api/clinic/webhooks/stripe', stripeWebhookRouter);
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -103,6 +109,7 @@ app.use((req, res, next) => {
 
 // MongoDB
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { clinicConnection } from './clinic/clinic/config/db.js';
 
 // ── Seed super admin from .env on first boot ─────────────────────────────
 async function seedSuperAdmin() {
@@ -347,6 +354,13 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('join_queue', ({ clinicId, doctorId, date }) => {
+    const room = `queue_${clinicId}_${doctorId}_${date}`;
+    socket.join(room);
+
+    console.log(`Joined ${room}`);
+});
+
   socket.on('disconnect', () => {
     console.log('🔌 Socket disconnected:', socket.id);
     const doctorId = global.socketToDoctor.get(socket.id);
@@ -447,19 +461,34 @@ app.use('/api/medicines', medicineRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/telemedicine', telemedicineRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 app.use('/api/v1/ims', imsRoutes);
+
+app.use('/api/clinic', clinicApp);
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check
-app.get('/', (req, res) => {
-  res.json({ message: 'HMS API Running' });
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'OK',
+        db: mongoose.connection.readyState === 1
+            ? 'connected'
+            : 'disconnected',
+        endpoints: {
+            hms: '/api',
+            ims: '/api/v1/ims',
+            clinic: '/api/clinic'
+        },
+        websockets: true
+    });
 });
 
 app.use(notFound);
 app.use(errorHandler);
+
+await clinicConnection.asPromise();
 
 // Start server
 const PORT = process.env.PORT || 5000;

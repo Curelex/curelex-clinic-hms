@@ -35,7 +35,10 @@ import DoctorTelemedicine from './pages/DoctorTelemedicine';
 import PatientTelemedicine from './pages/PatientTelemedicine';
 import DoctorEarnings from './pages/DoctorEarnings';
 import DoctorBankDetails from './pages/DoctorBankDetails';
+import DoctorProfileView from './pages/DoctorProfileView';
+import DoctorProfileForm from './pages/DoctorProfileForm';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import SoloDoctorDashboard from './pages/SoloDoctorDashboard';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
@@ -52,9 +55,30 @@ const PublicRoute = ({ children }) => {
   if (!authReady) return null;
   if (!user) return children;
   // super_admin goes to the admin console; they can also manually navigate to /dashboard
-  if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
-  if (user.role === 'patient') return <Navigate to="/patient-dashboard" replace />;
-  return <Navigate to="/dashboard" replace />;
+  if (user.role === 'super_admin')
+  return <Navigate to="/super-admin" replace />;
+
+if (user.role === 'patient')
+  return <Navigate to="/patient-dashboard" replace />;
+
+if (user.role === 'separate_doctor')
+  return <Navigate to="/solo-doctor-dashboard" replace />;
+
+return <Navigate to="/dashboard" replace />;
+};
+
+const SoloDoctorRoute = ({ children }) => {
+  const { user, authReady } = useAuth();
+
+  if (!authReady) return null;
+
+  if (!user)
+    return <Navigate to="/login" replace />;
+
+  if (user.role !== "separate_doctor")
+    return <Navigate to="/dashboard" replace />;
+
+  return children;
 };
 
 // Patient route guard — only patients can access
@@ -252,10 +276,36 @@ function App() {
             path="/patient-feedback"
             element={<PatientRoute><PatientFeedback /></PatientRoute>}
           />
+          <Route
+            path="/solo-doctor-dashboard"
+            element={
+              <SoloDoctorRoute>
+                <SoloDoctorDashboard />
+              </SoloDoctorRoute>
+            }
+          />
+          <Route
+            path="/doctor-profile-form"
+            element={
+              <SoloDoctorRoute>
+                <DoctorProfileForm />
+              </SoloDoctorRoute>
+            }
+          />
+          <Route
+            path="/doctor-profile-view"
+            element={
+              <SoloDoctorRoute>
+                <DoctorProfileView />
+              </SoloDoctorRoute>
+            }
+          />
+         
 
           {/* ── Catch all ────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        
       </Router>
     </AuthProvider>
   );

@@ -76,6 +76,14 @@ router.get('/stats', auth, async (req, res) => {
       });
     }
 
+    // ✅ FIX: Patient no longer has a `clinicId` field — it has `clinicIds`
+    // (an array, since a patient can belong to multiple clinics). Mongo
+    // matches `{ clinicIds: clinicId }` as "array contains this id", same
+    // pattern used in routes/patients.js. Every Patient query in this file
+    // was still querying the old (nonexistent) `clinicId` field, which is
+    // why patient-derived counts always showed 0 regardless of real data.
+    const patientClinicFilter = { clinicIds: clinicId };
+
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
@@ -109,15 +117,20 @@ router.get('/stats', auth, async (req, res) => {
         totalPatients, activePatients, totalRevenue,
         pendingBills, lowStockItems, pendingLabs, monthlyRevenue,
       ] = await Promise.all([
-        Patient.countDocuments({ clinicId }),
-        Patient.countDocuments({ clinicId, status: 'Active' }),
+        Patient.countDocuments(patientClinicFilter),
+        Patient.countDocuments({ ...patientClinicFilter, status: 'Active' }),
         Billing.aggregate([
           { $match: { clinicId, paymentStatus: 'Paid' } },
           { $group: { _id: null, total: { $sum: '$totalAmount' } } },
         ]),
         Billing.countDocuments({ clinicId, paymentStatus: 'Pending' }),
         Inventory.countDocuments({ clinicId, quantity: { $lt: 10 } }),
-        Lab.countDocuments({ clinicId, status: { $in: ['Pending', 'Ordered'] } }),
+        // ✅ FIX: Lab.status enum is ['Ordered', 'Sample Collected',
+        // 'Processing', 'Completed', 'Cancelled'] — there is no 'Pending'
+        // value on the Lab document itself (only on individual test
+        // sub-entries). A freshly ordered lab starts as 'Ordered', so that
+        // is the "awaiting action" state to count here.
+        Lab.countDocuments({ clinicId, status: { $in: ['Ordered', 'Sample Collected', 'Processing'] } }),
         Billing.aggregate([
           {
             $match: {
@@ -171,7 +184,15 @@ router.get('/stats', auth, async (req, res) => {
     ────────────────────────────────────────────────────── */
     if (role === 'doctor' || role === 'separate_doctor') {
       const myPatients = await Appointment.distinct('patient', { clinicId, doctor: userId });
-      const pendingLabs = await Lab.countDocuments({ clinicId, doctor: userId, status: 'Pending' });
+      // ✅ FIX: same Lab.status enum issue as above, plus Lab has no
+      // `doctor` field on the schema (it references patient/orderedBy) —
+      // querying `doctor: userId` here would never match anything even if
+      // the status were valid. Scoping to clinic + "not yet completed" is
+      // the closest correct equivalent until a doctor field is added to Lab.
+      const pendingLabs = await Lab.countDocuments({
+        clinicId,
+        status: { $in: ['Ordered', 'Sample Collected', 'Processing'] },
+      });
       const myAdmittedPatients = await Admission.countDocuments({ clinicId, doctor: userId, status: 'Admitted' });
 
       return res.json({
@@ -188,8 +209,11 @@ router.get('/stats', auth, async (req, res) => {
        NURSE — active patients + admitted + today schedule + pending labs
     ────────────────────────────────────────────────────── */
     if (role === 'nurse') {
-      const activePatients = await Patient.countDocuments({ clinicId, status: 'Active' });
-      const pendingLabs = await Lab.countDocuments({ clinicId, status: 'Pending' });
+      const activePatients = await Patient.countDocuments({ ...patientClinicFilter, status: 'Active' });
+      const pendingLabs = await Lab.countDocuments({
+        clinicId,
+        status: { $in: ['Ordered', 'Sample Collected', 'Processing'] },
+      });
 
       return res.json({
         activePatients,
@@ -205,7 +229,7 @@ router.get('/stats', auth, async (req, res) => {
     ────────────────────────────────────────────────────── */
     if (role === 'receptionist') {
       const [totalPatients, pendingBills] = await Promise.all([
-        Patient.countDocuments({ clinicId }),
+        Patient.countDocuments(patientClinicFilter),
         Billing.countDocuments({ clinicId, paymentStatus: 'Pending' }),
       ]);
 
@@ -245,14 +269,16 @@ router.get('/stats', auth, async (req, res) => {
        LAB TECH — pending/completed/urgent tests
     ────────────────────────────────────────────────────── */
     if (role === 'lab_technician') {
+      // ✅ FIX: 'Pending' -> 'Ordered' (real enum value for a freshly
+      // ordered, not-yet-actioned lab), and priority 'urgent' -> 'Urgent'
+      // (Lab.priority enum is ['Normal', 'Urgent', 'STAT'], case-sensitive).
       const [pendingLabs, completedLabs, urgentLabs, totalLabs, pendingLabList] = await Promise.all([
-        Lab.countDocuments({ clinicId, status: 'Pending' }),
+        Lab.countDocuments({ clinicId, status: 'Ordered' }),
         Lab.countDocuments({ clinicId, status: 'Completed', updatedAt: { $gte: today } }),
-        Lab.countDocuments({ clinicId, status: 'Pending', priority: 'urgent' }),
+        Lab.countDocuments({ clinicId, status: { $ne: 'Completed' }, priority: { $in: ['Urgent', 'STAT'] } }),
         Lab.countDocuments({ clinicId }),
-        Lab.find({ clinicId, status: 'Pending' })
+        Lab.find({ clinicId, status: 'Ordered' })
           .populate('patient', 'name')
-          .populate('doctor', 'name')
           .sort({ priority: -1, createdAt: 1 })
           .limit(8),
       ]);

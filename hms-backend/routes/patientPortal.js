@@ -255,6 +255,8 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
       paidAt: paidAt || new Date(),
     });
 
+    await Patient.findByIdAndUpdate(patient._id, { $addToSet: { clinicIds: clinicId } });
+
     await token.populate('doctor', 'name department consultationFee');
 
     res.status(201).json({ success: true, appointment: token });
@@ -266,6 +268,41 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
         message: 'Token number conflict — please try again.',
       });
     }
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.patch('/:id/appointments/:tokenId/cancel', patientAuth, async (req, res) => {
+  try {
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    // Same reasoning as getLinkedPatientIds elsewhere in this file: a token
+    // may be booked under a different clinic-scoped Patient _id for the
+    // same person, so don't scope strictly to req.params.id.
+    const patientIds = await getLinkedPatientIds(patient);
+
+    const token = await Token.findOne({ _id: req.params.tokenId, patient: { $in: patientIds } });
+    if (!token) {
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    if (!['Pending', 'Waiting'].includes(token.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `This appointment is already ${token.status.toLowerCase()} and can no longer be cancelled here. Please contact the clinic.`,
+      });
+    }
+
+    token.status = 'Skipped';
+    await token.save();
+    await token.populate('doctor', 'name department consultationFee');
+
+    res.json({ success: true, message: 'Appointment cancelled', appointment: token });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
