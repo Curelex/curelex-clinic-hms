@@ -42,6 +42,7 @@ export default function Register() {
         role:       form.accountType,
         department: form.department,
         phone:      form.phone,
+        type: 'hospital'
       };
 
       if (form.accountType === 'admin') {

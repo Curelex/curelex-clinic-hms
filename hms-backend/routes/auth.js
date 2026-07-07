@@ -14,6 +14,7 @@ import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
 import Feedback from '../models/Feedback.js';
+import Subscription from '../models/Subscription.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,7 +88,7 @@ router.post('/register-super-admin', async (req, res) => {
 // ── Register (Staff/Clinic Admin) ──────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, clinicName, clinicId, department, phone } = req.body;
+    const { name, email, password, role, clinicName, clinicId, department, phone, type } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
@@ -109,7 +110,12 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ message: 'An account with this email already exists' });
       }
 
-      const clinic = await Clinic.create({ name: clinicName, email, phone });
+      const clinic = await Clinic.create({ 
+        name: clinicName, 
+        email, 
+        phone, 
+        type: type || 'hospital' 
+      });
 
       const user = await User.create({
         name, email, password,
@@ -432,6 +438,7 @@ router.post('/login', async (req, res) => {
       token, 
       user: userOut,
       patient: patient || undefined,
+
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -444,6 +451,19 @@ router.get('/profile', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    let clinicType = null;
+    let activePlan = null;
+
+    if (user.clinicId) {
+      const clinic = await Clinic.findById(user.clinicId).select('type');
+      clinicType = clinic?.type || null;
+
+      const subscription = await Subscription.findOne({ clinicId: user.clinicId }).select('plan status');
+      activePlan = subscription?.status === 'active' || subscription?.status === 'trialing'
+        ? subscription.plan
+        : (subscription?.plan || 'lite'); // adjust to your actual "no active plan" rule
+    }
     
     let patientData = null;
     if (user.role === 'patient') {
@@ -462,7 +482,7 @@ router.get('/profile', auth, async (req, res) => {
       }
     }
     
-    res.json({ user, patient: patientData });
+    res.json({ user, patient: patientData, clinicType, activePlan });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -1004,11 +1024,11 @@ router.get('/clinics', auth, roleCheck('super_admin'), async (req, res) => {
 // ── Super Admin: Create a clinic ──────────────────────────────────────────
 router.post('/clinics', auth, roleCheck('super_admin'), async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
+    const { name, email, phone, type } = req.body;
     if (!name || !email) return res.status(400).json({ message: 'Name and email are required' });
     const existing = await Clinic.findOne({ email });
     if (existing) return res.status(400).json({ message: 'A clinic with this email already exists' });
-    const clinic = await Clinic.create({ name, email, phone });
+    const clinic = await Clinic.create({ name, email, phone, type: type || 'hospital' });
     res.status(201).json({ success: true, clinic });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

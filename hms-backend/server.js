@@ -3,6 +3,7 @@
 // MUST be the very first import — loads .env before any other module runs
 import 'dotenv/config';
 
+import "./config/env.js"
 import { fileURLToPath } from 'url';
 import path from 'path';
 import express from 'express';
@@ -18,8 +19,8 @@ import rateLimit from 'express-rate-limit';
 import Task from './models/Task.js';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
-import clinicApp from './clinic/clinic/app.js';
-import stripeWebhookRouter from './clinic/clinic/webhooks/stripeWebhook.js';
+// import clinicApp from './clinic/clinic/app.js';
+import stripeWebhookRouter from './webhooks/stripeWebhook.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -109,7 +110,7 @@ app.use((req, res, next) => {
 
 // MongoDB
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { clinicConnection } from './clinic/clinic/config/db.js';
+// import { clinicConnection } from './clinic/clinic/config/db.js';
 
 // ── Seed super admin from .env on first boot ─────────────────────────────
 async function seedSuperAdmin() {
@@ -354,12 +355,12 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('join_queue', ({ clinicId, doctorId, date }) => {
-    const room = `queue_${clinicId}_${doctorId}_${date}`;
-    socket.join(room);
+  // socket.on('join_queue', ({ clinicId, doctorId, date }) => {
+  //   const room = `queue_${clinicId}_${doctorId}_${date}`;
+  //   socket.join(room);
 
-    console.log(`Joined ${room}`);
-});
+  //   console.log(`Joined ${room}`);
+// });
 
   socket.on('disconnect', () => {
     console.log('🔌 Socket disconnected:', socket.id);
@@ -465,7 +466,7 @@ app.use('/api/payroll', payrollRoutes);
 
 app.use('/api/v1/ims', imsRoutes);
 
-app.use('/api/clinic', clinicApp);
+// app.use('/api/clinic', clinicApp);
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -488,7 +489,7 @@ app.get('/health', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-await clinicConnection.asPromise();
+// await clinicConnection.asPromise();
 
 // Start server
 const PORT = process.env.PORT || 5000;
