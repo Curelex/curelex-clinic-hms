@@ -238,23 +238,34 @@ const login = async (email, password) => {
   }
 };
 
-  // ── Register (Staff) ─────────────────────────────────────────────────────
   const register = async (formData) => {
-    setLoading(true);
-    try {
-      const { data } = await API.post('/auth/register', formData);
-      localStorage.setItem('hms_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      resetSocket();
-      setUser(data.user);
-      return { success: true };
-    } catch (err) {
-      console.error('❌ Register error:', err);
-      return { success: false, message: err.response?.data?.message || 'Registration failed' };
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const { data } = await API.post('/auth/register', formData);
+    localStorage.setItem('hms_token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    resetSocket();
+    setUser(data.user);
+
+    if (data.clinicType) {
+      setClinicType(data.clinicType);
+    } else {
+      try {
+        const clinicRes = await API.get('/clinics/me');
+        if (clinicRes.data?.type) setClinicType(clinicRes.data.type);
+      } catch (err) {
+        console.error('Failed to fetch clinic type after register:', err);
+      }
     }
-  };
+
+    return { success: true, user: data.user, clinicType: data.clinicType };
+  } catch (err) {
+    console.error('❌ Register error:', err);
+    return { success: false, message: err.response?.data?.message || 'Registration failed' };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ── Patient Registration ─────────────────────────────────────────────────
   const registerPatient = async (formData) => {

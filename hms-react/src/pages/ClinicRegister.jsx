@@ -540,7 +540,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
 
       if (onSuccess) onSuccess(result);
       if (onClose) onClose();
-      navigate('/dashboard');
+      navigate('/login-clinic');
 
     } catch (e) {
       setErr(e.message || 'Registration failed.');

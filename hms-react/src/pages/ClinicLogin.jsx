@@ -236,7 +236,7 @@ export default function ClinicLogin() {
         setErr(result.message || 'Login failed.');
         return;
       }
-      navigate('/dashboard');
+      navigate('/clinic-dashboard');
 
     } catch (e) {
       console.error("LOGIN ERROR:", e);

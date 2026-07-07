@@ -5,7 +5,7 @@ export const PLAN_CONFIGS = {
     label: 'Lite Plan',
     maxDoctors: 3,
     maxReceptionists: 2,
-    maxPharmacists: 0, // No pharmacists in Lite plan
+    maxPharmacists: 0,
     maxStaff: 5,
     features: {
       patients: true,
@@ -30,19 +30,20 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: false,
       revenue: false,
+      inventory: false,
     },
   },
   plus: {
     label: 'Plus Plan',
-    maxDoctors: -1, // Unlimited
-    maxReceptionists: -1, // Unlimited
+    maxDoctors: -1,
+    maxReceptionists: -1,
     maxPharmacists: 2,
     maxStaff: -1,
     features: {
       patients: true,
       billing: true,
       pharmacy: true,
-      inventory: true,
+      inventory: false,
       lab: false,
       ipd: false,
       staff: true,
@@ -61,13 +62,14 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: true,
       revenue: true,
+      inventory: false,
     },
   },
   pro: {
     label: 'Pro Plan',
-    maxDoctors: -1, // Unlimited
-    maxReceptionists: -1, // Unlimited
-    maxPharmacists: -1, // Unlimited
+    maxDoctors: -1,
+    maxReceptionists: -1,
+    maxPharmacists: -1,
     maxStaff: -1,
     features: {
       patients: true,
@@ -92,10 +94,10 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: true,
       revenue: true,
+      inventory: true,
     },
   },
 };
-
 // ── Helper Functions ──
 
 export function getPlanConfig(planKey) {

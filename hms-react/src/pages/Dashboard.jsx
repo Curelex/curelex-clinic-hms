@@ -578,6 +578,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState({
     lowStock: [], outOfStock: [], dueMaintenance: [], overdueMaintenance: [],
   });
+  console.log(user.role, isClinicUser);
 
   useEffect(() => {
     // If user is a clinic admin, redirect to clinic dashboard
