@@ -12,6 +12,7 @@ import Patient from '../models/Patient.js';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
+import Feedback from '../models/Feedback.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -717,7 +718,24 @@ router.get('/available-doctors', auth, async (req, res) => {
     const doctors = await User.find(
       { role: { $in: ['doctor', 'separate_doctor'] }, isActive: true },
       'name department consultationFee telemedicineFee phone email avatar'
-    ).sort({ name: 1 });
+    ).lean().sort({ name: 1 });
+
+    const Feedback = mongoose.model('Feedback');
+    for (let doctor of doctors) {
+      const stats = await Feedback.aggregate([
+        { $match: { doctorId: doctor._id } },
+        { $group: { _id: "$doctorId", averageRating: { $avg: "$doctorRating" }, totalRatings: { $sum: 1 } } }
+      ]);
+      
+      if (stats.length > 0) {
+        doctor.averageRating = Number(stats[0].averageRating.toFixed(1));
+        doctor.totalRatings = stats[0].totalRatings;
+      } else {
+        doctor.averageRating = 0;
+        doctor.totalRatings = 0;
+      }
+    }
+
     res.json({ success: true, doctors });
   } catch (err) {
     console.error('Error fetching available doctors:', err);
