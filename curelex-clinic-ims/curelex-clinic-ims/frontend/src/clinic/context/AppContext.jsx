@@ -1,252 +1,67 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import {
-  apiLogout,
-  getSession,
-  removeToken,
-  removeSession,
-  setSession as persistSession,
-  apiGetMyClinic,
-  apiUpdateMyClinic,
-  apiGetUsers,
-  apiAddUser,
-  apiUpdateUser,
-  apiDeleteUser,
-  apiGetPatients,
-  apiAddPatient,
-  apiUpdatePatientStatus,
-  apiUpdateFollowUp,
-  apiUpdateTokenLimit,
-  apiGetMe,
-  apiUploadPatientFile,
-  apiGetPatientFiles,
-  apiDownloadPatientFile,
-  apiDeletePatientFile,
-  apiGetPatientHistory,
-  apiActivatePlan,
-  apiGetRevenueReport,
-  // ✅ NEW: Prescription APIs
-  apiCreatePrescription,
-  apiUpdatePrescription,
-  apiGetPatientPrescriptions,
-  apiGetTodayPrescriptions,
-  apiGetPrescriptionsByDate,
-  apiGetPrescriptionAutocomplete,
-  apiMarkPrescriptionDispensed,
-  apiMarkPrescriptionViewed,
-} from '../utils/api';
+import { createContext, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import { getMe, login as loginApi, signup as signupApi } from "../services/authService";
 
-const AppContext = createContext(null);
+export const AuthContext = createContext(null);
 
-function normalizePlan(raw) {
-  if (!raw) return null;
-  const s = String(raw).toLowerCase().trim();
-  if (s.includes('pro'))  return 'pro';
-  if (s.includes('plus')) return 'plus';
-  if (s.includes('lite')) return 'lite';
-  if (['pro', 'plus', 'lite'].includes(s)) return s;
-  return null;
-}
-
-function clearAllAuth() {
-  removeToken();
-  removeSession();
-  localStorage.removeItem('ims_token');
-  localStorage.removeItem('ims_sso_token');
-  localStorage.removeItem('curelex_activePlan');
-  sessionStorage.removeItem('sso_attempt');
-}
-
-export function AppProvider({ children }) {
-  const [session, setSessionState] = useState(() => getSession());
-
-  const [activePlan, setActivePlanState] = useState(
-    () => normalizePlan(localStorage.getItem('curelex_activePlan'))
-  );
-
-  const setActivePlan = useCallback((planKey) => {
-    const normalized = normalizePlan(planKey);
-    if (normalized) {
-      localStorage.setItem('curelex_activePlan', normalized);
-    } else {
-      localStorage.removeItem('curelex_activePlan');
-    }
-    setActivePlanState(normalized);
-  }, []);
-
-  const clearPlan = useCallback(() => {
-    localStorage.removeItem('curelex_activePlan');
-    setActivePlanState(null);
-  }, []);
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [activePlan, setActivePlan] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedPlan     = normalizePlan(localStorage.getItem('curelex_activePlan'));
-    const currentSession = getSession();
-
-    if (storedPlan) setActivePlanState(storedPlan);
-
-    if (currentSession) {
-      apiGetMyClinic()
-        .then((clinic) => {
-          if (!clinic) return;
-          const backendPlan =
-            clinic?.plan ??
-            clinic?.subscription?.plan ??
-            clinic?.activePlan ??
-            null;
-          if (backendPlan) setActivePlan(backendPlan);
-        })
-        .catch((err) => {
-          const msg = err?.message || '';
-          if (
-            msg.includes('401') ||
-            msg.includes('Invalid') ||
-            msg.includes('expired') ||
-            msg.includes('Unauthorized')
-          ) {
-            clearAllAuth();
-            setSessionState(null);
-            setActivePlanState(null);
-          }
-        });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const bootstrap = async () => {
+      const token = localStorage.getItem("ims_token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { user: currentUser, activePlan: plan } = await getMe();
+        setUser(currentUser);
+        setActivePlan(plan);
+      } catch (error) {
+        if (error?.response?.status === 401) {
+          localStorage.removeItem("ims_token");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    bootstrap();
   }, []);
 
-  const setSession = useCallback((sess) => {
-    setSessionState(sess);
-    if (sess) {
-      persistSession(sess);
-    } else {
-      apiLogout();
-      clearPlan();
-    }
-  }, [clearPlan]);
+  const login = async (payload) => {
+    const data = await loginApi(payload);
+    localStorage.setItem("ims_token", data.token);
+    setUser(data.user);
+    setActivePlan(data.activePlan || null);
+    toast.success("Logged in");
+  };
 
-  const login = useCallback((sess) => {
-    setSession(sess);
+  const signup = async (payload) => {
+    const data = await signupApi(payload);
+    localStorage.setItem("ims_token", data.token);
+    setUser(data.user);
+    toast.success("Account created");
+  };
 
-    const storedPlan = normalizePlan(localStorage.getItem('curelex_activePlan'));
-    if (storedPlan) setActivePlanState(storedPlan);
+  const logout = () => {
+    localStorage.removeItem("ims_token");
+    setUser(null);
+    setActivePlan(null);
+  };
 
-    apiGetMyClinic()
-      .then((clinic) => {
-        if (!clinic) return;
-        const backendPlan =
-          clinic?.plan ??
-          clinic?.subscription?.plan ??
-          clinic?.activePlan ??
-          null;
-        if (backendPlan) setActivePlan(backendPlan);
-      })
-      .catch(() => {});
-  }, [setSession, setActivePlan]);
+  const hasPerm = (key) => {
+    if (!user) return false;
+    if (user.role?.toLowerCase() === "admin") return true;
+    return Array.isArray(user.permissions) && user.permissions.includes(key);
+  };
 
-  const logout = useCallback(() => {
-    clearAllAuth();
-    setSessionState(null);
-    setActivePlanState(null);
-  }, []);
-
-  const refreshClinic = useCallback(() => apiGetMyClinic(), []);
-  const saveClinic    = useCallback((updates) => apiUpdateMyClinic(updates), []);
-
-  const getUsers   = useCallback(() => apiGetUsers(), []);
-  const addUser    = useCallback((data) => apiAddUser(data), []);
-  const updateUser = useCallback((userId, data) => apiUpdateUser(userId, data), []);
-  const deleteUser = useCallback((userId) => apiDeleteUser(userId), []);
-  const getMe      = useCallback(() => apiGetMe(), []);
-
-  const updateTokenLimit = useCallback(
-    (doctorId, limit) => apiUpdateTokenLimit(doctorId, limit), []
+  const value = useMemo(
+    () => ({ user, activePlan, loading, login, signup, logout, hasPerm }),
+    [user, activePlan, loading]
   );
 
-  const getPatients         = useCallback((params = {}) => apiGetPatients(params), []);
-  const addPatient          = useCallback((data) => apiAddPatient(data), []);
-  const updatePatientStatus = useCallback(
-    (patientId, status) => apiUpdatePatientStatus(patientId, status), []
-  );
-  const updateFollowUp = useCallback(
-    (patientId, followUpDate, followUpNote) =>
-      apiUpdateFollowUp(patientId, followUpDate, followUpNote), []
-  );
-
-  const uploadPatientFile = useCallback(
-    (patientId, file) => apiUploadPatientFile(patientId, file), []
-  );
-  const getPatientFiles = useCallback(
-    (patientId) => apiGetPatientFiles(patientId), []
-  );
-  const downloadPatientFile = useCallback(
-    (patientId, fileId) => apiDownloadPatientFile(patientId, fileId), []
-  );
-  const deletePatientFile = useCallback(
-    (patientId, fileId) => apiDeletePatientFile(patientId, fileId), []
-  );
-
-  const getPatientHistory = useCallback(
-    (phone) => apiGetPatientHistory(phone), []
-  );
-
-  const activatePlan = useCallback(async (planKey) => {
-    await apiActivatePlan(planKey);
-    setActivePlan(planKey);
-  }, [setActivePlan]);
-
-  const getRevenueReport = useCallback(
-    (from, to) => apiGetRevenueReport(from, to), []
-  );
-
-  // ✅ NEW: Prescription callbacks
-  const createPrescription = useCallback(
-    (data) => apiCreatePrescription(data), []
-  );
-  const updatePrescription = useCallback(
-    (id, data) => apiUpdatePrescription(id, data), []
-  );
-  const getPatientPrescriptions = useCallback(
-    (patientId) => apiGetPatientPrescriptions(patientId), []
-  );
-  const getTodayPrescriptions = useCallback(
-    () => apiGetTodayPrescriptions(), []
-  );
-  const getPrescriptionsByDate = useCallback(
-    (date) => apiGetPrescriptionsByDate(date), []
-  );
-  const getPrescriptionAutocomplete = useCallback(
-    () => apiGetPrescriptionAutocomplete(), []
-  );
-  const markPrescriptionDispensed = useCallback(
-    (id) => apiMarkPrescriptionDispensed(id), []
-  );
-  const markPrescriptionViewed = useCallback(
-    (id) => apiMarkPrescriptionViewed(id), []
-  );
-
-  return (
-    <AppContext.Provider value={{
-      session, login, logout,
-      activePlan, setActivePlan, clearPlan, activatePlan,
-      refreshClinic, saveClinic,
-      getUsers, addUser, updateUser, deleteUser, getMe,
-      updateTokenLimit,
-      getPatients, addPatient, updatePatientStatus, updateFollowUp,
-      uploadPatientFile, getPatientFiles, downloadPatientFile, deletePatientFile,
-      getPatientHistory, getRevenueReport,
-      // ✅ NEW: Prescriptions
-      createPrescription,
-      updatePrescription,
-      getPatientPrescriptions,
-      getTodayPrescriptions,
-      getPrescriptionsByDate,
-      getPrescriptionAutocomplete,
-      markPrescriptionDispensed,
-      markPrescriptionViewed,
-    }}>
-      {children}
-    </AppContext.Provider>
-  );
-}
-
-export function useApp() {
-  return useContext(AppContext);
-}
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

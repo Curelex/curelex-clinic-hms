@@ -1,6 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import MainLayout from "./components/layout/MainLayout";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import CustomersPage from "./pages/CustomersPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -11,6 +10,7 @@ import ProductsPage from "./pages/ProductsPage";
 import PurchasesPage from "./pages/PurchasesPage";
 import ReportsPage from "./pages/ReportsPage";
 import SalesPage from "./pages/SalesPage";
+import "./index.css";
 import SuppliersPage from "./pages/SuppliersPage";
 import AllPatientsIMS from "./pages/AllPatientsIMS";
 import { Toaster } from "react-hot-toast";
@@ -25,7 +25,7 @@ function IMSAppContent() {
           path="/"
           element={
             <ProtectedRoute>
-              <MainLayout />
+              <Outlet />
             </ProtectedRoute>
           }
         >

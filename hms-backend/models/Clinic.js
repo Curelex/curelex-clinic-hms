@@ -6,6 +6,11 @@ const ClinicSchema = new mongoose.Schema({
   email:   { type: String, required: true, unique: true },
   phone:   { type: String },
   address: { type: String },
+   type: {
+    type: String,
+    enum: ['hospital', 'clinic'],
+    default: 'clinic',
+  },
 }, { timestamps: true });
 
 export default mongoose.model('Clinic', ClinicSchema);

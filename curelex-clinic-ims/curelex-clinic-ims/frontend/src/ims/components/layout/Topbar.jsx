@@ -79,7 +79,7 @@ const Topbar = ({ onMenuClick }) => {
               textOverflow: "ellipsis",
             }}
           >
-            Welcome, {user?.fullName || "User"}
+            Welcome, {user?.name || "User"}
           </div>
         </div>
       </div>

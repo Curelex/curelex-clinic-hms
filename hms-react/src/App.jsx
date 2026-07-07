@@ -39,6 +39,9 @@ import DoctorProfileView from './pages/DoctorProfileView';
 import DoctorProfileForm from './pages/DoctorProfileForm';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import SoloDoctorDashboard from './pages/SoloDoctorDashboard';
+import ClinicRegistration from './pages/ClinicRegister';
+import ClinicLogin from './pages/ClinicLogin';
+import AdminDashboard from './pages/AdminDashboard';
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
@@ -300,7 +303,9 @@ function App() {
               </SoloDoctorRoute>
             }
           />
-         
+         <Route path="/login-clinic" element={<ClinicLogin />} />
+<Route path="/register-clinic" element={<ClinicRegistration />} />
+<Route path="/clinic-dashboard" element={<AdminDashboard />} />
 
           {/* ── Catch all ────────────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/" replace />} />

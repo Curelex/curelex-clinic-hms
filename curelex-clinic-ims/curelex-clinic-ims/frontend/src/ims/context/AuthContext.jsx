@@ -1,56 +1,85 @@
-import { createContext, useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { getMe, login as loginApi, signup as signupApi } from "../services/authService";
+import { authApi } from "../services/api";
 
 export const AuthContext = createContext(null);
 
-const CLINIC_ROLES = ['receptionist', 'doctor', 'pharmacist', 'admin'];
-
-async function fetchClinicToken(email, password, role) {
-  try {
-    if (!CLINIC_ROLES.includes(role)) return;
-    const res = await fetch(
-      `${import.meta.env.VITE_CLINIC_API_URL || 'http://localhost:5000/api/clinic'}/auth/login`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role }),
-      }
-    );
-    const data = await res.json();
-    if (data.token) {
-      localStorage.setItem('clinic_token', data.token);
-    }
-  } catch (err) {
-    console.warn('Clinic token fetch failed:', err.message);
-  }
-}
+// Module-level guard: survives StrictMode remount
+let lastExchangedSsoToken = null;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Component-level guard: blocks concurrent in-flight calls
+  const exchangeInFlight = useRef(false);
 
   useEffect(() => {
     const bootstrap = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const ssoToken = params.get("sso");
+
+      if (ssoToken) {
+        // Strip URL immediately before any async work
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Block if same token already handled or currently in flight
+        if (lastExchangedSsoToken === ssoToken || exchangeInFlight.current) {
+          setLoading(false);
+          return;
+        }
+
+        lastExchangedSsoToken = ssoToken;
+        exchangeInFlight.current = true;
+
+        try {
+          const { data } = await authApi.post("/auth/sso-exchange", { token: ssoToken });
+          localStorage.setItem("ims_token", data.token);
+          setUser(data.user);
+          setLoading(false);
+          return;
+        } catch (error) {
+          const status = error?.response?.status;
+          if (status === 401 && localStorage.getItem("ims_token")) {
+            // Race lost — first call already saved the token, restore session
+            try {
+              const { user: currentUser } = await getMe();
+              setUser(currentUser);
+            } catch {
+              localStorage.removeItem("ims_token");
+            }
+            setLoading(false);
+            return;
+          }
+          // Genuine failure — reset guards for retry
+          lastExchangedSsoToken = null;
+          exchangeInFlight.current = false;
+          console.error(
+            "SSO exchange failed:",
+            error?.response?.data?.message || error.message
+          );
+        }
+      }
+
+      // Normal JWT session restore
       const token = localStorage.getItem("ims_token");
-      if (!token) { setLoading(false); return; }
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const { user: currentUser } = await getMe();
-        
         setUser(currentUser);
       } catch (error) {
-        // ✅ FIXED — log the error instead of silently removing token
-        console.error("bootstrap getMe failed:", error?.response?.status, error?.message);
-        
-        // Only remove token on 401 — not on network errors
         if (error?.response?.status === 401) {
           localStorage.removeItem("ims_token");
-          localStorage.removeItem("clinic_token");
         }
       } finally {
         setLoading(false);
       }
     };
+
     bootstrap();
   }, []);
 
@@ -58,7 +87,6 @@ export const AuthProvider = ({ children }) => {
     const data = await loginApi(payload);
     localStorage.setItem("ims_token", data.token);
     setUser(data.user);
-    await fetchClinicToken(payload.email, payload.password, data.user.role);
     toast.success("Logged in");
   };
 
@@ -66,17 +94,26 @@ export const AuthProvider = ({ children }) => {
     const data = await signupApi(payload);
     localStorage.setItem("ims_token", data.token);
     setUser(data.user);
-    await fetchClinicToken(payload.email, payload.password, data.user.role);
     toast.success("Account created");
   };
 
   const logout = () => {
     localStorage.removeItem("ims_token");
-    localStorage.removeItem("clinic_token");
     setUser(null);
+    lastExchangedSsoToken = null;
+    exchangeInFlight.current = false;
   };
 
-  const value = useMemo(() => ({ user, loading, login, signup, logout }), [user, loading]);
+  const hasPerm = (key) => {
+    if (!user) return false;
+    if (user.role?.toLowerCase() === "admin") return true;
+    return Array.isArray(user.permissions) && user.permissions.includes(key);
+  };
+
+  const value = useMemo(
+    () => ({ user, loading, login, signup, logout, hasPerm }),
+    [user, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

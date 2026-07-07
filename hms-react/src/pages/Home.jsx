@@ -222,7 +222,7 @@ const Home = () => {
 
   const handleClinicSelect = () => {
     setShowRoleModal(false);
-    window.location.href = 'http://localhost:5173/clinic?mode=login';
+    navigate('/register-clinic');
   };
 
   return (

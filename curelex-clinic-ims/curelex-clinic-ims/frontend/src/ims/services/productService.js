@@ -1,6 +1,6 @@
 import api from "./api";
 
-const API_BASE = import.meta.env.VITE_IMS_API_URL || "https://curelex.in/ims/api/v1";
+const API_BASE = import.meta.env.VITE_IMS_API_URL || "https://curelex.in/api";
 
 export const fetchProducts = async (params = {}) => {
   const { data } = await api.get("/products", { params });
@@ -9,9 +9,11 @@ export const fetchProducts = async (params = {}) => {
 
 export const createProduct = async (payload) => {
   const isFormData = payload instanceof FormData;
+  
   const { data } = await api.post("/products", payload, {
     headers: isFormData ? { "Content-Type": "multipart/form-data" } : {}
   });
+  console.log(data);
   return data;
 };
 

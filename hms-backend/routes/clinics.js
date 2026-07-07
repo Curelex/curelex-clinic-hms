@@ -4,6 +4,9 @@ const router = express.Router();
 import Clinic from '../models/Clinic.js';
 import User from '../models/User.js';
 import Feedback from '../models/Feedback.js';
+import { auth } from '../middleware/auth.js';
+import roleCheck from '../middleware/roleCheck.js';
+import { getClinicFilter } from '../middleware/clinicFilter.js';
 
 // ── GET /api/clinics - Fetch / search registered clinics ──────────────────
 // Query: ?search=xyz  → case-insensitive partial match on clinic name
@@ -143,4 +146,36 @@ router.get('/:clinicId/doctors', async (req, res) => {
   }
 });
 
-export default router;
+
+// ── GET /api/clinics/me — clinic admin's own clinic ────────────────────────
+router.get('/me', auth, async (req, res) => {
+  try {
+    if (!req.user.clinicId) {
+      return res.status(400).json({ message: 'No clinic assigned to this account' });
+    }
+    const clinic = await Clinic.findById(req.user.clinicId);
+    if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
+    res.json(clinic);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── PUT /api/clinics/me — update own clinic (admin only) ───────────────────
+router.put('/me', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    if (!req.user.clinicId) {
+      return res.status(400).json({ message: 'No clinic assigned to this account' });
+    }
+    const ALLOWED = ['name', 'owner', 'phone', 'address', 'pincode', 'state', 'district', 'subDistrict', 'city', 'email'];
+    const fields = {};
+    for (const key of ALLOWED) {
+      if (req.body[key] !== undefined) fields[key] = req.body[key];
+    }
+    const clinic = await Clinic.findByIdAndUpdate(req.user.clinicId, fields, { new: true });
+    if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
+    res.json(clinic);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
