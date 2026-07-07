@@ -61,15 +61,6 @@ const hasBankDetails = Boolean(
 );
 const setupComplete = hasFeeSet && hasBankDetails;
 
-// ── Setup completeness check ──
-const hasFeeSet = Number(user?.telemedicineFee) > 0;
-const hasBankDetails = Boolean(
-  user?.bankDetails?.accountHolderName &&
-  user?.bankDetails?.accountNumber &&
-  user?.bankDetails?.bankName &&
-  user?.bankDetails?.ifscCode
-);
-const setupComplete = hasFeeSet && hasBankDetails;
 
   // ── Socket: Listen for events ──
   useEffect(() => {
