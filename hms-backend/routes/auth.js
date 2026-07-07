@@ -13,6 +13,7 @@ import DoctorProfile from '../models/DoctorProfile.js';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
+import Feedback from '../models/Feedback.js';
 import Subscription from '../models/Subscription.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -776,7 +777,7 @@ router.get('/available-doctors', auth, async (req, res) => {
       return hasFee && hasBankDetails;
     });
 
-    // ── Merge in DoctorProfile.photoUrl ──
+    // ── Merge in DoctorProfile.photoUrl and Feedback ratings ──
     const doctorIds = setupCompleteDoctors.map(d => d._id);
     const profiles = await DoctorProfile.find(
       { userId: { $in: doctorIds } },
@@ -784,15 +785,32 @@ router.get('/available-doctors', auth, async (req, res) => {
     ).lean();
 
     const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+    const Feedback = mongoose.model('Feedback');
 
-    const enrichedDoctors = setupCompleteDoctors.map(doc => {
+    const enrichedDoctors = [];
+    for (let doc of setupCompleteDoctors) {
       const profile = profileMap.get(String(doc._id));
-      return {
+      
+      const stats = await Feedback.aggregate([
+        { $match: { doctorId: doc._id } },
+        { $group: { _id: "$doctorId", averageRating: { $avg: "$doctorRating" }, totalRatings: { $sum: 1 } } }
+      ]);
+      
+      let averageRating = 0;
+      let totalRatings = 0;
+      if (stats.length > 0) {
+        averageRating = Number(stats[0].averageRating.toFixed(1));
+        totalRatings = stats[0].totalRatings;
+      }
+      
+      enrichedDoctors.push({
         ...doc,
         photoUrl: profile?.photoUrl || doc.avatar || '',
         specialization: profile?.specialization || '',
-      };
-    });
+        averageRating,
+        totalRatings
+      });
+    }
 
     res.json({ success: true, doctors: enrichedDoctors });
   } catch (err) {
