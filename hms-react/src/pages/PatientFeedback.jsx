@@ -44,7 +44,7 @@ function FeedbackHistoryCard({ fb, isMobile }) {
         <div className="fb-history-card__meta">
           <div className="fb-history-card__clinic">
             <i className="fas fa-hospital-alt" />
-            {fb.clinicId?.name || 'Unknown Clinic'}
+            {fb.clinicId ? fb.clinicId.name : 'Independent Doctor (No Clinic)'}
           </div>
           <div className="fb-history-card__doctor">
             <i className="fas fa-user-md" />
@@ -60,16 +60,20 @@ function FeedbackHistoryCard({ fb, isMobile }) {
       </div>
 
       <div className={`fb-history-card__ratings ${isMobile ? 'stacked' : ''}`}>
-        <div className="fb-history-card__rating-block">
-          <div className="fb-history-card__rating-title">
-            <i className="fas fa-hospital" /> Clinic
-          </div>
-          <StarRating value={fb.clinicRating} readOnly />
-          {fb.clinicFeedback && (
-            <p className="fb-history-card__comment">"{fb.clinicFeedback}"</p>
-          )}
-        </div>
-        <div className="fb-history-card__divider" />
+        {fb.clinicId && (
+          <>
+            <div className="fb-history-card__rating-block">
+              <div className="fb-history-card__rating-title">
+                <i className="fas fa-hospital" /> Clinic
+              </div>
+              <StarRating value={fb.clinicRating} readOnly />
+              {fb.clinicFeedback && (
+                <p className="fb-history-card__comment">"{fb.clinicFeedback}"</p>
+              )}
+            </div>
+            <div className="fb-history-card__divider" />
+          </>
+        )}
         <div className="fb-history-card__rating-block">
           <div className="fb-history-card__rating-title">
             <i className="fas fa-stethoscope" /> Doctor
@@ -163,14 +167,27 @@ export default function PatientFeedback() {
       setError('Please select both a clinic and a doctor.');
       return;
     }
-    if (form.clinicRating === 0 || form.doctorRating === 0) {
-      setError('Please provide a star rating for both the clinic and the doctor.');
+    
+    if (form.doctorRating === 0) {
+      setError('Please provide a star rating for the doctor.');
+      return;
+    }
+    
+    if (form.clinicId !== 'independent' && form.clinicRating === 0) {
+      setError('Please provide a star rating for the clinic.');
       return;
     }
 
     setSubmitting(true);
     try {
-      await API.post('/feedback', { ...form, patientId });
+      const payload = { ...form, patientId };
+      if (form.clinicId === 'independent') {
+        delete payload.clinicId;
+        delete payload.clinicRating;
+        delete payload.clinicFeedback;
+      }
+      
+      await API.post('/feedback', payload);
       setSuccess('🎉 Feedback submitted! Thank you for helping us improve.');
       setForm({ clinicId: '', doctorId: '', clinicRating: 0, doctorRating: 0, clinicFeedback: '', doctorFeedback: '' });
       fetchData();
@@ -324,6 +341,7 @@ export default function PatientFeedback() {
                         {clinics.map(c => (
                           <option key={c._id} value={c._id}>{c.name}</option>
                         ))}
+                        <option value="independent">Independent Doctors (No Clinic)</option>
                       </select>
                     </div>
 
@@ -352,6 +370,7 @@ export default function PatientFeedback() {
                   {/* ── Ratings Row ── */}
                   <div className="fb-form__ratings">
                     {/* Clinic Rating Block */}
+                    {form.clinicId !== 'independent' && (
                     <div className="fb-rating-block fb-rating-block--clinic">
                       <div className="fb-rating-block__header">
                         <div className="fb-rating-block__icon">
@@ -382,6 +401,7 @@ export default function PatientFeedback() {
                         />
                       </div>
                     </div>
+                    )}
 
                     {/* Doctor Rating Block */}
                     <div className="fb-rating-block fb-rating-block--doctor">
