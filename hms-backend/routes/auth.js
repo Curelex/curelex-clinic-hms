@@ -746,9 +746,40 @@ router.get('/available-doctors', auth, async (req, res) => {
   try {
     const doctors = await User.find(
       { role: { $in: ['doctor', 'separate_doctor'] }, isActive: true },
-      'name department consultationFee telemedicineFee phone email avatar'
-    ).sort({ name: 1 });
-    res.json({ success: true, doctors });
+      'name department consultationFee telemedicineFee phone email avatar bankDetails'
+    ).sort({ name: 1 }).lean();
+
+    // ── Only show doctors who have completed telemedicine setup ──
+    const setupCompleteDoctors = doctors.filter(doc => {
+      const hasFee = Number(doc.telemedicineFee) > 0;
+      const hasBankDetails = Boolean(
+        doc.bankDetails?.accountHolderName &&
+        doc.bankDetails?.accountNumber &&
+        doc.bankDetails?.bankName &&
+        doc.bankDetails?.ifscCode
+      );
+      return hasFee && hasBankDetails;
+    });
+
+    // ── Merge in DoctorProfile.photoUrl ──
+    const doctorIds = setupCompleteDoctors.map(d => d._id);
+    const profiles = await DoctorProfile.find(
+      { userId: { $in: doctorIds } },
+      'userId photoUrl specialization'
+    ).lean();
+
+    const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+
+    const enrichedDoctors = setupCompleteDoctors.map(doc => {
+      const profile = profileMap.get(String(doc._id));
+      return {
+        ...doc,
+        photoUrl: profile?.photoUrl || doc.avatar || '',
+        specialization: profile?.specialization || '',
+      };
+    });
+
+    res.json({ success: true, doctors: enrichedDoctors });
   } catch (err) {
     console.error('Error fetching available doctors:', err);
     res.status(500).json({ success: false, message: err.message });
