@@ -7,7 +7,7 @@ import { getPlanByPriceId } from '../config/plans.js';
 
 
 const router = express.Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock_key_for_preventing_startup_crash_only', {
   apiVersion: '2024-04-10',
 });
 

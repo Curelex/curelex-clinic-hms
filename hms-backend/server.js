@@ -112,39 +112,112 @@ app.use((req, res, next) => {
 import { MongoMemoryServer } from 'mongodb-memory-server';
 // import { clinicConnection } from './clinic/clinic/config/db.js';
 
-// ── Seed super admin from .env on first boot ─────────────────────────────
+// ── Seed Demo Accounts and Super Admin on boot ───────────────────────────
 async function seedSuperAdmin() {
   try {
-    const existing = await User.findOne({ role: 'super_admin' });
-    if (existing) {
-      console.log('✅ Super Admin already exists — skipping seed');
-      return;
+    // 1. Seed Super Admin
+    const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || 'superadmin@curelex.com';
+    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || 'Password123';
+    
+    let existingSuper = await User.findOne({ role: 'super_admin' });
+    if (!existingSuper) {
+      await User.create({
+        name: 'Super Admin',
+        email: superAdminEmail,
+        password: superAdminPassword,
+        role: 'super_admin',
+        clinicId: null,
+        permissions: [
+          'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
+          'prescriptions', 'pharmacy', 'lab', 'inventory',
+          'room-settings', 'staff', 'telemedicine', 'tokens', 'emergency', 'tasks', 'super'
+        ],
+        isActive: true,
+      });
+      console.log(`🚀 Seeded Super Admin: ${superAdminEmail} / ${superAdminPassword}`);
     }
 
-    const { SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD, SUPER_ADMIN_NAME } = process.env;
+    // Load Clinic model
+    const Clinic = (await import('./models/Clinic.js')).default;
+    const Patient = (await import('./models/Patient.js')).default;
 
-    if (!SUPER_ADMIN_EMAIL || !SUPER_ADMIN_PASSWORD) {
-      console.warn('⚠️  SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD not set in .env — skipping super admin seed');
-      return;
+    // Create a demo Clinic
+    let demoClinic = await Clinic.findOne({ name: 'Curelex Demo Clinic' });
+    if (!demoClinic) {
+      demoClinic = await Clinic.create({
+        name: 'Curelex Demo Clinic',
+        email: 'clinic@curelex.com',
+        phone: '1234567890',
+        type: 'clinic',
+        plan: 'pro',
+        status: 'Active'
+      });
+      console.log(`🚀 Seeded Demo Clinic: Curelex Demo Clinic`);
     }
 
-    await User.create({
-      name:     SUPER_ADMIN_NAME || 'Super Admin',
-      email:    SUPER_ADMIN_EMAIL,
-      password: SUPER_ADMIN_PASSWORD,
-      role:     'super_admin',
-      clinicId: null,
-      permissions: [
-        'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
-        'prescriptions', 'pharmacy', 'lab', 'inventory',
-        'room-settings', 'staff', 'telemedicine', 'tokens', 'emergency', 'tasks', 'super'
-      ],
-      isActive: true,
-    });
+    // 2. Seed Clinic Admin
+    const adminEmail = 'admin@curelex.com';
+    let existingAdmin = await User.findOne({ email: adminEmail });
+    if (!existingAdmin) {
+      await User.create({
+        name: 'Clinic Admin',
+        email: adminEmail,
+        password: 'Password123',
+        role: 'admin',
+        clinicId: demoClinic._id,
+        permissions: [
+          'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
+          'pharmacy', 'lab', 'inventory', 'staff', 'room-settings', 'prescriptions'
+        ],
+        isActive: true,
+      });
+      console.log(`🚀 Seeded Clinic Admin: ${adminEmail} / Password123`);
+    }
 
-    console.log(`🚀 Super Admin seeded → ${SUPER_ADMIN_EMAIL}`);
+    // 3. Seed Doctor
+    const doctorEmail = 'doctor@curelex.com';
+    let existingDoctor = await User.findOne({ email: doctorEmail });
+    if (!existingDoctor) {
+      await User.create({
+        name: 'Dr. Elizabeth Blackwell',
+        email: doctorEmail,
+        password: 'Password123',
+        role: 'doctor',
+        clinicId: demoClinic._id,
+        permissions: ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'],
+        isActive: true,
+      });
+      console.log(`🚀 Seeded Doctor: ${doctorEmail} / Password123`);
+    }
+
+    // 4. Seed Patient
+    const patientEmail = 'patient@curelex.com';
+    let existingPatient = await User.findOne({ email: patientEmail });
+    if (!existingPatient) {
+      const patientUser = await User.create({
+        name: 'Lenin J',
+        email: patientEmail,
+        password: 'Password123',
+        role: 'patient',
+        clinicId: demoClinic._id,
+        permissions: ['patient-dashboard', 'appointments', 'prescriptions', 'profile', 'telemedicine'],
+        isActive: true,
+      });
+
+      await Patient.create({
+        userId: patientUser._id,
+        name: 'Lenin J',
+        email: patientEmail,
+        phone: '9876543210',
+        clinicIds: [demoClinic._id],
+        status: 'Active',
+        registrationDate: new Date()
+      });
+      console.log(`🚀 Seeded Patient: ${patientEmail} / Password123`);
+    }
+
   } catch (err) {
-    console.error('❌ Super admin seed failed:', err.message);
+    console.error('❌ Seeding failed:', err.message);
   }
 }
 

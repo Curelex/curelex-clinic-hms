@@ -64,9 +64,11 @@ const UserSchema = new mongoose.Schema({
   },
   lastLoginAt: { type: Date, default: null },
   dailyTokenLimit: {
-  type: Number,
-  default: 0, // 0 = unlimited
-},
+    type: Number,
+    default: 0, // 0 = unlimited
+  },
+  resetPasswordToken:   { type: String, default: null },
+  resetPasswordExpires: { type: Date,   default: null },
 
 }, { timestamps: true });
 
