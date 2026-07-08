@@ -805,7 +805,6 @@ export default function PatientTelemedicine() {
             gap: 10,
           }}>
             {/* Avatar + name row */}
-            {/* Avatar + name row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 46, height: 46, borderRadius: '50%',

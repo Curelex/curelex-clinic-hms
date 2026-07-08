@@ -61,6 +61,7 @@ const hasBankDetails = Boolean(
 );
 const setupComplete = hasFeeSet && hasBankDetails;
 
+
   // ── Socket: Listen for events ──
   useEffect(() => {
     if (!isConnected) return;
@@ -181,6 +182,7 @@ const setupComplete = hasFeeSet && hasBankDetails;
   const newStatus = doctorStatus === 'online' ? 'offline' : 'online';
   setDoctorOnline(newStatus);
 };
+
   // ── Cancel Handler ──
   const handleCancel = async (id) => {
     if (!window.confirm('Are you sure you want to cancel this request?')) return;
@@ -395,6 +397,13 @@ const setupComplete = hasFeeSet && hasBankDetails;
   </span>
 )}
 
+{!setupComplete && (
+  <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+    ⚠️ {!hasFeeSet && !hasBankDetails ? 'Set fee & bank details to go online' :
+        !hasFeeSet ? 'Set consultation fee to go online' :
+        'Add bank details to go online'}
+  </span>
+)}
           {/* Consultation Fee Input */}
           <div style={{
             display: 'flex',
