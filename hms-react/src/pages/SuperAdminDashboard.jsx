@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 
-const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Clinic Dashboard', 'Payroll'];
+const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Consultations', 'Clinic Dashboard', 'Payroll'];
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -1024,7 +1024,127 @@ function ClinicDashboardTab({ clinics }) {
     </div>
   );
 }
+// ── Consultations Tab ────────────────────────────────────────────────────
+function ConsultationsTab() {
+  const [consultations, setConsultations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('');
+  const [search, setSearch] = useState('');
 
+  useEffect(() => {
+    loadConsultations();
+  }, []);
+
+  const loadConsultations = async () => {
+    setLoading(true);
+    try {
+      const { data } = await API.get('/consultations');
+      setConsultations(data.consultations || []);
+    } catch (err) {
+      console.error('Failed to load consultations:', err);
+    }
+    setLoading(false);
+  };
+
+  const handleStatusChange = async (id, status) => {
+    try {
+      await API.patch(`/consultations/${id}`, { status });
+      loadConsultations();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update status');
+    }
+  };
+
+  const filtered = consultations.filter(c => {
+    const matchStatus = !filterStatus || c.status === filterStatus;
+    const matchSearch = !search ||
+      c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.email?.toLowerCase().includes(search.toLowerCase()) ||
+      c.mobile?.includes(search);
+    return matchStatus && matchSearch;
+  });
+
+  const statusBadge = (status) => {
+    const map = {
+      new:       { bg: '#dbeafe', color: '#1e40af' },
+      contacted: { bg: '#fef3c7', color: '#92400e' },
+      closed:    { bg: '#dcfce7', color: '#166534' },
+    };
+    return {
+      padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+      ...(map[status] || map.new),
+    };
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          placeholder="Search name, email, or phone…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
+        />
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...inputStyle, width: 'auto' }}>
+          <option value="">All Statuses</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="closed">Closed</option>
+        </select>
+        <span style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{filtered.length} requests</span>
+        <button onClick={loadConsultations} style={{ ...smallBtn, color: '#2d6be4', borderColor: '#2d6be4' }}>🔄 Refresh</button>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Name', 'Mobile', 'Email', 'State', 'Service', 'Status', 'Submitted', 'Actions'].map(h => (
+                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>No consultation requests yet</td></tr>
+              ) : (
+                filtered.map(c => (
+                  <tr key={c._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 600, color: '#1a2236' }}>{c.name}</td>
+                    <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.phoneCode} {c.mobile}</td>
+                    <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.email}</td>
+                    <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.state}</td>
+                    <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.service}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={statusBadge(c.status)}>{c.status}</span>
+                    </td>
+                    <td style={{ padding: '10px 16px', color: '#6b7a99', fontSize: 12 }}>
+                      {new Date(c.createdAt).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <select
+                        value={c.status}
+                        onChange={e => handleStatusChange(c._id, e.target.value)}
+                        style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 12 }}
+                      >
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
 // ── Payroll Tab ──────────────────────────────────────────────────────────────
 function PayrollTab({ clinics, allUsers, onRefresh }) {
   const [payrolls, setPayrolls] = React.useState([]);
@@ -1716,6 +1836,7 @@ export default function SuperAdminDashboard() {
               {tab === 'Clinics' && '🏥 '}
               {tab === 'Staff' && '👥 '}
               {tab === 'Users' && '👤 '}
+              {tab === 'Consultations' && '📞 '}
               {tab === 'Clinic Dashboard' && '📊 '}
               {tab === 'Payroll' && '💰 '}
               {tab}
@@ -1735,6 +1856,7 @@ export default function SuperAdminDashboard() {
         {activeTab === 'Clinics' && <ClinicsTab clinics={clinics} onRefresh={loadData} />}
         {activeTab === 'Staff' && <StaffTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
         {activeTab === 'Users' && <AllUsersTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
+        {activeTab === 'Consultations' && <ConsultationsTab />}
         {activeTab === 'Clinic Dashboard' && <ClinicDashboardTab clinics={clinics} />}
         {activeTab === 'Payroll' && <PayrollTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
       </div>
