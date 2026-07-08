@@ -8,6 +8,7 @@ import TokenDashboard from '../components/TokenDashboard';
 import inventoryService from '../services/inventoryService';
 import heroAdmin from "../../assets/hero-admin.png";
 import curelexLogo from "../../assets/logo.png";
+import heroDoctor from "../../assets/hero-doctor.jpg";
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -833,8 +834,9 @@ export default function Dashboard() {
                 width: "420px",
                 height: "420px",
                 borderRadius: "50%",
-                background:
-                  "radial-gradient(circle, rgba(124,58,237,.14), transparent 70%)",
+                background: isDoctor
+                  ? "radial-gradient(circle, rgba(16,185,129,.14), transparent 70%)"
+                  : "radial-gradient(circle, rgba(124,58,237,.14), transparent 70%)",
                 filter: "blur(10px)",
                 zIndex: 0,
               }}
@@ -852,26 +854,57 @@ export default function Dashboard() {
                 right: "65px",
                 width: "180px",
                 height: "180px",
-                background:
-                  "radial-gradient(circle, rgba(124,58,237,.10), transparent 70%)",
+                background: isDoctor
+                  ? "radial-gradient(circle, rgba(16,185,129,.10), transparent 70%)"
+                  : "radial-gradient(circle, rgba(124,58,237,.10), transparent 70%)",
                 filter: "blur(20px)",
                 zIndex: 1,
                 pointerEvents: "none",
               }}
             />
 
-            <img
-              src={heroAdmin}
-              alt="Admin Dashboard"
-              style={{
-                width: "112%",
-                maxWidth: "720px",
-                objectFit: "contain",
+            {isDoctor ? (
+              <div
+                style={{
+                  width: "610px",
+                  height: "430px",
+                  overflow: "hidden",
+                  position: "relative",
+                  borderTopLeftRadius: "220px",
+                  borderBottomLeftRadius: "220px",
+                  borderTopRightRadius: "220px",
+                  borderBottomRightRadius: "220px",
+                  background: "linear-gradient(135deg,#eefcf7,#dff8ee)",
+                }}
+              >
+                <img
+                  src={heroDoctor}
+                  alt="Doctor"
+                  style={{
+                    position: "absolute",
 
-                filter:
-                  "drop-shadow(0 30px 70px rgba(124,58,237,.18))",
-              }}
-            />
+                    width: "138%",
+                    height: "138%",
+
+                    left: "-20%",
+                    top: "-15%",
+
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+            ) : (
+              <img
+                src={heroAdmin}
+                alt="Admin"
+                style={{
+                  width: "112%",
+                  maxWidth: "720px",
+                  objectFit: "contain",
+                  filter: "drop-shadow(0 30px 70px rgba(124,58,237,.18))",
+                }}
+              />
+            )}
           </div>
         )}
       </div>
