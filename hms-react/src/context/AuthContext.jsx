@@ -308,6 +308,57 @@ const login = async (email, password) => {
     }
   };
 
+  // ── Google Login ──────────────────────────────────────────────────────────
+  const loginWithGoogle = async ({ token, email, name, isPatient = false }) => {
+    setLoading(true);
+    try {
+      const { data } = await API.post('/auth/google-login', { token, email, name, isPatient });
+      localStorage.setItem('hms_token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      resetSocket();
+      setUser(data.user);
+      if (data.patient) {
+        setPatient(data.patient);
+        localStorage.setItem('patient', JSON.stringify(data.patient));
+      }
+      if (data.user?.activePlan) setActivePlan(data.user.activePlan);
+      return { success: true, user: data.user, patient: data.patient };
+    } catch (err) {
+      console.error('❌ Google login error:', err);
+      return { success: false, message: err.response?.data?.message || 'Google login failed' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Forgot Password ──────────────────────────────────────────────────────
+  const forgotPassword = async (email) => {
+    setLoading(true);
+    try {
+      const { data } = await API.post('/auth/forgot-password', { email });
+      return { success: true, message: data.message, resetLink: data.resetLink };
+    } catch (err) {
+      console.error('❌ Forgot password error:', err);
+      return { success: false, message: err.response?.data?.message || 'Failed to send reset email' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Reset Password ───────────────────────────────────────────────────────
+  const resetPassword = async (email, token, newPassword) => {
+    setLoading(true);
+    try {
+      const { data } = await API.post('/auth/reset-password', { email, token, newPassword });
+      return { success: true, message: data.message };
+    } catch (err) {
+      console.error('❌ Reset password error:', err);
+      return { success: false, message: err.response?.data?.message || 'Password reset failed' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ── Logout ───────────────────────────────────────────────────────────────
   const logout = () => {
     if (user?.role === 'doctor' || user?.role === 'separate_doctor') {
@@ -381,6 +432,9 @@ const login = async (email, password) => {
     getPatientData,
 
     registerPatient,
+    loginWithGoogle,
+    forgotPassword,
+    resetPassword,
 
     superAdminClinicId,
     superAdminClinicName,
