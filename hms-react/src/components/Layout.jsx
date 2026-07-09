@@ -178,6 +178,18 @@ export default function Layout() {
   const handlePharmacySSO = async (e, targetPath) => {
     e.preventDefault();
     try {
+      const existingImsToken = localStorage.getItem('ims_token');
+      if (existingImsToken) {
+        try {
+          const payload = JSON.parse(atob(existingImsToken.split('.')[1]));
+          if (payload.exp * 1000 > Date.now()) {
+            window.location.href = targetPath;
+            return;
+          }
+        } catch (e) {
+          // Invalid token, fall through to SSO
+        }
+      }
       const { data } = await API.post('/auth/sso-token');
       window.location.href = `${targetPath}?sso=${data.token}`;
     } catch (err) {

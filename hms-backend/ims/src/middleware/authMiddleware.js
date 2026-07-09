@@ -1,10 +1,11 @@
 // ims-backend/src/middleware/authMiddleware.js
 import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
+import User from '../../../models/User.js';
 
 // ── Staff / Admin Authentication ─────────────────────────────────────────
 // Decodes JWT, enforces clinicId presence for all roles except super_admin.
-export const protect = (req, res, next) => {
+export const protect = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
@@ -13,16 +14,20 @@ export const protect = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, env.jwtSecret);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid token: user not found' });
+    }
 
     // super_admin has clinicId: null by design — let them through
-    if (!decoded.clinicId && decoded.role !== 'super_admin') {
+    if (!user.clinicId && user.role !== 'super_admin') {
       return res.status(401).json({ message: 'Invalid token: missing clinicId' });
     }
 
-    decoded._id  = decoded.id;        // Fix: controllers expect req.user._id
-    req.user     = decoded;           // { id, _id, role, clinicId }
-    req.userId   = decoded.id;
-    req.clinicId = decoded.clinicId;  // null for super_admin
+    req.user     = user;              // Contains role, permissions, etc.
+    req.userId   = user._id;
+    req.clinicId = user.clinicId;  // null for super_admin
     next();
   } catch (err) {
     res.status(401).json({ message: 'Token is not valid' });
