@@ -1,6 +1,6 @@
 // hms-react/src/pages/Register.jsx
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link , useLocation} from 'react-router-dom';
 import API from '../utils/api';
 
 const DEPARTMENTS = [
@@ -10,8 +10,9 @@ const DEPARTMENTS = [
 ];
 
 export default function Register() {
+  const location = useLocation();
   const [form, setForm] = useState({
-    accountType:     'admin', // 'admin' or 'separate_doctor'
+    accountType:     location.state?.accountType || 'admin', // 'admin' or 'separate_doctor'
     clinicName:      '',
     name:            '',
     email:           '',
@@ -25,6 +26,7 @@ export default function Register() {
   const navigate = useNavigate();
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();

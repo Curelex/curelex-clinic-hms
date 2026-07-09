@@ -220,7 +220,11 @@ const Home = () => {
 
   const handleStaffSelect = () => {
     setShowRoleModal(false);
-    navigate('/login');
+    navigate('/Register' , {
+      state:{
+        accountType: "separate_doctor"
+      },
+    });
   };
 
   const handleClinicSelect = () => {
