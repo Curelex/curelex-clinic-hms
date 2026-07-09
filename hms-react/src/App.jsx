@@ -43,7 +43,7 @@ import ClinicRegistration from './pages/ClinicRegister';
 import ClinicLogin from './pages/ClinicLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import PlanSelection from './pages/PlanSelection';
-import ResetPassword from './pages/ResetPassword';
+// import ResetPassword from './pages/ResetPassword';
 
 
 /* ── Auth guards ─────────────────────────────────────────────── */
@@ -225,7 +225,7 @@ function App() {
           {/* ── Patient Auth Routes ─────────────────────────────── */}
           <Route path="/patient-login" element={<PublicRoute><PatientLogin /></PublicRoute>} />
           <Route path="/patient-register" element={<PublicRoute><PatientRegister /></PublicRoute>} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+          
 
 
           {/* ── Clinic Dashboard (Protected - Clinic type only) ── */}

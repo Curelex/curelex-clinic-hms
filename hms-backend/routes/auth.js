@@ -1127,164 +1127,164 @@ router.post('/sso-exchange', async (req, res) => {
 });
 
 // ── GOOGLE LOGIN ──────────────────────────────────────────────────────────
-router.post('/google-login', async (req, res) => {
-  try {
-    const { token, email: bodyEmail, name: bodyName, isPatient } = req.body;
-    let email = bodyEmail;
-    let name = bodyName;
+// router.post('/google-login', async (req, res) => {
+//   try {
+//     const { token, email: bodyEmail, name: bodyName, isPatient } = req.body;
+//     let email = bodyEmail;
+//     let name = bodyName;
 
-    // Verify Google token if provided
-    if (token) {
-      try {
-        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-        if (response.ok) {
-          const payload = await response.json();
-          email = payload.email;
-          name = payload.name || payload.given_name;
-        }
-      } catch (err) {
-        console.error('Google API fetch error:', err);
-      }
-    }
+//     // Verify Google token if provided
+//     if (token) {
+//       try {
+//         const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+//         if (response.ok) {
+//           const payload = await response.json();
+//           email = payload.email;
+//           name = payload.name || payload.given_name;
+//         }
+//       } catch (err) {
+//         console.error('Google API fetch error:', err);
+//       }
+//     }
 
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Google authentication failed: missing email' });
-    }
+//     if (!email) {
+//       return res.status(400).json({ success: false, message: 'Google authentication failed: missing email' });
+//     }
 
-    let user = await User.findOne({ email });
-    let patient = null;
+//     let user = await User.findOne({ email });
+//     let patient = null;
 
-    if (user) {
-      if (!user.isActive) {
-        return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
-      }
-      if (user.role === 'patient') {
-        patient = await Patient.findOne({ userId: user._id });
-      }
-    } else {
-      if (isPatient) {
-        user = await User.create({
-          name: name || 'Google Patient',
-          email,
-          password: crypto.randomBytes(16).toString('hex'),
-          role: 'patient',
-          permissions: ['patient-dashboard'],
-          phone: req.body.phone || '0000000000',
-          isActive: true
-        });
-        patient = await Patient.create({
-          userId: user._id,
-          name: user.name,
-          email: user.email,
-          phone: req.body.phone || '0000000000',
-          clinicIds: [],
-          status: 'Active',
-          registrationDate: new Date()
-        });
-      } else {
-        return res.status(404).json({
-          success: false,
-          message: 'No staff account found with this email. Please contact your clinic administrator to register.'
-        });
-      }
-    }
+//     if (user) {
+//       if (!user.isActive) {
+//         return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
+//       }
+//       if (user.role === 'patient') {
+//         patient = await Patient.findOne({ userId: user._id });
+//       }
+//     } else {
+//       if (isPatient) {
+//         user = await User.create({
+//           name: name || 'Google Patient',
+//           email,
+//           password: crypto.randomBytes(16).toString('hex'),
+//           role: 'patient',
+//           permissions: ['patient-dashboard'],
+//           phone: req.body.phone || '0000000000',
+//           isActive: true
+//         });
+//         patient = await Patient.create({
+//           userId: user._id,
+//           name: user.name,
+//           email: user.email,
+//           phone: req.body.phone || '0000000000',
+//           clinicIds: [],
+//           status: 'Active',
+//           registrationDate: new Date()
+//         });
+//       } else {
+//         return res.status(404).json({
+//           success: false,
+//           message: 'No staff account found with this email. Please contact your clinic administrator to register.'
+//         });
+//       }
+//     }
 
-    const jwtToken = jwt.sign(
-      { id: user._id, role: user.role, clinicId: user.clinicId || null },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+//     const jwtToken = jwt.sign(
+//       { id: user._id, role: user.role, clinicId: user.clinicId || null },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '7d' }
+//     );
 
-    const { password: _p, ...userOut } = user.toObject();
-    res.json({ token: jwtToken, user: userOut, patient: patient || undefined });
-  } catch (err) {
-    console.error('Google Login error:', err);
-    res.status(500).json({ success: false, message: 'Server error during Google Login' });
-  }
-});
+//     const { password: _p, ...userOut } = user.toObject();
+//     res.json({ token: jwtToken, user: userOut, patient: patient || undefined });
+//   } catch (err) {
+//     console.error('Google Login error:', err);
+//     res.status(500).json({ success: false, message: 'Server error during Google Login' });
+//   }
+// });
 
-// ── FORGOT PASSWORD ───────────────────────────────────────────────────────
-router.post('/forgot-password', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Email is required' });
-    }
+// // ── FORGOT PASSWORD ───────────────────────────────────────────────────────
+// router.post('/forgot-password', async (req, res) => {
+//   try {
+//     const { email } = req.body;
+//     if (!email) {
+//       return res.status(400).json({ success: false, message: 'Email is required' });
+//     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'No account found with this email address' });
-    }
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ success: false, message: 'No account found with this email address' });
+//     }
 
-    const token = crypto.randomBytes(20).toString('hex');
-    user.resetPasswordToken   = token;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-    await user.save();
+//     const token = crypto.randomBytes(20).toString('hex');
+//     user.resetPasswordToken   = token;
+//     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+//     await user.save();
 
-    // Build reset link dynamically from referer/origin header
-    const origin = req.headers.referer || req.headers.origin || 'http://localhost:5174';
-    let baseOrigin = 'http://localhost:5174';
-    try { baseOrigin = new URL(origin).origin; } catch (e) {}
-    const resetLink = `${baseOrigin}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+//     // Build reset link dynamically from referer/origin header
+//     const origin = req.headers.referer || req.headers.origin || 'http://localhost:5174';
+//     let baseOrigin = 'http://localhost:5174';
+//     try { baseOrigin = new URL(origin).origin; } catch (e) {}
+//     const resetLink = `${baseOrigin}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
 
-    // Send real email if SMTP is configured, otherwise log link
-    try {
-      const { sendEmail } = await import('../utils/sendEmail.js');
-      await sendEmail({
-        to: email,
-        subject: 'Reset your password – CURELEX HMS',
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:auto">
-            <h2>Password Reset Request</h2>
-            <p>You requested to reset your password. Click the button below:</p>
-            <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#0f4c81;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Reset Password</a>
-            <p style="margin-top:16px;color:#64748b;font-size:13px;">This link expires in 1 hour. If you did not request this, ignore this email.</p>
-          </div>
-        `
-      });
-    } catch (_) {
-      console.log(`\n==================================================\nPASSWORD RESET LINK (no SMTP configured):\n${resetLink}\n==================================================\n`);
-    }
+//     // Send real email if SMTP is configured, otherwise log link
+//     try {
+//       const { sendEmail } = await import('../utils/sendEmail.js');
+//       await sendEmail({
+//         to: email,
+//         subject: 'Reset your password – CURELEX HMS',
+//         html: `
+//           <div style="font-family:sans-serif;max-width:480px;margin:auto">
+//             <h2>Password Reset Request</h2>
+//             <p>You requested to reset your password. Click the button below:</p>
+//             <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#0f4c81;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Reset Password</a>
+//             <p style="margin-top:16px;color:#64748b;font-size:13px;">This link expires in 1 hour. If you did not request this, ignore this email.</p>
+//           </div>
+//         `
+//       });
+//     } catch (_) {
+//       console.log(`\n==================================================\nPASSWORD RESET LINK (no SMTP configured):\n${resetLink}\n==================================================\n`);
+//     }
 
-    res.json({
-      success: true,
-      message: 'Password reset link sent. Check your email or the server console.',
-      resetLink // also returned for local dev convenience
-    });
-  } catch (err) {
-    console.error('Forgot password error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
+//     res.json({
+//       success: true,
+//       message: 'Password reset link sent. Check your email or the server console.',
+//       resetLink // also returned for local dev convenience
+//     });
+//   } catch (err) {
+//     console.error('Forgot password error:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// });
 
-// ── RESET PASSWORD ────────────────────────────────────────────────────────
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { email, token, newPassword } = req.body;
-    if (!email || !token || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Email, token, and new password are required' });
-    }
+// // ── RESET PASSWORD ────────────────────────────────────────────────────────
+// router.post('/reset-password', async (req, res) => {
+//   try {
+//     const { email, token, newPassword } = req.body;
+//     if (!email || !token || !newPassword) {
+//       return res.status(400).json({ success: false, message: 'Email, token, and new password are required' });
+//     }
 
-    const user = await User.findOne({
-      email,
-      resetPasswordToken:   token,
-      resetPasswordExpires: { $gt: Date.now() }
-    });
+//     const user = await User.findOne({
+//       email,
+//       resetPasswordToken:   token,
+//       resetPasswordExpires: { $gt: Date.now() }
+//     });
 
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Password reset token is invalid or has expired' });
-    }
+//     if (!user) {
+//       return res.status(400).json({ success: false, message: 'Password reset token is invalid or has expired' });
+//     }
 
-    user.password             = newPassword;
-    user.resetPasswordToken   = null;
-    user.resetPasswordExpires = null;
-    await user.save();
+//     user.password             = newPassword;
+//     user.resetPasswordToken   = null;
+//     user.resetPasswordExpires = null;
+//     await user.save();
 
-    res.json({ success: true, message: 'Password reset successful! You can now log in.' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
+//     res.json({ success: true, message: 'Password reset successful! You can now log in.' });
+//   } catch (err) {
+//     console.error('Reset password error:', err);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// });
 
 export default router;
