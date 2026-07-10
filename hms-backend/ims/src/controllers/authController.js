@@ -83,7 +83,10 @@ export const ssoExchange = asyncHandler(async (req, res) => {
   let user = await User.findOne({ email: record.email });
 
   if (!user) {
-    const role = (record.role === 'admin' || record.role === 'super_admin') ? ROLES.ADMIN : ROLES.RECEPTIONIST;
+    let role = ROLES.RECEPTIONIST;
+    if (record.role === 'admin' || record.role === 'super_admin') role = ROLES.ADMIN;
+    else if (record.role === 'pharmacist') role = ROLES.PHARMACIST;
+
     user = await User.create({
       name:    record.email.split("@")[0],
       email:       record.email,
