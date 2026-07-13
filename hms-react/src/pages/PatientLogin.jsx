@@ -70,7 +70,7 @@ export default function PatientLogin() {
 
         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#64748b' }}>
           New patient?{' '}
-          <Link to="/register" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none' }}>
+          <Link to="/patient-register" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none' }}>
             Register here
           </Link>
         </div>
