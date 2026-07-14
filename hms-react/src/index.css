@@ -1640,7 +1640,7 @@ tr:hover td { background: var(--surface2); }
     .hero-stats .stat-label { font-size: 11px; }
     .hero-trust-badge { font-size: 12px; padding: 6px 12px; }
 
-    /* ── Consult Section ── */
+     /* ── Consult Section ── */
     .consult-section-wrapper { padding: 0 12px; margin-bottom: 16px; }
     .consult-section { padding: 16px 12px; border: none; border-radius: 0; }
     .consult-header { flex-direction: column; gap: 8px; margin-bottom: 12px; }
@@ -1648,27 +1648,86 @@ tr:hover td { background: var(--surface2); }
     .btn-view-all { display: none; }
     .consult-grid { display: flex; flex-direction: row; overflow-x: auto; gap: 8px; padding-bottom: 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .consult-grid::-webkit-scrollbar { display: none; }
-    .consult-card { min-width: 76px; max-width: 76px; flex-shrink: 0; padding: 10px 6px; border-radius: 10px; }
-    .consult-img-wrap { width: 44px; height: 44px; }
-    .consult-img-wrap i { font-size: 18px; }
-    .consult-card p { font-size: 9px; min-height: auto; }
-    .consult-now-btn { font-size: 8px; }
+    .consult-card{
+    min-width:135px;
+    max-width:135px;
+    padding:18px 12px;
+    border-radius:16px;
+}
+
+.consult-img-wrap{
+    width:72px;
+    height:72px;
+    margin-bottom:14px;
+}
+
+.consult-img-wrap i{
+    font-size:42px;
+}
+
+.consult-card p{
+    font-size:13px;
+    line-height:1.4;
+    min-height:52px;
+    margin-bottom:10px;
+}
+
+.consult-now-btn{
+    font-size:11px;
+    font-weight:700;
+}
+
 
     /* ── About Section ── */
     .about { padding: 40px 16px; }
-    .about-visual { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .about-card { padding: 14px 10px; }
-    .about-card-icon { width: 44px; height: 44px; font-size: 17px; }
-    .about-card h4 { font-size: 13px; }
-    .about-card p { font-size: 11px; }
+    .about-visual{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:16px;
+}
+
+.about-card{
+    padding:20px 12px;
+}
+
+.about-card-icon{
+    width:52px;
+    height:52px;
+    font-size:20px;
+}
+
+.about-card h4{
+    font-size:14px;
+}
+
+.about-card p{
+    font-size:12px;
+}
 
     /* ── Services Section ── */
     .services { padding: 40px 16px; }
-    .services-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    .service-card { padding: 20px 14px; }
-    .service-card i { font-size: 28px; }
-    .service-card h3 { font-size: 14px; }
-    .service-card p { font-size: 12px; }
+    .services-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:16px;
+}
+
+.service-card{
+    padding:20px 12px;
+}
+
+.service-card i{
+    font-size:30px;
+}
+
+.service-card h3{
+    font-size:14px;
+}
+
+.service-card p{
+    font-size:12px;
+    line-height:1.5;
+}
 
     /* ── Supported By Section ── */
     .supported-by { padding: 40px 16px; }
@@ -1727,15 +1786,60 @@ tr:hover td { background: var(--surface2); }
 
 @media (max-width: 480px) {
     .hero-left-content h1 { font-size: 24px; }
-    .services-grid { grid-template-columns: 1fr; gap: 10px; }
-    .service-card { padding: 14px 10px; }
-    .service-card h3 { font-size: 12px; }
+    .services-grid{
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+}
+
+.service-card{
+    padding:16px 10px;
+    min-height:170px;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+}
+
+.service-card i{
+    font-size:28px;
+    margin-bottom:10px;
+}
+
+.service-card h3{
+    font-size:13px;
+}
+
+.service-card p{
+    font-size:11px;
+    line-height:1.4;
+}
     .about-card h4 { font-size: 12px; }
-    .about-visual { grid-template-columns: 1fr; gap: 10px; }
+    .about-visual{
+    grid-template-columns: repeat(2,1fr);
+    gap:12px;
+}
     .stat-grid { grid-template-columns: 1fr; gap: 12px; }
     .quick-stats { grid-template-columns: 1fr; gap: 12px; }
     .stat-card { padding: 16px; flex-direction: row; align-items: center; }
     .grid-4-col { grid-template-columns: 1fr; }
+    .about-card{
+    padding:18px 12px;
+}
+
+.about-card-icon{
+    width:52px;
+    height:52px;
+    font-size:20px;
+}
+
+.about-card h4{
+    font-size:13px;
+}
+
+.about-card p{
+    font-size:11px;
+}
 }
 
 
