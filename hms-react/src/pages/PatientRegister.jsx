@@ -19,15 +19,20 @@ export default function PatientRegister() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    
+
     // Basic validation
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setError(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
       return;
     }
 
     const result = await registerPatient(form);
-    
+
     if (result.success) {
       setSuccess('Registration successful! Please login.');
       setTimeout(() => {
@@ -48,9 +53,9 @@ export default function PatientRegister() {
         </div>
 
         {error && (
-          <div className="error-msg" style={{ 
-            background: '#fef2f2', 
-            color: '#dc2626', 
+          <div className="error-msg" style={{
+            background: '#fef2f2',
+            color: '#dc2626',
             border: '1px solid #fca5a5',
             padding: '10px 14px',
             borderRadius: '8px',
@@ -62,9 +67,9 @@ export default function PatientRegister() {
         )}
 
         {success && (
-          <div className="error-msg" style={{ 
-            background: '#d1fae5', 
-            color: '#065f46', 
+          <div className="error-msg" style={{
+            background: '#d1fae5',
+            color: '#065f46',
             border: '1px solid #86efac',
             padding: '10px 14px',
             borderRadius: '8px',
@@ -118,14 +123,23 @@ export default function PatientRegister() {
             <input
               className="form-control"
               type="password"
-              placeholder="Create a password (min 6 characters)"
+              placeholder="Create a strong password"
               value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
               required
               minLength={6}
             />
-            <small style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-              Password must be at least 6 characters
+            <small
+              style={{
+                color: '#94a3b8',
+                fontSize: '12px',
+                marginTop: '4px',
+                display: 'block',
+                lineHeight: '1.5',
+              }}
+            >
+              Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1
+              special character.
             </small>
           </div>
 

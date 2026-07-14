@@ -26,6 +26,15 @@ const LoginPage = () => {
       setError("Full name is required.");
       return;
     }
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (isSignup && !passwordRegex.test(form.password)) {
+      setError(
+        "Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character."
+      );
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -109,6 +118,12 @@ const LoginPage = () => {
             onKeyDown={handleKeyDown}
             autoComplete={isSignup ? "new-password" : "current-password"}
           />
+
+          {isSignup && (
+            <p className="text-xs text-gray-500">
+              Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+            </p>
+          )}
 
           <button
             type="button"

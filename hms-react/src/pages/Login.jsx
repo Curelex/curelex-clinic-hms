@@ -4,24 +4,36 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [form,  setForm]  = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
 
   // ── Redirect after login based on role ──────────────────────────────────
   const redirectByRole = (role) => {
-    if (role === 'super_admin')      navigate('/super-admin');
-    else if (role === 'patient')     navigate('/patient-dashboard');
+    if (role === 'super_admin') navigate('/super-admin');
+    else if (role === 'patient') navigate('/patient-dashboard');
     else if (role === 'separate_doctor') navigate('/solo-doctor-dashboard');
-    else                             navigate('/dashboard');
+    else navigate('/dashboard');
   };
 
   // ── Standard login ───────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setError(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
+
     const result = await login(form.email, form.password);
+
     if (result.success) {
       redirectByRole(result.user?.role);
     } else {
@@ -62,6 +74,17 @@ export default function Login() {
               onChange={e => setForm({ ...form, password: e.target.value })}
               required
             />
+
+            <p
+              style={{
+                fontSize: 12,
+                color: "#64748b",
+                marginTop: 6,
+                marginBottom: 0,
+              }}
+            >
+              Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+            </p>
           </div>
 
           <button

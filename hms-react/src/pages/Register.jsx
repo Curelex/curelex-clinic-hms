@@ -1,6 +1,6 @@
 // hms-react/src/pages/Register.jsx
 import React, { useState } from 'react';
-import { useNavigate, Link , useLocation} from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import API from '../utils/api';
 
 const DEPARTMENTS = [
@@ -12,16 +12,16 @@ const DEPARTMENTS = [
 export default function Register() {
   const location = useLocation();
   const [form, setForm] = useState({
-    accountType:     location.state?.accountType || 'admin', // 'admin' or 'separate_doctor'
-    clinicName:      '',
-    name:            '',
-    email:           '',
-    password:        '',
+    accountType: location.state?.accountType || 'admin', // 'admin' or 'separate_doctor'
+    clinicName: '',
+    name: '',
+    email: '',
+    password: '',
     confirmPassword: '',
-    department:      '',
-    phone:           '',
+    department: '',
+    phone: '',
   });
-  const [error,   setError]   = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -32,18 +32,25 @@ export default function Register() {
     e.preventDefault();
     setError('');
     if (form.password !== form.confirmPassword) return setError('Passwords do not match');
-    if (form.password.length < 6) return setError('Password must be at least 6 characters');
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      return setError(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+    }
     if (form.accountType === 'admin' && !form.clinicName.trim()) return setError('Clinic / Hospital name is required');
 
     setLoading(true);
     try {
       const payload = {
-        name:       form.name,
-        email:      form.email,
-        password:   form.password,
-        role:       form.accountType,
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.accountType,
         department: form.department,
-        phone:      form.phone,
+        phone: form.phone,
         type: 'hospital'
       };
 
@@ -156,8 +163,20 @@ export default function Register() {
 
           <div className="form-group">
             <label className="form-label">Password *</label>
-            <input className="form-control" name="password" type="password" placeholder="Min. 6 characters"
+            <input className="form-control" name="password" type="password" placeholder="Create a strong password"
               value={form.password} onChange={handleChange} required />
+
+            <small
+              style={{
+                color: '#94a3b8',
+                fontSize: '12px',
+                marginTop: '4px',
+                display: 'block',
+                lineHeight: '1.5',
+              }}
+            >
+              Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+            </small>
           </div>
 
           <div className="form-group">

@@ -164,7 +164,7 @@ function RxPdfButton({ patientId, clinicName }) {
   );
 }
 
-const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 function defaultSchedule() {
   return DAYS.map((day) => ({ day, open: false, from: '09:00', to: '17:00' }));
@@ -181,7 +181,7 @@ function fmt24(t) {
 }
 
 const INDIA_STATES_DISTRICTS = {
-  "Andhra Pradesh": ["Alluri Sitharama Raju","Anakapalli","Ananthapuramu","Annamayya","Bapatla","Chittoor","Dr. B.R. Ambedkar Konaseema","East Godavari","Eluru","Guntur","Kakinada","Krishna","Kurnool","Nandyal","NTR","Palnadu","Parvathipuram Manyam","Prakasam","Sri Potti Sriramulu Nellore","Sri Sathya Sai","Srikakulam","Tirupati","Visakhapatnam","Vizianagaram","West Godavari","YSR Kadapa"],
+  "Andhra Pradesh": ["Alluri Sitharama Raju", "Anakapalli", "Ananthapuramu", "Annamayya", "Bapatla", "Chittoor", "Dr. B.R. Ambedkar Konaseema", "East Godavari", "Eluru", "Guntur", "Kakinada", "Krishna", "Kurnool", "Nandyal", "NTR", "Palnadu", "Parvathipuram Manyam", "Prakasam", "Sri Potti Sriramulu Nellore", "Sri Sathya Sai", "Srikakulam", "Tirupati", "Visakhapatnam", "Vizianagaram", "West Godavari", "YSR Kadapa"],
   // ... (all other states remain the same)
 };
 
@@ -240,8 +240,8 @@ function WeeklySchedulePicker({ value, onChange, onKeyDown }) {
       <div style={{ padding: '9px 14px', borderTop: '1.5px solid #eef1f5', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#f7f9fc' }}>
         <span style={{ fontSize: 11.5, color: '#8fa8bc', fontWeight: 600, marginRight: 2 }}>Quick set:</span>
         {[
-          { label: 'Mon–Fri', days: ['Monday','Tuesday','Wednesday','Thursday','Friday'] },
-          { label: 'Mon–Sat', days: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] },
+          { label: 'Mon–Fri', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] },
+          { label: 'Mon–Sat', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] },
           { label: 'Every day', days: DAYS },
           { label: 'Clear all', days: [] },
         ].map(({ label, days }) => (
@@ -335,13 +335,13 @@ function PlanGateOverlay({ clinicName, onChoosePlan }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,25,50,0.60)', backdropFilter: 'blur(7px)' }}>
       <div style={{ background: '#fff', borderRadius: 24, padding: '40px 36px', maxWidth: 420, width: '90%', textAlign: 'center', boxShadow: '0 32px 90px rgba(10,61,98,0.28)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position:'absolute',top:0,left:0,right:0,height:4, background:'linear-gradient(90deg,#0a3d62,#1565a8,#00b894)' }} />
-        <div style={{ fontSize:54, marginBottom:14 }}>🔒</div>
-        <div style={{ fontSize:24, fontWeight:700, color:'#0a3d62', marginBottom:10 }}>No Active Plan</div>
-        <div style={{ color:'#4a6278', fontSize:14, lineHeight:1.75, marginBottom:22 }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg,#0a3d62,#1565a8,#00b894)' }} />
+        <div style={{ fontSize: 54, marginBottom: 14 }}>🔒</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: '#0a3d62', marginBottom: 10 }}>No Active Plan</div>
+        <div style={{ color: '#4a6278', fontSize: 14, lineHeight: 1.75, marginBottom: 22 }}>
           <strong>{clinicName}</strong> doesn't have an active subscription.<br />Choose a plan to unlock your full dashboard.
         </div>
-        <button onClick={onChoosePlan} style={{ width:'100%', padding:'14px 20px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#00b894,#00cec9)', color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+        <button onClick={onChoosePlan} style={{ width: '100%', padding: '14px 20px', borderRadius: 11, border: 'none', background: 'linear-gradient(135deg,#00b894,#00cec9)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
           🚀 Choose a Plan to Continue
         </button>
       </div>
@@ -364,12 +364,12 @@ const TAB_TO_SECTION = {
 
 export default function AdminDashboard({ onChoosePlan, activePlan: propActivePlan }) {
   const { logout, clinicType, user } = useAuth();
-  const { 
-    refreshClinic, 
-    saveClinic, 
-    getUsers, 
-    addUser, 
-    updateUser, 
+  const {
+    refreshClinic,
+    saveClinic,
+    getUsers,
+    addUser,
+    updateUser,
     deleteUser,
     getPatients,
     updatePatientStatus,
@@ -392,15 +392,15 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   const reloadTimeoutRef = useRef(null);
 
   const [notifications, setNotifications] = useState({
-    lowStock: [], 
-    outOfStock: [], 
-    dueMaintenance: [], 
+    lowStock: [],
+    outOfStock: [],
+    dueMaintenance: [],
     overdueMaintenance: [],
   });
   const [inventoryStats, setInventoryStats] = useState(null);
 
   // add near your other refs
- const reload = useCallback(async (isRetry = false) => {
+  const reload = useCallback(async (isRetry = false) => {
     if (isLoadingRef.current) {
       console.log('⏳ Already loading, skipping...');
       return;
@@ -452,7 +452,7 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
 
       setUsers(Array.isArray(usersData) ? usersData : []);
       setPatients(Array.isArray(patientsData) ? patientsData : []);
-      
+
       console.log('✅ Data loaded successfully');
     } catch (err) {
       console.error('❌ Reload error:', err);
@@ -481,7 +481,7 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
       console.log('🔄 Initial load...');
       reload();
     }
-    
+
     return () => {
       if (reloadTimeoutRef.current) {
         clearTimeout(reloadTimeoutRef.current);
@@ -534,7 +534,7 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   const doctors = Array.isArray(users) ? users.filter((u) => u?.role === 'doctor') : [];
   const receptionists = Array.isArray(users) ? users.filter((u) => u?.role === 'receptionist') : [];
   const pharmacists = Array.isArray(users) ? users.filter((u) => u?.role === 'pharmacist') : [];
-  
+
   const patientList = Array.isArray(patients) ? patients : [];
   const todayPatients = patientList.filter((p) => p?.date === todayStr) || [];
   const paidTotal = todayPatients.reduce((s, p) => s + (p?.paid || 0), 0);
@@ -633,8 +633,8 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
         <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
         <h2 style={{ marginBottom: 8 }}>Error loading dashboard</h2>
         <p style={{ color: '#64748b', marginBottom: 16 }}>{error}</p>
-        <button 
-          onClick={() => { setRetryCount(0); reload(); }} 
+        <button
+          onClick={() => { setRetryCount(0); reload(); }}
           style={{ padding: '10px 24px', background: '#0a3d62', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
         >
           Retry Now
@@ -652,21 +652,21 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   const active = !!clinic.plan;
 
   const planLabel = clinic.plan === 'pro' ? '⭐ Pro Plan' :
-                    clinic.plan === 'plus' ? '🏢 Plus Plan' :
-                    clinic.plan === 'lite' ? '🏥 Lite Plan' : null;
+    clinic.plan === 'plus' ? '🏢 Plus Plan' :
+      clinic.plan === 'lite' ? '🏥 Lite Plan' : null;
 
   const planBadge = active ? (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       background: clinic.plan === 'pro' ? 'rgba(243,156,18,0.12)' :
-                  clinic.plan === 'plus' ? 'rgba(21,101,168,0.10)' :
-                  'rgba(26,122,74,0.10)',
+        clinic.plan === 'plus' ? 'rgba(21,101,168,0.10)' :
+          'rgba(26,122,74,0.10)',
       color: clinic.plan === 'pro' ? '#d68910' :
-             clinic.plan === 'plus' ? '#1565a8' :
-             '#1a7a4a',
+        clinic.plan === 'plus' ? '#1565a8' :
+          '#1a7a4a',
       border: `1px solid ${clinic.plan === 'pro' ? 'rgba(243,156,18,0.28)' :
-               clinic.plan === 'plus' ? 'rgba(21,101,168,0.2)' :
-               'rgba(26,122,74,0.2)'}`,
+        clinic.plan === 'plus' ? 'rgba(21,101,168,0.2)' :
+          'rgba(26,122,74,0.2)'}`,
       borderRadius: 20, padding: '3px 11px', fontSize: 12, fontWeight: 700,
     }}>
       {planLabel}
@@ -722,12 +722,12 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
           accent="var(--primary)"
           headerExtra={planBadge}
         >
-          {tab === 'overview' && <Overview 
-            clinic={clinic} 
-            doctors={doctors} 
-            todayPatients={todayPatients} 
-            paidTotal={paidTotal} 
-            duesTotal={duesTotal} 
+          {tab === 'overview' && <Overview
+            clinic={clinic}
+            doctors={doctors}
+            todayPatients={todayPatients}
+            paidTotal={paidTotal}
+            duesTotal={duesTotal}
           />}
           {tab === 'doctors' && <DoctorManagement doctors={doctors} patients={patientList} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={safePlan} reload={reload} />}
           {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
@@ -740,11 +740,11 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
               <div style={{ fontSize: 48, marginBottom: 16 }}>💊</div>
               <h3 style={{ marginBottom: 8 }}>Pharmacy Management Not Available</h3>
               <p style={{ color: '#64748b', maxWidth: 400, margin: '0 auto' }}>
-                Your {safePlan} plan does not include pharmacy management. 
+                Your {safePlan} plan does not include pharmacy management.
                 Upgrade to Plus or Pro to manage pharmacists and inventory.
               </p>
               {safePlan === 'lite' && (
-                <button 
+                <button
                   onClick={onChoosePlan}
                   style={{ marginTop: 16, padding: '10px 24px', background: '#0f4c81', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
                 >
@@ -768,7 +768,7 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
   return (
     <div>
       <SectionHeader title="Clinic Overview" subtitle={`Today's summary — ${today()}`} />
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:16, marginBottom:24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 16, marginBottom: 24 }}>
         <Stat label="Today's Tokens" value={todayPatients.length} icon="🎫" color="var(--primary)" />
         <Stat label="Today's Revenue" value={`₹${paidTotal.toLocaleString()}`} icon="💰" color="var(--success)" />
         <Stat label="Pending Dues" value={`₹${duesTotal.toLocaleString()}`} icon="⚠️" color="var(--danger)" />
@@ -776,24 +776,24 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
 
       {/* Doctor Queue Summary */}
       {doctors.length > 0 && (
-        <div style={{ marginBottom:24 }}>
-          <h3 style={{ fontSize:17, marginBottom:14 }}>Doctor Queue Summary</h3>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:12 }}>
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 17, marginBottom: 14 }}>Doctor Queue Summary</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 }}>
             {doctors.map((doc) => {
               const docPatients = todayPatients.filter((p) => String(p.doctorId) === String(doc._id));
               const waiting = docPatients.filter((p) => p.status === 'waiting').length;
-              const done    = docPatients.filter((p) => p.status === 'done').length;
-              const limit   = doc.dailyTokenLimit ?? 0;
+              const done = docPatients.filter((p) => p.status === 'done').length;
+              const limit = doc.dailyTokenLimit ?? 0;
               return (
                 <Card key={doc._id}>
-                  <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:10 }}>
-                    <div style={{ width:38,height:38,borderRadius:10,background:'var(--primary-light)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18 }}>👨‍⚕️</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>👨‍⚕️</div>
                     <div>
-                      <div style={{ fontWeight:600,fontSize:14 }}>{doc.name}</div>
-                      <div style={{ fontSize:11,color:'var(--text-muted)' }}>{doc.specialist}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{doc.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doc.specialist}</div>
                     </div>
                   </div>
-                  <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Badge color="blue">🎫 {docPatients.length}{limit > 0 ? `/${limit}` : ''} Total</Badge>
                     <Badge color="yellow">⏳ {waiting} Wait</Badge>
                     <Badge color="green">✓ {done} Done</Badge>
@@ -808,39 +808,39 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
 
       {/* Patient Queue Table */}
       <Card noPad>
-        <div style={{ padding:'14px 18px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-          <h3 style={{ fontSize:16 }}>📋 Today's Patient Queue</h3>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 16 }}>📋 Today's Patient Queue</h3>
           <Badge color="blue">{todayPatients.length} patients</Badge>
         </div>
         {todayPatients.length === 0 ? (
-          <div style={{ textAlign:'center',padding:'2.5rem',color:'var(--text-muted)' }}>
-            <div style={{ fontSize:40,marginBottom:8 }}>🪑</div>
+          <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🪑</div>
             <div>No patients registered today yet.</div>
           </div>
         ) : (
-          <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%',borderCollapse:'collapse',fontSize:13 }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background:'var(--surface2)' }}>
-                  {['Token','Patient','Doctor','Symptoms','Paid Rs.','Dues Rs.','Time','Payment','Status'].map((h) => (
-                    <th key={h} style={{ padding:'10px 14px',textAlign:'left',fontWeight:600,color:'var(--text-muted)',whiteSpace:'nowrap' }}>{h}</th>
+                <tr style={{ background: 'var(--surface2)' }}>
+                  {['Token', 'Patient', 'Doctor', 'Symptoms', 'Paid Rs.', 'Dues Rs.', 'Time', 'Payment', 'Status'].map((h) => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...todayPatients].sort((a,b)=>a.token-b.token).map((p) => (
-                  <tr key={p._id} style={{ borderBottom:'1px solid var(--border)' }}>
-                    <td style={{ padding:'10px 14px' }}><TokenBadge token={p.token} size="sm" status={p.status} /></td>
-                    <td style={{ padding:'10px 14px',fontWeight:500 }}>{p.name}</td>
-                    <td style={{ padding:'10px 14px',color:'var(--text-muted)' }}>{p.doctorName}</td>
-                    <td style={{ padding:'10px 14px',color:'var(--text-muted)',maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{p.symptoms}</td>
-                    <td style={{ padding:'10px 14px',color:'var(--success)',fontWeight:500 }}>{p.paid||0}</td>
-                    <td style={{ padding:'10px 14px',color:p.dues>0?'var(--danger)':'var(--text-muted)',fontWeight:p.dues>0?600:400 }}>{p.dues||0}</td>
-                    <td style={{ padding:'10px 14px',color:'var(--text-muted)',whiteSpace:'nowrap' }}>{p.time}</td>
-                    <td style={{ padding:'10px 14px' }}><PaymentBadge method={p.paymentMethod} /></td>
-                    <td style={{ padding:'10px 14px' }}>
-                      <Badge color={p.status==='called'?'green':p.status==='done'?'gray':'blue'}>
-                        {p.status==='waiting'?'Waiting':p.status==='called'?'Called':'Done'}
+                {[...todayPatients].sort((a, b) => a.token - b.token).map((p) => (
+                  <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 14px' }}><TokenBadge token={p.token} size="sm" status={p.status} /></td>
+                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{p.name}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{p.doctorName}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text-muted)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.symptoms}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--success)', fontWeight: 500 }}>{p.paid || 0}</td>
+                    <td style={{ padding: '10px 14px', color: p.dues > 0 ? 'var(--danger)' : 'var(--text-muted)', fontWeight: p.dues > 0 ? 600 : 400 }}>{p.dues || 0}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.time}</td>
+                    <td style={{ padding: '10px 14px' }}><PaymentBadge method={p.paymentMethod} /></td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <Badge color={p.status === 'called' ? 'green' : p.status === 'done' ? 'gray' : 'blue'}>
+                        {p.status === 'waiting' ? 'Waiting' : p.status === 'called' ? 'Called' : 'Done'}
                       </Badge>
                     </td>
                   </tr>
@@ -864,9 +864,9 @@ function InventoryTab({ notifications, inventoryStats, clinicId, onRefresh }) {
 
   return (
     <div>
-      <SectionHeader 
-        title="📦 Inventory Management" 
-        subtitle="Monitor stock levels and maintenance schedules" 
+      <SectionHeader
+        title="📦 Inventory Management"
+        subtitle="Monitor stock levels and maintenance schedules"
         action={
           <Btn onClick={() => navigate('/dashboard/inventory')}>
             Open Full Inventory →
@@ -901,12 +901,12 @@ function InventoryTab({ notifications, inventoryStats, clinicId, onRefresh }) {
                 <div>
                   <div style={{ fontWeight: 700 }}>{item.name}</div>
                   <div style={{ fontSize: 12, color: '#64748b' }}>
-                    Serial: {item.serialNumber || 'N/A'} · 
+                    Serial: {item.serialNumber || 'N/A'} ·
                     Due: {item.nextMaintenanceDate ? new Date(item.nextMaintenanceDate).toLocaleDateString() : 'N/A'}
                   </div>
                 </div>
-                <button 
-                  onClick={() => navigate('/dashboard/inventory')} 
+                <button
+                  onClick={() => navigate('/dashboard/inventory')}
                   style={{ padding: '4px 12px', background: '#0f4c81', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
                 >
                   View
@@ -938,8 +938,8 @@ function InventoryTab({ notifications, inventoryStats, clinicId, onRefresh }) {
                     {item.quantity} {item.unit || 'units'} left · Reorder at {item.reorderLevel || 0}
                   </div>
                 </div>
-                <button 
-                  onClick={() => navigate('/dashboard/inventory?tab=stock')} 
+                <button
+                  onClick={() => navigate('/dashboard/inventory?tab=stock')}
                   style={{ padding: '4px 12px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
                 >
                   Restock
@@ -971,8 +971,8 @@ function InventoryTab({ notifications, inventoryStats, clinicId, onRefresh }) {
                     {item.category || 'General'} · Need restock
                   </div>
                 </div>
-                <button 
-                  onClick={() => navigate('/dashboard/inventory?tab=stock')} 
+                <button
+                  onClick={() => navigate('/dashboard/inventory?tab=stock')}
                   style={{ padding: '4px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
                 >
                   Restock Now
@@ -983,15 +983,15 @@ function InventoryTab({ notifications, inventoryStats, clinicId, onRefresh }) {
         </div>
       )}
 
-      {safeNotifications.lowStock?.length === 0 && 
-       safeNotifications.outOfStock?.length === 0 && 
-       safeNotifications.overdueMaintenance?.length === 0 && (
-        <Card style={{ textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-          <h3 style={{ marginBottom: 8 }}>All Clear!</h3>
-          <p style={{ color: '#64748b' }}>No inventory alerts at this time.</p>
-        </Card>
-      )}
+      {safeNotifications.lowStock?.length === 0 &&
+        safeNotifications.outOfStock?.length === 0 &&
+        safeNotifications.overdueMaintenance?.length === 0 && (
+          <Card style={{ textAlign: 'center', padding: 40 }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+            <h3 style={{ marginBottom: 8 }}>All Clear!</h3>
+            <p style={{ color: '#64748b' }}>No inventory alerts at this time.</p>
+          </Card>
+        )}
     </div>
   );
 }
@@ -1000,7 +1000,7 @@ function InventoryTab({ notifications, inventoryStats, clinicId, onRefresh }) {
 // ── AllPatients Component ──
 export function AllPatients({ patients, clinicName = '' }) {
   const patientList = Array.isArray(patients) ? patients : [];
-  
+
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('today');
   const [receptionistFilter, setReceptionistFilter] = useState('all');
@@ -1133,7 +1133,7 @@ export function AllPatients({ patients, clinicName = '' }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
-                      {['Token','Name','Age','Phone','Symptoms','Paid Rs.','Dues Rs.','Payment','Date','Time','Receptionist','Status','Prescription'].map((h) => (
+                      {['Token', 'Name', 'Age', 'Phone', 'Symptoms', 'Paid Rs.', 'Dues Rs.', 'Payment', 'Date', 'Time', 'Receptionist', 'Status', 'Prescription'].map((h) => (
                         <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                       ))}
                     </tr>
@@ -1286,11 +1286,11 @@ export function AllPatients({ patients, clinicName = '' }) {
 function RevenueSection({ patients, doctors, pharmacists, session, getRevenueReport }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [fromDate, setFromDate] = useState(todayStr);
-  const [toDate,   setToDate]   = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
   const [doctorFilter, setDoctorFilter] = useState('all');
-  const [imsData,    setImsData]    = useState(null);
+  const [imsData, setImsData] = useState(null);
   const [imsLoading, setImsLoading] = useState(false);
-  const [imsError,   setImsError]   = useState('');
+  const [imsError, setImsError] = useState('');
 
   useEffect(() => { fetchImsRevenue(); }, [fromDate, toDate]);
 
@@ -1309,26 +1309,26 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
   const filteredPatients = patients.filter(p => inRange(p.date));
 
   const allDoctorStats = doctors.map(doc => {
-    const docPats   = filteredPatients.filter(p => String(p.doctorId) === String(doc._id));
+    const docPats = filteredPatients.filter(p => String(p.doctorId) === String(doc._id));
     const totalPaid = docPats.reduce((s, p) => s + (p.paid || 0), 0);
     const totalDues = docPats.reduce((s, p) => s + (p.dues || 0), 0);
-    const upiPaid   = docPats.filter(p => p.paymentMethod === 'upi').reduce((s, p) => s + (p.paid || 0), 0);
-    const cashPaid  = docPats.filter(p => p.paymentMethod !== 'upi').reduce((s, p) => s + (p.paid || 0), 0);
-    const upiCount  = docPats.filter(p => p.paymentMethod === 'upi').length;
+    const upiPaid = docPats.filter(p => p.paymentMethod === 'upi').reduce((s, p) => s + (p.paid || 0), 0);
+    const cashPaid = docPats.filter(p => p.paymentMethod !== 'upi').reduce((s, p) => s + (p.paid || 0), 0);
+    const upiCount = docPats.filter(p => p.paymentMethod === 'upi').length;
     const cashCount = docPats.filter(p => p.paymentMethod !== 'upi').length;
     return { ...doc, docPats, totalPaid, totalDues, upiPaid, cashPaid, upiCount, cashCount, totalPatients: docPats.length };
   });
 
   const visibleDoctorStats = doctorFilter === 'all' ? allDoctorStats : allDoctorStats.filter(d => String(d._id) === doctorFilter);
-  const grandPaid  = allDoctorStats.reduce((s, d) => s + d.totalPaid, 0);
-  const grandDues  = allDoctorStats.reduce((s, d) => s + d.totalDues, 0);
-  const grandPats  = allDoctorStats.reduce((s, d) => s + d.totalPatients, 0);
-  const grandUpi   = allDoctorStats.reduce((s, d) => s + d.upiPaid, 0);
-  const grandCash  = allDoctorStats.reduce((s, d) => s + d.cashPaid, 0);
+  const grandPaid = allDoctorStats.reduce((s, d) => s + d.totalPaid, 0);
+  const grandDues = allDoctorStats.reduce((s, d) => s + d.totalDues, 0);
+  const grandPats = allDoctorStats.reduce((s, d) => s + d.totalPatients, 0);
+  const grandUpi = allDoctorStats.reduce((s, d) => s + d.upiPaid, 0);
+  const grandCash = allDoctorStats.reduce((s, d) => s + d.cashPaid, 0);
 
-  const imsTotalSales  = imsData?.totalSales  ?? imsData?.total   ?? imsData?.revenue ?? 0;
-  const imsTotalProfit = imsData?.totalProfit ?? imsData?.profit  ?? 0;
-  const imsTotalOrders = imsData?.totalOrders ?? imsData?.count   ?? imsData?.invoices ?? 0;
+  const imsTotalSales = imsData?.totalSales ?? imsData?.total ?? imsData?.revenue ?? 0;
+  const imsTotalProfit = imsData?.totalProfit ?? imsData?.profit ?? 0;
+  const imsTotalOrders = imsData?.totalOrders ?? imsData?.count ?? imsData?.invoices ?? 0;
 
   const dateInput = { padding: '9px 12px', borderRadius: 9, border: '1.5px solid #d0dce8', fontSize: 13, fontFamily: 'inherit', color: '#0a3d62', background: '#fff', outline: 'none', cursor: 'pointer' };
   const sectionHead = { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: 12, marginBottom: 16, fontWeight: 700, fontSize: 15 };
@@ -1348,7 +1348,7 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
             {[
               { label: 'Today', from: todayStr, to: todayStr },
               { label: 'This Week', from: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().split('T')[0]; })(), to: todayStr },
-              { label: 'This Month', from: todayStr.slice(0,7) + '-01', to: todayStr },
+              { label: 'This Month', from: todayStr.slice(0, 7) + '-01', to: todayStr },
               { label: 'Last 30 Days', from: (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().split('T')[0]; })(), to: todayStr },
             ].map(({ label, from, to }) => (
               <button key={label} onClick={() => { setFromDate(from); setToDate(to); }}
@@ -1368,11 +1368,11 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
-            { label: 'Total Collected', value: `Rs. ${grandPaid.toLocaleString()}`, icon: '💰', color: '#00a878', bg: 'rgba(0,184,148,0.08)',  border: 'rgba(0,184,148,0.20)'  },
-            { label: 'Total Dues',      value: `Rs. ${grandDues.toLocaleString()}`, icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.08)',  border: 'rgba(231,76,60,0.20)'  },
-            { label: 'Total Patients',  value: grandPats,                            icon: '👥', color: '#1565a8', bg: 'rgba(21,101,168,0.08)', border: 'rgba(21,101,168,0.20)' },
-            { label: 'UPI Collected',   value: `Rs. ${grandUpi.toLocaleString()}`,  icon: '📲', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.20)' },
-            { label: 'Cash Collected',  value: `Rs. ${grandCash.toLocaleString()}`, icon: '💵', color: '#d68910', bg: 'rgba(214,137,16,0.08)', border: 'rgba(214,137,16,0.20)' },
+            { label: 'Total Collected', value: `Rs. ${grandPaid.toLocaleString()}`, icon: '💰', color: '#00a878', bg: 'rgba(0,184,148,0.08)', border: 'rgba(0,184,148,0.20)' },
+            { label: 'Total Dues', value: `Rs. ${grandDues.toLocaleString()}`, icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.08)', border: 'rgba(231,76,60,0.20)' },
+            { label: 'Total Patients', value: grandPats, icon: '👥', color: '#1565a8', bg: 'rgba(21,101,168,0.08)', border: 'rgba(21,101,168,0.20)' },
+            { label: 'UPI Collected', value: `Rs. ${grandUpi.toLocaleString()}`, icon: '📲', color: '#7c3aed', bg: 'rgba(124,58,237,0.08)', border: 'rgba(124,58,237,0.20)' },
+            { label: 'Cash Collected', value: `Rs. ${grandCash.toLocaleString()}`, icon: '💵', color: '#d68910', bg: 'rgba(214,137,16,0.08)', border: 'rgba(214,137,16,0.20)' },
           ].map(({ label, value, icon, color, bg, border }) => (
             <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '14px 16px' }}>
               <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
@@ -1398,7 +1398,7 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)' }}>
-                    {['Doctor','Specialist','Patients','Total Collected','Pending Dues','UPI Amount','Cash Amount','UPI Txns','Cash Txns'].map(h => (
+                    {['Doctor', 'Specialist', 'Patients', 'Total Collected', 'Pending Dues', 'UPI Amount', 'Cash Amount', 'UPI Txns', 'Cash Txns'].map(h => (
                       <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -1468,9 +1468,9 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
               {[
-                { label: 'Total Sales',  value: `Rs. ${Number(imsTotalSales).toLocaleString()}`,  icon: '💊', color: '#00a878', bg: 'rgba(0,184,148,0.08)',  border: 'rgba(0,184,148,0.20)'  },
+                { label: 'Total Sales', value: `Rs. ${Number(imsTotalSales).toLocaleString()}`, icon: '💊', color: '#00a878', bg: 'rgba(0,184,148,0.08)', border: 'rgba(0,184,148,0.20)' },
                 { label: 'Total Profit', value: `Rs. ${Number(imsTotalProfit).toLocaleString()}`, icon: '📈', color: '#1565a8', bg: 'rgba(21,101,168,0.08)', border: 'rgba(21,101,168,0.20)' },
-                { label: 'Total Orders', value: Number(imsTotalOrders),                           icon: '🧾', color: '#d68910', bg: 'rgba(214,137,16,0.08)', border: 'rgba(214,137,16,0.20)' },
+                { label: 'Total Orders', value: Number(imsTotalOrders), icon: '🧾', color: '#d68910', bg: 'rgba(214,137,16,0.08)', border: 'rgba(214,137,16,0.20)' },
               ].map(({ label, value, icon, color, bg, border }) => (
                 <div key={label} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: '14px 16px' }}>
                   <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
@@ -1486,7 +1486,7 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: 'var(--surface2)' }}>
-                        {['Pharmacist','Sales Amount','Orders','Profit'].map(h => (
+                        {['Pharmacist', 'Sales Amount', 'Orders', 'Profit'].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -1543,22 +1543,22 @@ function PharmacistRevenueList({ pharmacists }) {
 function AdminFollowUps({ patients, doctors, onUpdateFollowUp }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [doctorFilter, setDoctorFilter] = useState('all');
-  const [dateFilter,   setDateFilter]   = useState('upcoming');
-  const [search,       setSearch]       = useState('');
-  const [editingId,    setEditingId]    = useState(null);
-  const [editDate,     setEditDate]     = useState('');
-  const [editNote,     setEditNote]     = useState('');
-  const [busy,         setBusy]         = useState(false);
+  const [dateFilter, setDateFilter] = useState('upcoming');
+  const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editDate, setEditDate] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const followUpPatients = patients.filter((p) => p.followUpDate);
   const filtered = followUpPatients.filter((p) => {
     const matchDoctor = doctorFilter === 'all' || String(p.doctorId) === doctorFilter;
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.phone && p.phone.includes(search));
     const matchDate =
-      dateFilter === 'all'      ? true :
-      dateFilter === 'today'    ? p.followUpDate === todayStr :
-      dateFilter === 'upcoming' ? p.followUpDate >= todayStr :
-      dateFilter === 'overdue'  ? p.followUpDate < todayStr  : true;
+      dateFilter === 'all' ? true :
+        dateFilter === 'today' ? p.followUpDate === todayStr :
+          dateFilter === 'upcoming' ? p.followUpDate >= todayStr :
+            dateFilter === 'overdue' ? p.followUpDate < todayStr : true;
     return matchDoctor && matchSearch && matchDate;
   }).sort((a, b) => (a.followUpDate || '').localeCompare(b.followUpDate || ''));
 
@@ -1579,24 +1579,24 @@ function AdminFollowUps({ patients, doctors, onUpdateFollowUp }) {
 
   function getFollowUpStatus(followUpDate) {
     if (!followUpDate) return null;
-    if (followUpDate < todayStr)   return { label: 'Overdue',  bg: 'rgba(231,76,60,0.08)',  text: '#e74c3c' };
-    if (followUpDate === todayStr) return { label: 'Today',    bg: 'rgba(0,184,148,0.10)',  text: '#00a878' };
-    return                                { label: 'Upcoming', bg: 'rgba(21,101,168,0.08)', text: '#1565a8' };
+    if (followUpDate < todayStr) return { label: 'Overdue', bg: 'rgba(231,76,60,0.08)', text: '#e74c3c' };
+    if (followUpDate === todayStr) return { label: 'Today', bg: 'rgba(0,184,148,0.10)', text: '#00a878' };
+    return { label: 'Upcoming', bg: 'rgba(21,101,168,0.08)', text: '#1565a8' };
   }
 
-  const todayCount    = followUpPatients.filter((p) => p.followUpDate === todayStr).length;
+  const todayCount = followUpPatients.filter((p) => p.followUpDate === todayStr).length;
   const upcomingCount = followUpPatients.filter((p) => p.followUpDate > todayStr).length;
-  const overdueCount  = followUpPatients.filter((p) => p.followUpDate < todayStr).length;
+  const overdueCount = followUpPatients.filter((p) => p.followUpDate < todayStr).length;
 
   return (
     <div>
       <SectionHeader title="Follow-ups" subtitle={`${followUpPatients.length} patients with scheduled follow-ups`} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Today',    value: todayCount,              icon: '📅', color: '#00a878', bg: 'rgba(0,184,148,0.08)',   border: 'rgba(0,184,148,0.20)',   filter: 'today'    },
-          { label: 'Upcoming', value: upcomingCount,           icon: '🔮', color: '#1565a8', bg: 'rgba(21,101,168,0.07)', border: 'rgba(21,101,168,0.18)',  filter: 'upcoming' },
-          { label: 'Overdue',  value: overdueCount,            icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.07)',  border: 'rgba(231,76,60,0.18)',   filter: 'overdue'  },
-          { label: 'All',      value: followUpPatients.length, icon: '📋', color: '#4a6278', bg: 'rgba(74,98,120,0.06)',  border: 'rgba(74,98,120,0.15)',   filter: 'all'      },
+          { label: 'Today', value: todayCount, icon: '📅', color: '#00a878', bg: 'rgba(0,184,148,0.08)', border: 'rgba(0,184,148,0.20)', filter: 'today' },
+          { label: 'Upcoming', value: upcomingCount, icon: '🔮', color: '#1565a8', bg: 'rgba(21,101,168,0.07)', border: 'rgba(21,101,168,0.18)', filter: 'upcoming' },
+          { label: 'Overdue', value: overdueCount, icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.07)', border: 'rgba(231,76,60,0.18)', filter: 'overdue' },
+          { label: 'All', value: followUpPatients.length, icon: '📋', color: '#4a6278', bg: 'rgba(74,98,120,0.06)', border: 'rgba(74,98,120,0.15)', filter: 'all' },
         ].map((s) => (
           <div key={s.label} onClick={() => setDateFilter(s.filter)}
             style={{ background: dateFilter === s.filter ? s.bg : '#fff', border: `1.5px solid ${dateFilter === s.filter ? s.border : 'var(--border, #e4eaf1)'}`, borderRadius: 12, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1623,7 +1623,7 @@ function AdminFollowUps({ patients, doctors, onUpdateFollowUp }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
-                  {['Patient','Phone','Doctor','Last Visit','Follow-up Date','Note','Status','Actions'].map((h) => (
+                  {['Patient', 'Phone', 'Doctor', 'Last Visit', 'Follow-up Date', 'Note', 'Status', 'Actions'].map((h) => (
                     <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>
@@ -1680,14 +1680,14 @@ function AdminFollowUps({ patients, doctors, onUpdateFollowUp }) {
 }
 
 function DoctorDetailModal({ doc, patients, onClose, onUpdateTokenLimit }) {
-  const todayStr    = new Date().toISOString().split('T')[0];
-  const allDocPat   = patients.filter((p) => String(p.doctorId) === String(doc._id));
+  const todayStr = new Date().toISOString().split('T')[0];
+  const allDocPat = patients.filter((p) => String(p.doctorId) === String(doc._id));
   const todayDocPat = allDocPat.filter((p) => p.date === todayStr).sort((a, b) => a.token - b.token);
   const waiting = todayDocPat.filter((p) => p.status === 'waiting').length;
-  const called  = todayDocPat.filter((p) => p.status === 'called').length;
-  const done    = todayDocPat.filter((p) => p.status === 'done').length;
+  const called = todayDocPat.filter((p) => p.status === 'called').length;
+  const done = todayDocPat.filter((p) => p.status === 'done').length;
   const revenue = todayDocPat.reduce((s, p) => s + (p.paid || 0), 0);
-  const dues    = todayDocPat.reduce((s, p) => s + (p.dues || 0), 0);
+  const dues = todayDocPat.reduce((s, p) => s + (p.dues || 0), 0);
   return (
     <Modal title="" onClose={onClose}>
       <div style={{ background: 'linear-gradient(135deg, #0a3d62 0%, #1565a8 100%)', borderRadius: 14, padding: '20px 22px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -1705,8 +1705,8 @@ function DoctorDetailModal({ doc, patients, onClose, onUpdateTokenLimit }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
         {[
           { label: 'Waiting', value: waiting, color: '#1565a8' },
-          { label: 'In Room', value: called,  color: '#d68910' },
-          { label: 'Done',    value: done,    color: '#00a878' },
+          { label: 'In Room', value: called, color: '#d68910' },
+          { label: 'Done', value: done, color: '#00a878' },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: '#f7f9fc', borderRadius: 10, padding: '12px 10px', textAlign: 'center' }}>
             <div style={{ fontWeight: 800, fontSize: 22, color }}>{value}</div>
@@ -1729,11 +1729,11 @@ function DoctorDetailModal({ doc, patients, onClose, onUpdateTokenLimit }) {
 }
 
 const SPECIALISTS = [
-  'General Physician','Cardiologist','Dermatologist','ENT Specialist',
-  'Gynecologist','Neurologist','Orthopedic','Pediatrician','Psychiatrist',
-  'Urologist','Dentist','Eye Specialist','Diabetologist','Chest Specialist',
+  'General Physician', 'Cardiologist', 'Dermatologist', 'ENT Specialist',
+  'Gynecologist', 'Neurologist', 'Orthopedic', 'Pediatrician', 'Psychiatrist',
+  'Urologist', 'Dentist', 'Eye Specialist', 'Diabetologist', 'Chest Specialist',
 ];
-function EmailInputWithCheck({ label, value, onChange, placeholder, setErr ,onKeyDown}) {
+function EmailInputWithCheck({ label, value, onChange, placeholder, setErr, onKeyDown }) {
   const [checking, setChecking] = useState(false);
   const [emailErr, setEmailErr] = useState('');
 
@@ -1755,7 +1755,7 @@ function EmailInputWithCheck({ label, value, onChange, placeholder, setErr ,onKe
       } else {
         setErr('');
       }
-    } catch {}
+    } catch { }
     finally { setChecking(false); }
   }
 
@@ -1796,16 +1796,16 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
   const [editingDoctor, setEditingDoctor] = useState(null); // Add this
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ 
-    name: '', 
-    specialist: '', 
-    phone: '', 
-    email: '', 
-    password: '', 
-    fee: '', 
-    schedule: defaultSchedule() 
+  const [form, setForm] = useState({
+    name: '',
+    specialist: '',
+    phone: '',
+    email: '',
+    password: '',
+    fee: '',
+    schedule: defaultSchedule()
   });
-  
+
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more doctors based on plan
@@ -1815,9 +1815,9 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
 
   function handleEnterKey(e) {
     if (e.key !== "Enter") return;
-  
+
     e.preventDefault();
-  
+
     // If currently in Fee field -> Add Doctor
     if (
       e.target.type === "number" &&
@@ -1826,7 +1826,7 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
       addDoctor();
       return;
     }
-  
+
     const focusable = Array.from(
       document.querySelectorAll(
         "input, select, textarea"
@@ -1834,9 +1834,9 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
     ).filter(
       el => !el.disabled && el.offsetParent !== null
     );
-  
+
     const index = focusable.indexOf(e.target);
-  
+
     if (index > -1 && index < focusable.length - 1) {
       focusable[index + 1].focus();
     }
@@ -1848,36 +1848,46 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
       setErr(`❌ ${canAdd.upgradeNeeded} allows only ${canAdd.limit} doctor(s). Please upgrade to add more.`);
       return;
     }
-    
-    if (!form.name || !form.email || !form.password || !form.specialist) { 
-  setErr('Fill all required fields.'); 
-  return; 
-}
 
-if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
-  setErr('Phone number must be exactly 10 digits.');
-  return;
-}
+    if (!form.name || !form.email || !form.password || !form.specialist) {
+      setErr('Fill all required fields.');
+      return;
+    }
 
-setBusy(true); 
-setErr('');
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setErr(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
+
+    if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+      setErr('Phone number must be exactly 10 digits.');
+      return;
+    }
+
+    setBusy(true);
+    setErr('');
     try {
       await onAdd({ role: 'doctor', ...form, fee: parseFloat(form.fee) || 0 });
       setForm({ name: '', specialist: '', phone: '', email: '', password: '', fee: '', schedule: defaultSchedule() });
       setShow(false);
-    } catch(e) { 
-      setErr(e.message); 
-    } finally { 
-      setBusy(false); 
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function removeDoctor(id) {
     if (!window.confirm('Remove this doctor?')) return;
-    try { 
-      await onDelete(id); 
-    } catch(e) { 
-      alert(e.message); 
+    try {
+      await onDelete(id);
+    } catch (e) {
+      alert(e.message);
     }
   }
 
@@ -1898,12 +1908,12 @@ setErr('');
 
   return (
     <div>
-      <SectionHeader 
-        title="Doctors" 
+      <SectionHeader
+        title="Doctors"
         subtitle={`${doctors.length}/${maxDoctors} doctors registered`}
         action={
-          <Btn 
-            onClick={() => setShow(true)} 
+          <Btn
+            onClick={() => setShow(true)}
             disabled={!canAdd.allowed}
             title={!canAdd.allowed ? `Upgrade to ${canAdd.upgradeNeeded} to add more doctors` : ''}
           >
@@ -1911,61 +1921,61 @@ setErr('');
           </Btn>
         }
       />
-      
+
       {/* Show warning when limit is reached */}
       {!canAdd.allowed && doctors.length >= canAdd.limit && (
         <Alert type="warning" style={{ marginBottom: 16 }}>
           ⚠️ You've reached the limit of {canAdd.limit} doctor(s) for your {activePlan} plan.
         </Alert>
       )}
-      
+
       {doctors.length === 0 ? (
-        <Empty 
-          icon="👨‍⚕️" 
-          title="No doctors yet" 
-          desc="Add your first doctor to get started." 
-          action={<Btn onClick={() => setShow(true)}>+ Add First Doctor</Btn>} 
+        <Empty
+          icon="👨‍⚕️"
+          title="No doctors yet"
+          desc="Add your first doctor to get started."
+          action={<Btn onClick={() => setShow(true)}>+ Add First Doctor</Btn>}
         />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(290px,1fr))', gap: 16 }}>
           {doctors.map((doc) => (
-            <DoctorCard 
-              key={doc._id} 
-              doc={doc} 
-              onRemove={(e) => { e.stopPropagation(); removeDoctor(doc._id); }} 
+            <DoctorCard
+              key={doc._id}
+              doc={doc}
+              onRemove={(e) => { e.stopPropagation(); removeDoctor(doc._id); }}
               onEdit={() => setEditingDoctor(doc)}  // Add this prop
-              onClick={() => setDetailDoc(doc)} 
-              onUpdateTokenLimit={onUpdateTokenLimit} 
+              onClick={() => setDetailDoc(doc)}
+              onUpdateTokenLimit={onUpdateTokenLimit}
             />
           ))}
         </div>
       )}
-      
+
       {/* Doctor Detail Modal */}
       {syncedDetailDoc && (
-        <DoctorDetailModal 
-          doc={syncedDetailDoc} 
-          patients={patients} 
-          onClose={() => setDetailDoc(null)} 
-          onUpdateTokenLimit={onUpdateTokenLimit} 
+        <DoctorDetailModal
+          doc={syncedDetailDoc}
+          patients={patients}
+          onClose={() => setDetailDoc(null)}
+          onUpdateTokenLimit={onUpdateTokenLimit}
         />
       )}
-      
+
       {/* Add Doctor Modal */}
       {show && (
         <Modal title="Add New Doctor" onClose={() => { setShow(false); setErr(''); }}>
           <div style={{ display: 'grid', gap: 14 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Input 
-                label="Doctor Name *" 
-                value={form.name} 
-                onChange={(e) => f('name', e.target.value)} 
-                placeholder="Dr. Ahmed Ali" 
+              <Input
+                label="Doctor Name *"
+                value={form.name}
+                onChange={(e) => f('name', e.target.value)}
+                placeholder="Dr. Ahmed Ali"
                 onKeyDown={handleEnterKey}
               />
-              <Select 
-                label="Specialist *" 
-                value={form.specialist} 
+              <Select
+                label="Specialist *"
+                value={form.specialist}
                 onChange={(e) => f('specialist', e.target.value)}
                 onKeyDown={handleEnterKey}
               >
@@ -1973,54 +1983,54 @@ setErr('');
                 {SPECIALISTS.map((s) => <option key={s} value={s}>{s}</option>)}
               </Select>
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <EmailInputWithCheck
-  label="Login Email *"
-  value={form.email}
-  onChange={(e) => f('email', e.target.value)}
-  placeholder="doctor@clinic.com"
-  setErr={setErr}
-  onKeyDown={handleEnterKey}
+                label="Login Email *"
+                value={form.email}
+                onChange={(e) => f('email', e.target.value)}
+                placeholder="doctor@clinic.com"
+                setErr={setErr}
+                onKeyDown={handleEnterKey}
 
-/>
-              <Input 
-                label="Password *" 
-                type="password" 
-                value={form.password} 
-                onChange={(e) => f('password', e.target.value)} 
-                placeholder="••••••" 
+              />
+              <Input
+                label="Password *"
+                type="password"
+                value={form.password}
+                onChange={(e) => f('password', e.target.value)}
+                placeholder="••••••"
                 onKeyDown={handleEnterKey}
               />
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Input 
-  label="Phone" 
-  value={form.phone} 
-  onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
-  placeholder="10-digit mobile number"
-  inputMode="numeric"
-  onKeyDown={handleEnterKey}
-/>
-              <Input 
-                label="Consultation Fee (Rs.)" 
-                type="number" 
-                value={form.fee} 
-                onChange={(e) => f('fee', e.target.value)} 
-                placeholder="500" 
+              <Input
+                label="Phone"
+                value={form.phone}
+                onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="10-digit mobile number"
+                inputMode="numeric"
+                onKeyDown={handleEnterKey}
+              />
+              <Input
+                label="Consultation Fee (Rs.)"
+                type="number"
+                value={form.fee}
+                onChange={(e) => f('fee', e.target.value)}
+                placeholder="500"
                 onKeyDown={handleEnterKey}
               />
             </div>
-            
-            <WeeklySchedulePicker 
-              value={form.schedule} 
-              onChange={(s) => f('schedule', s)} 
+
+            <WeeklySchedulePicker
+              value={form.schedule}
+              onChange={(s) => f('schedule', s)}
               onKeyDown={handleEnterKey}
             />
-            
+
             {err && <Alert type="error">{err}</Alert>}
-            
+
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <Btn variant="ghost" onClick={() => { setShow(false); setErr(''); }}>Cancel</Btn>
               <Btn onClick={addDoctor} disabled={busy}>{busy ? 'Adding…' : 'Add Doctor'}</Btn>
@@ -2031,7 +2041,7 @@ setErr('');
 
       {/* Edit Doctor Modal */}
       {editingDoctor && (
-        <EditDoctorModal 
+        <EditDoctorModal
           doctor={editingDoctor}
           onClose={() => setEditingDoctor(null)}
           onSave={handleUpdateDoctor}
@@ -2046,25 +2056,25 @@ function DoctorCard({ doc, onRemove, onClick, onEdit, onUpdateTokenLimit }) {
     <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ background: '#fff', borderRadius: 14, border: hovered ? '1.5px solid #1565a8' : '1.5px solid var(--border)', padding: '16px 16px 14px', cursor: 'pointer', position: 'relative', transition: 'transform 0.15s, box-shadow 0.15s', transform: hovered ? 'translateY(-3px)' : 'translateY(0)', boxShadow: hovered ? '0 8px 28px rgba(10,61,98,0.14)' : '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:12 }}>
-        <div style={{ width:48, height:48, borderRadius:12, background:'var(--primary-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>👨‍⚕️</div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>{doc.name}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+        <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>👨‍⚕️</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{doc.name}</div>
           <Badge color="blue">{doc.specialist}</Badge>
         </div>
-        <button 
-            onClick={(e) => { e.stopPropagation(); onEdit && onEdit(); }} 
-            style={{ background:'none', border:'none', cursor:'pointer', color:'#1565a8', fontSize:16, padding:4 }}
-            title="Edit doctor"
-          >
-            ✏️
-          </button>
-        <button onClick={(e) => { e.stopPropagation(); onRemove(e); }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--danger)', fontSize:16, padding:4 }}>🗑</button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit && onEdit(); }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1565a8', fontSize: 16, padding: 4 }}
+          title="Edit doctor"
+        >
+          ✏️
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onRemove(e); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: 4 }}>🗑</button>
       </div>
-      <div style={{ display:'grid', gap:6, fontSize:13 }}>
-        {doc.phone && <div style={{ color:'var(--text-muted)' }}>📞 {doc.phone}</div>}
-        {doc.email && <div style={{ color:'var(--text-muted)' }}>✉️ {doc.email}</div>}
-        {doc.fee   && <div style={{ color:'var(--text-muted)' }}>💰 Rs. {doc.fee} per consultation</div>}
+      <div style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+        {doc.phone && <div style={{ color: 'var(--text-muted)' }}>📞 {doc.phone}</div>}
+        {doc.email && <div style={{ color: 'var(--text-muted)' }}>✉️ {doc.email}</div>}
+        {doc.fee && <div style={{ color: 'var(--text-muted)' }}>💰 Rs. {doc.fee} per consultation</div>}
         <TokenLimitEditor doc={doc} onSave={onUpdateTokenLimit} />
         <ScheduleDisplay schedule={doc.schedule} />
       </div>
@@ -2076,11 +2086,11 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ 
-    name: '', 
-    email: '', 
-    phone: '', 
-    password: '' 
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: ''
   });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -2091,17 +2101,17 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
 
   function handleEnterKey(e) {
     if (e.key !== "Enter") return;
-  
+
     e.preventDefault();
-  
+
     const focusable = Array.from(
       document.querySelectorAll(
         "input, select, textarea, button"
       )
     ).filter(el => !el.disabled);
-  
+
     const index = focusable.indexOf(e.target);
-  
+
     // Last input field (Phone)
     if (index > -1 && index < focusable.length - 3) {
       focusable[index + 1].focus();
@@ -2116,49 +2126,59 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
       setErr(`❌ ${canAdd.upgradeNeeded} allows only ${canAdd.limit} receptionist(s). Please upgrade to add more.`);
       return;
     }
-    
-    if (!form.name || !form.email || !form.password) { 
-  setErr('Fill all required fields.'); 
-  return; 
-}
 
-// ADD THIS
-if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
-  setErr('Phone number must be exactly 10 digits.');
-  return;
-}
-// END ADD
+    if (!form.name || !form.email || !form.password) {
+      setErr('Fill all required fields.');
+      return;
+    }
 
-setBusy(true); 
-setErr('');
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setErr(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
+
+    // ADD THIS
+    if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+      setErr('Phone number must be exactly 10 digits.');
+      return;
+    }
+    // END ADD
+
+    setBusy(true);
+    setErr('');
     try {
       await onAdd({ role: 'receptionist', ...form });
       setForm({ name: '', email: '', phone: '', password: '' });
       setShow(false);
-    } catch(e) { 
-      setErr(e.message); 
-    } finally { 
-      setBusy(false); 
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function removeRec(id) {
     if (!window.confirm('Remove this receptionist?')) return;
-    try { 
-      await onDelete(id); 
-    } catch(e) { 
-      alert(e.message); 
+    try {
+      await onDelete(id);
+    } catch (e) {
+      alert(e.message);
     }
   }
 
   return (
     <div>
-      <SectionHeader 
-        title="Receptionists" 
+      <SectionHeader
+        title="Receptionists"
         subtitle={`${receptionists.length}/${maxReceptionists} receptionists registered`}
         action={
-          <Btn 
-            onClick={() => setShow(true)} 
+          <Btn
+            onClick={() => setShow(true)}
             disabled={!canAdd.allowed}
             title={!canAdd.allowed ? `Upgrade to ${canAdd.upgradeNeeded} to add more receptionists` : ''}
           >
@@ -2166,21 +2186,21 @@ setErr('');
           </Btn>
         }
       />
-      
+
       {/* Show warning when limit is reached */}
       {!canAdd.allowed && receptionists.length >= canAdd.limit && (
         <Alert type="warning" style={{ marginBottom: 16 }}>
           ⚠️ You've reached the limit of {canAdd.limit} receptionist(s) for your {activePlan} plan.
-          
+
         </Alert>
       )}
-      
+
       {receptionists.length === 0 ? (
-        <Empty 
-          icon="📋" 
-          title="No receptionists yet" 
-          desc="Add a receptionist to handle patient registration." 
-          action={<Btn onClick={() => setShow(true)}>+ Add Receptionist</Btn>} 
+        <Empty
+          icon="📋"
+          title="No receptionists yet"
+          desc="Add a receptionist to handle patient registration."
+          action={<Btn onClick={() => setShow(true)}>+ Add Receptionist</Btn>}
         />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 16 }}>
@@ -2192,8 +2212,8 @@ setErr('');
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{rec.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Receptionist</div>
                 </div>
-                <button 
-                  onClick={() => removeRec(rec._id)} 
+                <button
+                  onClick={() => removeRec(rec._id)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: 4 }}
                 >
                   🗑
@@ -2207,48 +2227,48 @@ setErr('');
           ))}
         </div>
       )}
-      
+
       {/* Add Receptionist Modal */}
       {show && (
         <Modal title="Add Receptionist" onClose={() => { setShow(false); setErr(''); }}>
           <div style={{ display: 'grid', gap: 14 }}>
-            <Input 
-              label="Full Name *" 
-              value={form.name} 
-              onChange={(e) => f('name', e.target.value)} 
-              placeholder="e.g. Ayesha Bibi" 
+            <Input
+              label="Full Name *"
+              value={form.name}
+              onChange={(e) => f('name', e.target.value)}
+              placeholder="e.g. Ayesha Bibi"
               onKeyDown={handleEnterKey}
             />
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <EmailInputWithCheck
-  label="Login Email *"
-  value={form.email}
-  onChange={(e) => f('email', e.target.value)}
-  placeholder="rec@clinic.com"
-  setErr={setErr}
-  onKeyDown={handleEnterKey}
-/>
-              <Input 
-                label="Password *" 
-                type="password" 
-                value={form.password} 
-                onChange={(e) => f('password', e.target.value)} 
-                placeholder="••••••" 
+                label="Login Email *"
+                value={form.email}
+                onChange={(e) => f('email', e.target.value)}
+                placeholder="rec@clinic.com"
+                setErr={setErr}
+                onKeyDown={handleEnterKey}
+              />
+              <Input
+                label="Password *"
+                type="password"
+                value={form.password}
+                onChange={(e) => f('password', e.target.value)}
+                placeholder="••••••"
                 onKeyDown={handleEnterKey}
               />
             </div>
-            
-            <Input 
-  label="Phone" 
-  value={form.phone} 
-  inputMode="numeric"
-  onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
-  placeholder="10-digit mobile number"
-  onKeyDown={handleEnterKey}
-/>
+
+            <Input
+              label="Phone"
+              value={form.phone}
+              inputMode="numeric"
+              onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="10-digit mobile number"
+              onKeyDown={handleEnterKey}
+            />
             {err && <Alert type="error">{err}</Alert>}
-            
+
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <Btn variant="ghost" onClick={() => { setShow(false); setErr(''); }}>Cancel</Btn>
               <Btn onClick={addRec} disabled={busy}>{busy ? 'Adding…' : 'Add Receptionist'}</Btn>
@@ -2266,7 +2286,7 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ name:'', email:'', phone:'', password:'' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // ── Check if can add more pharmacists based on plan ──
@@ -2281,7 +2301,7 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
         <div style={{ fontSize: 48, marginBottom: 16 }}>💊</div>
         <h3 style={{ marginBottom: 8 }}>Pharmacy Management Not Available</h3>
         <p style={{ color: '#64748b', maxWidth: 400, margin: '0 auto' }}>
-          Your {activePlan} plan does not include pharmacy management. 
+          Your {activePlan} plan does not include pharmacy management.
           Upgrade to Plus or Pro to manage pharmacists and inventory.
         </p>
       </Card>
@@ -2289,9 +2309,19 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
   }
 
   async function addPharmacist() {
-    if (!form.name || !form.email || !form.password) { 
-      setErr('Fill all required fields.'); 
-      return; 
+    if (!form.name || !form.email || !form.password) {
+      setErr('Fill all required fields.');
+      return;
+    }
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setErr(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
     }
 
     if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
@@ -2299,63 +2329,63 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
       return;
     }
 
-    setBusy(true); 
+    setBusy(true);
     setErr('');
     try {
       // ── Step 1: Create pharmacist in HMS ──
-      const newPharmacist = await onAdd({ 
-        role: 'pharmacist', 
+      const newPharmacist = await onAdd({
+        role: 'pharmacist',
         ...form,
         permissions: ['dashboard', 'pharmacy', 'prescriptions', 'inventory']
       });
-      
+
       // ── Step 2: Register pharmacist in IMS (if available) ──
       try {
-        await registerPharmacistInIMS({ 
-          fullName: form.name, 
-          email: form.email, 
-          password: form.password 
+        await registerPharmacistInIMS({
+          fullName: form.name,
+          email: form.email,
+          password: form.password
         });
         console.log('✅ Pharmacist registered in IMS');
       } catch (imsErr) {
         console.warn('⚠️ IMS registration failed, but pharmacist was created in HMS:', imsErr);
         // Don't fail the whole operation - pharmacist is already in HMS
       }
-      
-      setForm({ name:'', email:'', phone:'', password:'' });
+
+      setForm({ name: '', email: '', phone: '', password: '' });
       setShow(false);
       // Refresh the list
       if (onRefresh) onRefresh();
-    } catch(e) { 
-      setErr(e.message || 'Failed to add pharmacist'); 
-    } finally { 
-      setBusy(false); 
+    } catch (e) {
+      setErr(e.message || 'Failed to add pharmacist');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function removePharmacist(id) {
     if (!window.confirm('Remove this pharmacist?')) return;
-    try { 
-      await onDelete(id); 
+    try {
+      await onDelete(id);
       if (onRefresh) onRefresh();
-    } catch(e) { 
-      alert(e.message); 
+    } catch (e) {
+      alert(e.message);
     }
   }
 
   function handleEnterKey(e) {
     if (e.key !== "Enter") return;
-  
+
     e.preventDefault();
-  
+
     const focusable = Array.from(
       document.querySelectorAll(
         "input, select, textarea, button"
       )
     ).filter(el => !el.disabled);
-  
+
     const index = focusable.indexOf(e.target);
-  
+
     if (index > -1 && index < focusable.length - 3) {
       focusable[index + 1].focus();
     } else {
@@ -2365,37 +2395,37 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
 
   return (
     <div>
-      <SectionHeader 
-        title="Pharmacists" 
-        subtitle={`${pharmacists.length} pharmacist${pharmacists.length !== 1 ? 's' : ''} registered`} 
+      <SectionHeader
+        title="Pharmacists"
+        subtitle={`${pharmacists.length} pharmacist${pharmacists.length !== 1 ? 's' : ''} registered`}
         action={
-          <Btn 
-            onClick={() => setShow(true)} 
+          <Btn
+            onClick={() => setShow(true)}
             disabled={!canAdd.allowed}
             title={!canAdd.allowed ? `Upgrade to ${canAdd.upgradeNeeded} to add more pharmacists` : ''}
           >
             {canAdd.allowed ? '+ Add Pharmacist' : `🔒 Limit: ${canAdd.limit} pharmacist(s)`}
           </Btn>
-        } 
+        }
       />
-      
+
       {/* Show warning when limit is reached */}
       {!canAdd.allowed && pharmacists.length >= canAdd.limit && (
         <Alert type="warning" style={{ marginBottom: 16 }}>
           ⚠️ You've reached the limit of {canAdd.limit} pharmacist(s) for your {activePlan} plan.
         </Alert>
       )}
-      
-      <div style={{ 
-        background: 'linear-gradient(135deg, rgba(10,61,98,0.06) 0%, rgba(0,184,148,0.08) 100%)', 
-        border: '1.5px solid rgba(0,184,148,0.25)', 
-        borderRadius: 14, 
-        padding: '16px 20px', 
-        marginBottom: 24, 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 16, 
-        flexWrap: 'wrap' 
+
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(10,61,98,0.06) 0%, rgba(0,184,148,0.08) 100%)',
+        border: '1.5px solid rgba(0,184,148,0.25)',
+        borderRadius: 14,
+        padding: '16px 20px',
+        marginBottom: 24,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        flexWrap: 'wrap'
       }}>
         <div style={{ fontSize: 36 }}>💊</div>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -2406,43 +2436,43 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
             Pharmacists log in using their credentials and are automatically redirected to the Inventory Management System where they can manage medicines, stock, sales, and purchases.
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ 
-              fontSize: 11, 
-              color: '#64748b', 
-              background: '#f1f5f9', 
-              padding: '2px 10px', 
-              borderRadius: 20 
+            <span style={{
+              fontSize: 11,
+              color: '#64748b',
+              background: '#f1f5f9',
+              padding: '2px 10px',
+              borderRadius: 20
             }}>
               📧 Uses same email/password as HMS
             </span>
-            <span style={{ 
-              fontSize: 11, 
-              color: '#64748b', 
-              background: '#f1f5f9', 
-              padding: '2px 10px', 
-              borderRadius: 20 
+            <span style={{
+              fontSize: 11,
+              color: '#64748b',
+              background: '#f1f5f9',
+              padding: '2px 10px',
+              borderRadius: 20
             }}>
               🏥 Clinic: {pharmacists[0]?.clinicId || 'Your Clinic'}
             </span>
           </div>
         </div>
-        <a 
-          href="/dashboard/pharmacy" 
-          target="_blank" 
-          rel="noreferrer" 
-          style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: 8, 
-            padding: '10px 20px', 
-            borderRadius: 10, 
-            background: 'linear-gradient(135deg, #0a3d62, #1565a8)', 
-            color: '#fff', 
-            fontWeight: 700, 
-            fontSize: 13, 
-            textDecoration: 'none', 
-            whiteSpace: 'nowrap', 
-            boxShadow: '0 4px 14px rgba(10,61,98,0.25)' 
+        <a
+          href="/dashboard/pharmacy"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 20px',
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #0a3d62, #1565a8)',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 13,
+            textDecoration: 'none',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 14px rgba(10,61,98,0.25)'
           }}
         >
           📦 Open Inventory System ↗
@@ -2450,18 +2480,18 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
       </div>
 
       {pharmacists.length === 0 ? (
-        <Empty 
-          icon="💊" 
-          title="No pharmacists yet" 
-          desc="Add a pharmacist — they will have access to the Inventory Management System." 
-          action={<Btn onClick={() => setShow(true)}>+ Add First Pharmacist</Btn>} 
+        <Empty
+          icon="💊"
+          title="No pharmacists yet"
+          desc="Add a pharmacist — they will have access to the Inventory Management System."
+          action={<Btn onClick={() => setShow(true)}>+ Add First Pharmacist</Btn>}
         />
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
           {pharmacists.map((ph) => (
-            <PharmacistCard 
-              key={ph._id} 
-              pharmacist={ph} 
+            <PharmacistCard
+              key={ph._id}
+              pharmacist={ph}
               onRemove={() => removePharmacist(ph._id)}
             />
           ))}
@@ -2470,30 +2500,30 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
 
       {show && (
         <Modal title="Add Pharmacist" onClose={() => { setShow(false); setErr(''); }}>
-          <div style={{ display:'grid', gap:14 }}>
-            <div style={{ 
-              background: 'rgba(0,184,148,0.06)', 
-              border: '1px solid rgba(0,184,148,0.2)', 
-              borderRadius: 10, 
-              padding: '12px 14px', 
-              fontSize: 13, 
-              color: '#4a6278' 
+          <div style={{ display: 'grid', gap: 14 }}>
+            <div style={{
+              background: 'rgba(0,184,148,0.06)',
+              border: '1px solid rgba(0,184,148,0.2)',
+              borderRadius: 10,
+              padding: '12px 14px',
+              fontSize: 13,
+              color: '#4a6278'
             }}>
               💡 Pharmacists will be able to log in and access the <strong>Inventory Management System</strong> to manage medicines and stock.
               <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
                 🔑 They use the same credentials as their HMS login.
               </div>
             </div>
-            
-            <Input 
-              label="Full Name *" 
-              value={form.name} 
-              onChange={(e) => f('name', e.target.value)} 
-              placeholder="e.g. Ahmed Pharmacy" 
+
+            <Input
+              label="Full Name *"
+              value={form.name}
+              onChange={(e) => f('name', e.target.value)}
+              placeholder="e.g. Ahmed Pharmacy"
               onKeyDown={handleEnterKey}
             />
-            
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <EmailInputWithCheck
                 label="Login Email *"
                 value={form.email}
@@ -2502,28 +2532,28 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
                 setErr={setErr}
                 onKeyDown={handleEnterKey}
               />
-              <Input 
-                label="Password *" 
-                type="password" 
-                value={form.password} 
-                onChange={(e) => f('password', e.target.value)} 
-                placeholder="••••••" 
+              <Input
+                label="Password *"
+                type="password"
+                value={form.password}
+                onChange={(e) => f('password', e.target.value)}
+                placeholder="••••••"
                 onKeyDown={handleEnterKey}
               />
             </div>
-            
-            <Input 
-              label="Phone" 
-              value={form.phone} 
+
+            <Input
+              label="Phone"
+              value={form.phone}
               inputMode="numeric"
-              onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
+              onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
               placeholder="10-digit mobile number"
               onKeyDown={handleEnterKey}
             />
-            
+
             {err && <Alert type="error">{err}</Alert>}
-            
-            <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <Btn variant="ghost" onClick={() => { setShow(false); setErr(''); }}>Cancel</Btn>
               <Btn onClick={addPharmacist} disabled={busy}>
                 {busy ? 'Adding…' : 'Add Pharmacist'}
@@ -2555,73 +2585,73 @@ function PharmacistCard({ pharmacist, onRemove }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-        <div style={{ 
-          width:44, height:44, borderRadius:12, 
-          background: 'linear-gradient(135deg, rgba(0,184,148,0.15), rgba(0,184,148,0.08))', 
-          border: '1.5px solid rgba(0,184,148,0.25)', 
-          display:'flex', alignItems:'center', justifyContent:'center', 
-          fontSize:20, flexShrink:0 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: 'linear-gradient(135deg, rgba(0,184,148,0.15), rgba(0,184,148,0.08))',
+          border: '1.5px solid rgba(0,184,148,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20, flexShrink: 0
         }}>
           💊
         </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontWeight:700, fontSize:15 }}>{pharmacist.name}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{pharmacist.name}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <span style={{ 
-              display: 'inline-flex', alignItems: 'center', gap: 4, 
-              background: 'rgba(0,184,148,0.10)', color: '#00a878', 
-              border: '1px solid rgba(0,184,148,0.25)', 
-              borderRadius: 20, padding: '1px 9px', fontSize: 11, fontWeight: 700 
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: 'rgba(0,184,148,0.10)', color: '#00a878',
+              border: '1px solid rgba(0,184,148,0.25)',
+              borderRadius: 20, padding: '1px 9px', fontSize: 11, fontWeight: 700
             }}>
               💊 Pharmacist
             </span>
-            <span style={{ 
-              display: 'inline-flex', alignItems: 'center', gap: 4, 
-              background: 'rgba(21,101,168,0.08)', color: '#1565a8', 
-              border: '1px solid rgba(21,101,168,0.2)', 
-              borderRadius: 20, padding: '1px 9px', fontSize: 11, fontWeight: 700 
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: 'rgba(21,101,168,0.08)', color: '#1565a8',
+              border: '1px solid rgba(21,101,168,0.2)',
+              borderRadius: 20, padding: '1px 9px', fontSize: 11, fontWeight: 700
             }}>
               📦 IMS Access
             </span>
           </div>
         </div>
-        <button 
-          onClick={onRemove} 
-          style={{ 
-            background:'none', border:'none', cursor:'pointer', 
-            color:'var(--danger)', fontSize:16, padding:4, flexShrink:0 
+        <button
+          onClick={onRemove}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--danger)', fontSize: 16, padding: 4, flexShrink: 0
           }}
           title="Remove pharmacist"
         >
           🗑
         </button>
       </div>
-      
-      <div style={{ fontSize:13, display:'grid', gap:5 }}>
-        <div style={{ color:'var(--text-muted)' }}>
+
+      <div style={{ fontSize: 13, display: 'grid', gap: 5 }}>
+        <div style={{ color: 'var(--text-muted)' }}>
           ✉️ {pharmacist.email}
         </div>
         {pharmacist.phone && (
-          <div style={{ color:'var(--text-muted)' }}>
+          <div style={{ color: 'var(--text-muted)' }}>
             📞 {pharmacist.phone}
           </div>
         )}
       </div>
-      
-      <div style={{ 
-        marginTop: 12, 
-        paddingTop: 10, 
-        borderTop: '1px solid var(--border)', 
-        display: 'flex', 
-        alignItems: 'center', 
+
+      <div style={{
+        marginTop: 12,
+        paddingTop: 10,
+        borderTop: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: 8
       }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ 
-            fontSize: 11, 
+          <span style={{
+            fontSize: 11,
             color: 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
@@ -2631,19 +2661,19 @@ function PharmacistCard({ pharmacist, onRemove }) {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <a 
-            href="/dashboard/pharmacy" 
-            target="_blank" 
-            rel="noreferrer" 
-            onClick={(e) => e.stopPropagation()} 
-            style={{ 
-              fontSize: 11.5, 
-              color: '#1565a8', 
-              fontWeight: 700, 
-              textDecoration: 'none', 
-              background: 'rgba(21,101,168,0.07)', 
-              border: '1px solid rgba(21,101,168,0.2)', 
-              borderRadius: 6, 
+          <a
+            href="/dashboard/pharmacy"
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              fontSize: 11.5,
+              color: '#1565a8',
+              fontWeight: 700,
+              textDecoration: 'none',
+              background: 'rgba(21,101,168,0.07)',
+              border: '1px solid rgba(21,101,168,0.2)',
+              borderRadius: 6,
               padding: '4px 12px',
               display: 'flex',
               alignItems: 'center',
@@ -2652,8 +2682,8 @@ function PharmacistCard({ pharmacist, onRemove }) {
           >
             📦 Open IMS ↗
           </a>
-          <span style={{ 
-            fontSize: 10, 
+          <span style={{
+            fontSize: 10,
             color: '#64748b',
             background: '#f1f5f9',
             padding: '4px 8px',
@@ -2675,10 +2705,10 @@ function PharmacistCard({ pharmacist, onRemove }) {
 
 
 function usePincodeLookup() {
-  const [pincode,     setPincode]     = useState('');
+  const [pincode, setPincode] = useState('');
   const [fetchedData, setFetchedData] = useState(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -2688,7 +2718,7 @@ function usePincodeLookup() {
     timerRef.current = setTimeout(async () => {
       setLoading(true); setError(''); setFetchedData(null);
       try {
-        const res  = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
         const json = await res.json();
         if (!json || !json[0] || json[0].Status !== 'Success' || !json[0].PostOffice?.length) {
           setError('Pincode not found. Please enter manually.');
@@ -2712,8 +2742,8 @@ function ClinicSettings({ clinic, onSave }) {
     subDistrict: clinic.subDistrict || '', city: clinic.city || '',
   });
   const [saved, setSaved] = useState(false);
-  const [busy,  setBusy]  = useState(false);
-  const [err,   setErr]   = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
 
   const { pincode: lookupPin, setPincode: setLookupPin, fetchedData, loading: pinLoading, error: pinError } = usePincodeLookup();
 
@@ -2722,10 +2752,10 @@ function ClinicSettings({ clinic, onSave }) {
     const first = fetchedData[0];
     setForm((prev) => ({
       ...prev,
-      state:       first.State    || prev.state,
-      district:    first.District || prev.district,
-      subDistrict: first.Block    || prev.subDistrict,
-      city:        first.Division || prev.city,
+      state: first.State || prev.state,
+      district: first.District || prev.district,
+      subDistrict: first.Block || prev.subDistrict,
+      city: first.Division || prev.city,
     }));
   }, [fetchedData]);
 
@@ -2736,17 +2766,17 @@ function ClinicSettings({ clinic, onSave }) {
   }
   function handleEnterKey(e) {
     if (e.key !== "Enter") return;
-  
+
     e.preventDefault();
-  
+
     const focusable = Array.from(
       document.querySelectorAll(
         'input, select, textarea, button'
       )
     ).filter(el => !el.disabled);
-  
+
     const index = focusable.indexOf(e.target);
-  
+
     if (index > -1 && index < focusable.length - 1) {
       focusable[index + 1].focus();
     }
@@ -2755,12 +2785,12 @@ function ClinicSettings({ clinic, onSave }) {
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const districts = form.state ? (INDIA_STATES_DISTRICTS[form.state] || []) : [];
   const subDistrictOptions = fetchedData ? [...new Set(fetchedData.map((po) => po.Block).filter(Boolean))].sort() : [];
-  const postOfficeOptions  = fetchedData ? fetchedData.map((po) => po.Name).filter(Boolean).sort() : [];
+  const postOfficeOptions = fetchedData ? fetchedData.map((po) => po.Name).filter(Boolean).sort() : [];
 
   async function save() {
     setBusy(true); setErr('');
     try { await onSave(form); setSaved(true); setTimeout(() => setSaved(false), 2200); }
-    catch(e) { setErr(e.message); }
+    catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
 
@@ -2778,19 +2808,19 @@ function ClinicSettings({ clinic, onSave }) {
           <div><label style={labelStyle}>Owner / Doctor Name *</label><input style={inputStyle} value={form.owner} onChange={(e) => f('owner', e.target.value)} onKeyDown={handleEnterKey}
           /></div>
           <div>
-  <label style={labelStyle}>Phone</label>
-  <input 
-    style={inputStyle} 
-    value={form.phone} 
-    inputMode="numeric"
-    maxLength={10}
-    onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
-    placeholder="10-digit mobile number"
-    onKeyDown={handleEnterKey}
-  />
-</div>
-          <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email} onChange={(e) => f('email', e.target.value)} onKeyDown={handleEnterKey}/></div>
-          <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} onKeyDown={handleEnterKey}/></div>
+            <label style={labelStyle}>Phone</label>
+            <input
+              style={inputStyle}
+              value={form.phone}
+              inputMode="numeric"
+              maxLength={10}
+              onChange={(e) => f('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="10-digit mobile number"
+              onKeyDown={handleEnterKey}
+            />
+          </div>
+          <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email} onChange={(e) => f('email', e.target.value)} onKeyDown={handleEnterKey} /></div>
+          <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} onKeyDown={handleEnterKey} /></div>
         </div>
       </Card>
       <Card style={{ marginBottom: 20 }}>
@@ -2829,45 +2859,45 @@ function ClinicSettings({ clinic, onSave }) {
             <label style={labelStyle}>Sub-district / Block</label>
             {subDistrictOptions.length > 0
               ? <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.subDistrict} onChange={(e) => f('subDistrict', e.target.value)}>
-                  <option value="">-- Select --</option>
-                  {subDistrictOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <option value="">-- Select --</option>
+                {subDistrictOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
               : <input style={inputStyle} value={form.subDistrict} onChange={(e) => f('subDistrict', e.target.value)} />}
           </div>
           <div>
             <label style={labelStyle}>City / Town</label>
             {postOfficeOptions.length > 0
               ? <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.city} onChange={(e) => f('city', e.target.value)}>
-                  <option value="">-- Select --</option>
-                  {postOfficeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <option value="">-- Select --</option>
+                {postOfficeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
               : <input style={inputStyle} value={form.city} onChange={(e) => f('city', e.target.value)} />}
           </div>
         </div>
       </Card>
       <Card>
         {saved && <Alert type="success" style={{ marginBottom: 14 }}>✓ Settings saved successfully!</Alert>}
-        {err   && <Alert type="error"   style={{ marginBottom: 14 }}>{err}</Alert>}
+        {err && <Alert type="error" style={{ marginBottom: 14 }}>{err}</Alert>}
         <Btn onClick={save} disabled={busy} full size="lg">{busy ? 'Saving…' : '💾 Save Clinic Settings'}</Btn>
       </Card>
       <div style={{ marginTop: 24 }}>
         <SectionHeader title="Subscription Plan" />
         <Card>
           {clinic.plan ? (
-            <div style={{ display:'grid', gap:10 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontWeight:700, fontSize:15 }}>
-                  {clinic.plan === 'pro'  ? '⭐ Pro Plan'  :
-                   clinic.plan === 'plus' ? '🏢 Plus Plan' :
-                                           '🏥 Lite Plan'}
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>
+                  {clinic.plan === 'pro' ? '⭐ Pro Plan' :
+                    clinic.plan === 'plus' ? '🏢 Plus Plan' :
+                      '🏥 Lite Plan'}
                 </span>
-                <span style={{ background:'rgba(0,184,148,0.1)',color:'#00a878',borderRadius:20,padding:'2px 10px',fontSize:12,fontWeight:700 }}>● Active</span>
+                <span style={{ background: 'rgba(0,184,148,0.1)', color: '#00a878', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>● Active</span>
               </div>
-              <div style={{ fontSize:13, color:'var(--text-muted)' }}>Activated: {clinic.planActivatedAt}</div>
-              <div style={{ fontSize:13, color:'var(--text-muted)' }}>Renews: {clinic.planExpiresAt}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Activated: {clinic.planActivatedAt}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Renews: {clinic.planExpiresAt}</div>
             </div>
           ) : (
-            <div style={{ color:'var(--text-muted)', fontSize:14 }}>No active plan. Please choose a plan to access all features.</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No active plan. Please choose a plan to access all features.</div>
           )}
         </Card>
       </div>
@@ -2956,9 +2986,9 @@ function EditDoctorModal({ doctor, onClose, onSave }) {
             </div>
             <div>
               <label style={labelStyle}>Specialist</label>
-              <select 
-                style={{ ...inputStyle, cursor: 'pointer' }} 
-                value={form.specialist} 
+              <select
+                style={{ ...inputStyle, cursor: 'pointer' }}
+                value={form.specialist}
                 onChange={(e) => f('specialist', e.target.value)}
               >
                 <option value="">-- Select --</option>
@@ -2993,12 +3023,12 @@ function EditDoctorModal({ doctor, onClose, onSave }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
             <div>
               <label style={labelStyle}>Consultation Fee (Rs.)</label>
-              <input 
-                style={inputStyle} 
-                type="number" 
-                value={form.fee} 
-                onChange={(e) => f('fee', e.target.value)} 
-                placeholder="500" 
+              <input
+                style={inputStyle}
+                type="number"
+                value={form.fee}
+                onChange={(e) => f('fee', e.target.value)}
+                placeholder="500"
               />
             </div>
           </div>
@@ -3009,9 +3039,9 @@ function EditDoctorModal({ doctor, onClose, onSave }) {
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
             📅 Weekly Schedule
           </div>
-          <WeeklySchedulePicker 
-            value={form.schedule} 
-            onChange={(s) => f('schedule', s)} 
+          <WeeklySchedulePicker
+            value={form.schedule}
+            onChange={(s) => f('schedule', s)}
           />
         </div>
 

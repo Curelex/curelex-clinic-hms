@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function PatientLogin() {
-  const [form,  setForm]  = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
@@ -13,7 +13,19 @@ export default function PatientLogin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setError(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
+
     const result = await login(form.email, form.password);
+
     if (result.success) {
       if (result.user?.role === 'patient') {
         navigate('/patient-dashboard');
@@ -57,8 +69,17 @@ export default function PatientLogin() {
               className="form-control" type="password" placeholder="Enter your password"
               value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required
             />
-            <small style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-              If you were registered by receptionist, use the same password to login
+            <small
+              style={{
+                color: '#94a3b8',
+                fontSize: '12px',
+                marginTop: '4px',
+                display: 'block',
+                lineHeight: '1.5',
+              }}
+            >
+              Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1
+              special character.
             </small>
           </div>
 
