@@ -1,10 +1,21 @@
 // hms-react/src/pages/About.jsx
 import { useNavigate } from 'react-router-dom';
+import shriyanshImg from "../../assets/Shriyansh Singh-Photoroom (1).png";
+import amanImg from "../../assets/Aman Maurya-Photoroom.png";
 
 const TEAM = [
-  { name: 'Shriyansh Singh', role: 'Founder & CEO', focus: 'Leads vision, strategy, and innovation.', img: '/assets/Shriyansh Singh-Photoroom (1).png' },
-  { name: 'Aman Maurya', role: 'Co-Founder & COO', focus: 'Oversees operations and execution.', img: '/assets/Aman Maurya-Photoroom.png' },
-
+  {
+    name: 'Shriyansh Singh',
+    role: 'Founder & CEO',
+    focus: 'Leads vision, strategy, and innovation.',
+    img: shriyanshImg
+  },
+  {
+    name: 'Aman Maurya',
+    role: 'Co-Founder & COO',
+    focus: 'Oversees operations and execution.',
+    img: amanImg
+  },
 ];
 
 const VALUES = [

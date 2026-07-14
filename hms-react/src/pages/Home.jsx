@@ -3,6 +3,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Toast, useToast } from '../components/Toast';
+import logo from "../../assets/logo.png";
+import front from "../../assets/front.jpeg";
+import iiit from "../../assets/download (1).jpg";
+import uu from "../../assets/UU.jpg";
+import ait from "../../assets/download (3).jpg";
 
 const API = 'http://localhost:5000/api';
 
@@ -220,8 +225,8 @@ const Home = () => {
 
   const handleStaffSelect = () => {
     setShowRoleModal(false);
-    navigate('/Register' , {
-      state:{
+    navigate('/Register', {
+      state: {
         accountType: "separate_doctor"
       },
     });
@@ -242,7 +247,7 @@ const Home = () => {
       <nav className="navbar" id="navbar">
         <div className="nav-container">
           <Link to="/" className="logo">
-            <img className="logo-img" src="/assets/logo.png" alt="CURELEX" />
+            <img className="logo-img" src={logo} alt="CURELEX" />
           </Link>
           <ul className="nav-links">
             <li><a href="#home" onClick={(e) => { e.preventDefault(); scrollToSection('home'); }}>Home</a></li>
@@ -287,7 +292,12 @@ const Home = () => {
       <section className="hero" id="home">
         <div className="hero-split">
           <div className="hero-left">
-            <img className="hero-bg-img" src="/assets/front.jpeg" alt="" onError={(e) => e.target.style.display = 'none'} />
+            <img
+              className="hero-bg-img"
+              src={front}
+              alt=""
+              onError={(e) => e.target.style.display = 'none'}
+            />
             <div className="hero-trust-badge">Trusted by 10,000+ Patients</div>
             <div className="hero-left-content">
               <h1>Your Health, Our <span>Priority</span></h1>
@@ -529,17 +539,17 @@ const Home = () => {
         </div>
         <div className="supported-container">
           <div className="supported-card">
-            <div className="supported-image"><img src="/assets/download (1).jpg" alt="IIIT Allahabad" /></div>
+            <div className="supported-image"><img src={iiit} alt="IIIT Allahabad" /></div>
             <h3>IIIT Allahabad</h3><p>Indian Institute of Information Technology</p>
             <span className="supported-location">Prayagraj, Uttar Pradesh</span>
           </div>
           <div className="supported-card">
-            <div className="supported-image"><img src="/assets/UU.jpg" alt="Startup & Incubation Cell" /></div>
+            <div className="supported-image"><img src={uu} alt="Startup & Incubation Cell" /></div>
             <h3>Startup & Incubation Cell</h3><p>United University</p>
             <span className="supported-location">Supporting Innovation</span>
           </div>
           <div className="supported-card">
-            <div className="supported-image"><img src="/assets/download (3).jpg" alt="Asian Institute of Technology" /></div>
+            <div className="supported-image"><img src={ait} alt="Asian Institute of Technology" /></div>
             <h3>Asian Institute of Technology</h3><p>AIT Bangkok</p>
             <span className="supported-location">Bangkok, Thailand</span>
           </div>
@@ -586,7 +596,7 @@ const Home = () => {
       <footer className="footer">
         <div className="footer-content">
           <div className="footer-section">
-            <Link to="/" className="logo"><img className="logo-img" src="/assets/logo.png" alt="CURELEX" /></Link>
+            <Link to="/" className="logo"><img className="logo-img" src={logo} alt="CURELEX" /></Link>
             <p>Your trusted healthcare partner</p>
           </div>
           <div className="footer-section">

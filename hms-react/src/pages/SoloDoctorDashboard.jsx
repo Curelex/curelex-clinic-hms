@@ -5,19 +5,20 @@ import { Toast, useToast } from '../components/Toast'
 import API from '../utils/api'
 import { formatDate, formatTime, timeAgoString } from '../utils/helpers'
 import "../css/SoloDoctorDashboard.css"
+import curelexLogo from "../../assets/logo.png";
 
 /* ─── Doctor Nav Items ───────────────────────────────────────── */
 const NAV_ITEMS = [
-  { icon: 'fa-home',                    label: 'Dashboard',            key: 'home'         },
-  { icon: 'fa-user-injured',            label: 'My Patients',          key: 'patients'     },
-  { icon: 'fa-video',                   label: 'Video Consultations',  key: 'video'        },
-  { icon: 'fa-file-medical-alt',        label: 'Medical Reports',      key: 'reports'      },
-  { icon: 'fa-comment-dots',            label: 'Feedback',             key: 'feedback'     },
-  { icon: 'fa-pills',                   label: 'My Medicines',         key: 'medicines'    },
-  { icon: 'fa-flask',                   label: 'My Tests',             key: 'mytests'      },
+  { icon: 'fa-home', label: 'Dashboard', key: 'home' },
+  { icon: 'fa-user-injured', label: 'My Patients', key: 'patients' },
+  { icon: 'fa-video', label: 'Video Consultations', key: 'video' },
+  { icon: 'fa-file-medical-alt', label: 'Medical Reports', key: 'reports' },
+  { icon: 'fa-comment-dots', label: 'Feedback', key: 'feedback' },
+  { icon: 'fa-pills', label: 'My Medicines', key: 'medicines' },
+  { icon: 'fa-flask', label: 'My Tests', key: 'mytests' },
   { divider: true },
-  { icon: 'fa-user-circle',             label: 'View / Update Profile',key: 'profile'      },
-  { icon: 'fa-cog',                     label: 'Settings',             key: 'settings'     },
+  { icon: 'fa-user-circle', label: 'View / Update Profile', key: 'profile' },
+  { icon: 'fa-cog', label: 'Settings', key: 'settings' },
 ]
 
 function calcIncome(appointments, consultationFee = 500) {
@@ -45,7 +46,7 @@ function PatientRecordModal({ patientId, patientName, doctorId, onClose }) {
           API.get(`/prescriptions/patient/${patientId}`),
         ])
         const apptData = apptRes.data
-        const rxData   = rxRes.data
+        const rxData = rxRes.data
 
         const appts = (apptData.appointments || [])
           .filter(a => a.patientId === patientId && a.doctorApproved)
@@ -225,43 +226,43 @@ function PatientRecordModal({ patientId, patientName, doctorId, onClose }) {
 /* ─── Patient Appointment Card ───────────────────────────────── */
 function PatientAppointmentCard({ appt, index, doctorId }) {
   const showToast = useToast()
-  const aptTime   = new Date(appt.appointmentTime)
-  const diffMin   = (aptTime - new Date()) / 60000
+  const aptTime = new Date(appt.appointmentTime)
+  const diffMin = (aptTime - new Date()) / 60000
   const statusClass = diffMin < -30 ? 'completed' : diffMin <= 15 ? 'current' : 'upcoming'
   const statusLabel = { completed: 'Completed', current: 'Now', upcoming: 'Upcoming' }[statusClass]
 
   const isPending = !appt.doctorApproved
 
-  const [expanded,    setExpanded]    = useState(statusClass === 'current')
-  const [medicines,   setMedicines]   = useState([])
-  const [medSearch,   setMedSearch]   = useState('')
+  const [expanded, setExpanded] = useState(statusClass === 'current')
+  const [medicines, setMedicines] = useState([])
+  const [medSearch, setMedSearch] = useState('')
   const [medDropdown, setMedDropdown] = useState([])
-  const [allMeds,     setAllMeds]     = useState([])
+  const [allMeds, setAllMeds] = useState([])
 
-  const [tests,       setTests]       = useState([])
-  const [testInput,   setTestInput]   = useState('')
-  const [testType,    setTestType]    = useState('Pathology')
+  const [tests, setTests] = useState([])
+  const [testInput, setTestInput] = useState('')
+  const [testType, setTestType] = useState('Pathology')
   const [testDropdown, setTestDropdown] = useState([])
-  const [allMyTests,  setAllMyTests]  = useState([])
+  const [allMyTests, setAllMyTests] = useState([])
 
   const [description, setDescription] = useState(appt.diagnosis || '')
-  const [note,        setNote]        = useState(appt.doctorNotes || '')
-  const [followUp,    setFollowUp]    = useState(appt.followUpDate ? appt.followUpDate.split('T')[0] : '')
+  const [note, setNote] = useState(appt.doctorNotes || '')
+  const [followUp, setFollowUp] = useState(appt.followUpDate ? appt.followUpDate.split('T')[0] : '')
   const [followUpInstructions, setFollowUpInstructions] = useState(appt.followUpInstructions || '')
-  const [saving,      setSaving]      = useState(false)
-  const [approving,   setApproving]   = useState(false)
-  const [saved,       setSaved]       = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   const refreshAllMeds = () => {
     API.get(`/medicines/doctor/${doctorId}`)
       .then(({ data }) => setAllMeds(Array.isArray(data) ? data : (data.medicines || [])))
-      .catch(() => {})
+      .catch(() => { })
   }
 
   const refreshAllMyTests = () => {
     API.get(`/tests/doctor/${doctorId}`)
       .then(({ data }) => setAllMyTests(Array.isArray(data) ? data : (data.tests || [])))
-      .catch(() => {})
+      .catch(() => { })
   }
 
   useEffect(() => {
@@ -275,7 +276,7 @@ function PatientAppointmentCard({ appt, index, doctorId }) {
       try {
         const t = typeof appt.tests === 'string' ? JSON.parse(appt.tests) : appt.tests
         if (Array.isArray(t)) setTests(t)
-      } catch {}
+      } catch { }
     }
   }, [appt.tests])
 
@@ -362,8 +363,8 @@ function PatientAppointmentCard({ appt, index, doctorId }) {
   }
 
   const removeTest = (i) => setTests(p => p.filter((_, idx) => idx !== i))
-  const updateMed  = (i, field, val) => setMedicines(p => p.map((m, idx) => idx === i ? { ...m, [field]: val } : m))
-  const removeMed  = (i) => setMedicines(p => p.filter((_, idx) => idx !== i))
+  const updateMed = (i, field, val) => setMedicines(p => p.map((m, idx) => idx === i ? { ...m, [field]: val } : m))
+  const removeMed = (i) => setMedicines(p => p.filter((_, idx) => idx !== i))
 
   const handleApprove = async () => {
     setApproving(true)
@@ -389,7 +390,7 @@ function PatientAppointmentCard({ appt, index, doctorId }) {
     try {
       if (medicines.length > 0) {
         const { data: rxData } = await API.post('/prescriptions/add', {
-          patientId:     appt.patientId,
+          patientId: appt.patientId,
           doctorId,
           appointmentId: appt.id,
           medicines,
@@ -421,8 +422,8 @@ function PatientAppointmentCard({ appt, index, doctorId }) {
 
   const sc = {
     completed: { bg: '#f0fdf4', border: '#86efac', badge: '#16a34a', badgeBg: '#dcfce7' },
-    current:   { bg: '#eff6ff', border: '#93c5fd', badge: '#1d4ed8', badgeBg: '#dbeafe' },
-    upcoming:  { bg: '#fafafa', border: '#e5e7eb', badge: '#6b7280', badgeBg: '#f3f4f6' },
+    current: { bg: '#eff6ff', border: '#93c5fd', badge: '#1d4ed8', badgeBg: '#dbeafe' },
+    upcoming: { bg: '#fafafa', border: '#e5e7eb', badge: '#6b7280', badgeBg: '#f3f4f6' },
   }[statusClass]
 
   const hasExactMedMatch = allMeds.some(m => m.name.toLowerCase() === medSearch.trim().toLowerCase())
@@ -774,16 +775,16 @@ function PatientAppointmentCard({ appt, index, doctorId }) {
 /* ─── Prescription Modal ─────────────────────────────────────── */
 function PrescriptionModal({ patientId, doctorId, onClose, onSuccess }) {
   const [allMedicines, setAllMedicines] = useState([])
-  const [selected,     setSelected]     = useState([])
-  const [search,       setSearch]       = useState('')
-  const [dropdown,     setDropdown]     = useState([])
-  const [notes,        setNotes]        = useState('')
+  const [selected, setSelected] = useState([])
+  const [search, setSearch] = useState('')
+  const [dropdown, setDropdown] = useState([])
+  const [notes, setNotes] = useState('')
   const showToast = useToast()
 
   const refreshMeds = () => {
     API.get(`/medicines/doctor/${doctorId}`)
       .then(({ data }) => setAllMedicines(Array.isArray(data) ? data : (data.medicines || [])))
-      .catch(() => {})
+      .catch(() => { })
   }
 
   useEffect(() => { refreshMeds() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -818,7 +819,7 @@ function PrescriptionModal({ patientId, doctorId, onClose, onSuccess }) {
   }
 
   const updateField = (i, field, val) => setSelected(s => s.map((m, idx) => idx === i ? { ...m, [field]: val } : m))
-  const remove      = (i) => setSelected(s => s.filter((_, idx) => idx !== i))
+  const remove = (i) => setSelected(s => s.filter((_, idx) => idx !== i))
   const hasExactMatch = allMedicines.some(m => m.name.toLowerCase() === search.trim().toLowerCase())
 
   const submit = async () => {
@@ -1122,22 +1123,22 @@ function IncomeMiniCards({ todayIncome, totalIncome }) {
    ADD MEDICINE PANEL
    ═══════════════════════════════════════════════════════════════ */
 function AddMedicinePanel({ doctorId, onBack }) {
-  const [name,        setName]    = useState('')
-  const [composition, setComp]    = useState('')
-  const [dosageForm,  setForm]    = useState('Tablet')
-  const [saving,      setSaving]  = useState(false)
-  const [myMeds,      setMyMeds]  = useState([])
+  const [name, setName] = useState('')
+  const [composition, setComp] = useState('')
+  const [dosageForm, setForm] = useState('Tablet')
+  const [saving, setSaving] = useState(false)
+  const [myMeds, setMyMeds] = useState([])
   const [loadingMeds, setLoading] = useState(true)
-  const [deleting,    setDeleting]= useState(null)
+  const [deleting, setDeleting] = useState(null)
   const showToast = useToast()
 
   const fetchMyMeds = async () => {
     setLoading(true)
     try {
       const { data } = await API.get(`/medicines/doctor/${doctorId}`)
-      const all  = Array.isArray(data) ? data : (data.medicines || [])
+      const all = Array.isArray(data) ? data : (data.medicines || [])
       setMyMeds(all.filter(m => String(m.doctorId) === String(doctorId)))
-    } catch {}
+    } catch { }
     setLoading(false)
   }
 
@@ -1203,7 +1204,7 @@ function AddMedicinePanel({ doctorId, onBack }) {
             <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Form</label>
             <select value={dosageForm} onChange={e => setForm(e.target.value)}
               style={{ width: '100%', padding: '9px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, color: '#374151' }}>
-              {['Tablet','Capsule','Syrup','Injection','Cream','Drops','Inhaler','Powder'].map(f => <option key={f}>{f}</option>)}
+              {['Tablet', 'Capsule', 'Syrup', 'Injection', 'Cream', 'Drops', 'Inhaler', 'Powder'].map(f => <option key={f}>{f}</option>)}
             </select>
           </div>
         </div>
@@ -1254,21 +1255,21 @@ function AddMedicinePanel({ doctorId, onBack }) {
    ADD TESTS PANEL
    ═══════════════════════════════════════════════════════════════ */
 function AddTestsPanel({ doctorId, onBack }) {
-  const [name,       setName]     = useState('')
-  const [category,   setCategory] = useState('Pathology')
-  const [saving,     setSaving]   = useState(false)
-  const [myTests,    setMyTests]  = useState([])
-  const [loading,    setLoading]  = useState(true)
-  const [deleting,   setDeleting] = useState(null)
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState('Pathology')
+  const [saving, setSaving] = useState(false)
+  const [myTests, setMyTests] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(null)
   const showToast = useToast()
 
   const fetchMyTests = async () => {
     setLoading(true)
     try {
       const { data } = await API.get(`/tests/doctor/${doctorId}`)
-      const all  = Array.isArray(data) ? data : (data.tests || [])
+      const all = Array.isArray(data) ? data : (data.tests || [])
       setMyTests(all.filter(t => String(t.doctorId) === String(doctorId)))
-    } catch {}
+    } catch { }
     setLoading(false)
   }
 
@@ -1299,10 +1300,10 @@ function AddTestsPanel({ doctorId, onBack }) {
   }
 
   const CATEGORY_COLORS = {
-    Pathology:  { bg: '#ecfeff', border: '#a5f3fc', text: '#0e7490', badge: '#cffafe' },
-    Radiology:  { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', badge: '#dbeafe' },
+    Pathology: { bg: '#ecfeff', border: '#a5f3fc', text: '#0e7490', badge: '#cffafe' },
+    Radiology: { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', badge: '#dbeafe' },
     Cardiology: { bg: '#fdf2f8', border: '#f0abfc', text: '#a21caf', badge: '#fae8ff' },
-    Other:      { bg: '#f9fafb', border: '#d1d5db', text: '#374151', badge: '#f3f4f6' },
+    Other: { bg: '#f9fafb', border: '#d1d5db', text: '#374151', badge: '#f3f4f6' },
   }
 
   return (
@@ -1452,7 +1453,7 @@ function MyPatientsView({ patients, onViewRecords, onPrescribe, onBack }) {
    ═══════════════════════════════════════════════════════════════ */
 export default function SoloDoctorDashboard() {
   const { user: doctor, logout } = useAuth()
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
   const showToast = useToast()
 
   const mountedRef = useRef(true)
@@ -1461,22 +1462,22 @@ export default function SoloDoctorDashboard() {
     return () => { mountedRef.current = false }
   }, [])
 
-  const [profile,              setProfile]              = useState(null)
-  const [allAppointments,      setAllAppointments]      = useState([])
-  const [stats,                setStats]                = useState({ today: '-', total: '-', newMonth: '-', prescriptions: '-' })
-  const [income,               setIncome]               = useState({ todayIncome: 0, totalIncome: 0 })
-  const [schedule,             setSchedule]             = useState([])
-  const [recentPatients,       setRecentPatients]       = useState([])
+  const [profile, setProfile] = useState(null)
+  const [allAppointments, setAllAppointments] = useState([])
+  const [stats, setStats] = useState({ today: '-', total: '-', newMonth: '-', prescriptions: '-' })
+  const [income, setIncome] = useState({ todayIncome: 0, totalIncome: 0 })
+  const [schedule, setSchedule] = useState([])
+  const [recentPatients, setRecentPatients] = useState([])
   const [pendingPrescriptions, setPendingPrescriptions] = useState([])
-  const [requests,             setRequests]             = useState([])
-  const [prescriptionModal,    setPrescriptionModal]    = useState(null)
-  const [meetingCard,          setMeetingCard]          = useState(null)
-  const [patientRecordModal,   setPatientRecordModal]   = useState(null)
-  const [currentTime,          setCurrentTime]          = useState(new Date())
-  const [userDropdown,         setUserDropdown]         = useState(false)
-  const [activeNav,            setActiveNav]            = useState('home')
-  const [profileStatus,        setProfileStatus]        = useState({ isProfileComplete: false, isApproved: false, isLoading: true })
-  const [isActive,             setIsActive]             = useState(false)
+  const [requests, setRequests] = useState([])
+  const [prescriptionModal, setPrescriptionModal] = useState(null)
+  const [meetingCard, setMeetingCard] = useState(null)
+  const [patientRecordModal, setPatientRecordModal] = useState(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [userDropdown, setUserDropdown] = useState(false)
+  const [activeNav, setActiveNav] = useState('home')
+  const [profileStatus, setProfileStatus] = useState({ isProfileComplete: false, isApproved: false, isLoading: true })
+  const [isActive, setIsActive] = useState(false)
 
   useEffect(() => {
     if (!doctor || !doctor.id) { navigate('/'); return }
@@ -1493,7 +1494,7 @@ export default function SoloDoctorDashboard() {
         const isApproved = freshDoc.verificationStatus === 'approved'
 
         let status = 'incomplete'
-        if (isApproved)      status = 'complete'
+        if (isApproved) status = 'complete'
         else if (isComplete) status = 'pending'
 
         setProfileStatus({ isProfileComplete: isApproved ? true : isComplete, isApproved, status, isLoading: false })
@@ -1556,8 +1557,8 @@ export default function SoloDoctorDashboard() {
 
       setStats(s => ({
         ...s,
-        today:    all.filter(a => new Date(a.appointmentTime).toDateString() === todayStr).length,
-        total:    [...new Set(approved.map(a => a.patientId))].length,
+        today: all.filter(a => new Date(a.appointmentTime).toDateString() === todayStr).length,
+        total: [...new Set(approved.map(a => a.patientId))].length,
         newMonth: all.filter(a => {
           const d = new Date(a.createdAt)
           return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -1588,9 +1589,9 @@ export default function SoloDoctorDashboard() {
       const { data } = await API.get(`/prescriptions/doctor/${doctor.id}`)
       if (!mountedRef.current) return
       let all = []
-      if (Array.isArray(data))                    all = data
+      if (Array.isArray(data)) all = data
       else if (Array.isArray(data.prescriptions)) all = data.prescriptions
-      else if (Array.isArray(data.data))          all = data.data
+      else if (Array.isArray(data.data)) all = data.data
       setPendingPrescriptions(all.filter(p => p.status === 'pending'))
       setStats(s => ({ ...s, prescriptions: all.length }))
     } catch (err) { console.error('loadPrescriptions error:', err) }
@@ -1622,8 +1623,8 @@ export default function SoloDoctorDashboard() {
   }
 
   const handleLogout = () => { logout(); navigate('/') }
-  const d        = profile || doctor
-  const hour     = currentTime.getHours()
+  const d = profile || doctor
+  const hour = currentTime.getHours()
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
   const initials = d?.name ? d.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'DR'
 
@@ -1658,7 +1659,12 @@ export default function SoloDoctorDashboard() {
       {/* TOPBAR */}
       <header className="pd-topbar">
         <a href="/" className="logo" style={{ textDecoration: 'none' }}>
-          <img className="logo-img" src="/assets/logo.png" alt="CURELEX" style={{ height: 40 }} />
+          <img
+            className="logo-img"
+            src={curelexLogo}
+            alt="CURELEX"
+            style={{ height: 40 }}
+          />
         </a>
         <div className="pd-topbar__right">
           <div className="pd-topbar__location">
@@ -1731,7 +1737,7 @@ export default function SoloDoctorDashboard() {
                 </h1>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: '#6b7280' }}>
                   {d?.specialization && <span><i className="fas fa-stethoscope" style={{ marginRight: 5, color: '#2563eb' }}></i>{d.specialization}</span>}
-                  {d?.hospital      && <span><i className="fas fa-hospital"     style={{ marginRight: 5, color: '#10b981' }}></i>{d.hospital}</span>}
+                  {d?.hospital && <span><i className="fas fa-hospital" style={{ marginRight: 5, color: '#10b981' }}></i>{d.hospital}</span>}
                   <span>
                     <i className="fas fa-clock" style={{ marginRight: 5, color: '#f59e0b' }}></i>
                     {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} · {currentTime.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -1745,32 +1751,32 @@ export default function SoloDoctorDashboard() {
                 />
               </div>
               <div style={{ position: 'relative', flexShrink: 0, alignSelf: 'flex-start' }}>
-               <div
-  style={{
-    width: 110,
-    height: 110,
-    borderRadius: "50%",
-    overflow: "hidden",
-    background: d?.photoUrl
-      ? `url(${d.photoUrl}) center/cover`
-      : "linear-gradient(135deg,#eff6ff,#dbeafe)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 4px 12px rgba(37,99,235,0.15)",
-    border: "3px solid white",
-  }}
->
-  {!d?.photoUrl && (
-    <i
-      className="fas fa-user-md"
-      style={{
-        fontSize: 48,
-        color: "#2563eb",
-      }}
-    />
-  )}
-</div>
+                <div
+                  style={{
+                    width: 110,
+                    height: 110,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    background: d?.photoUrl
+                      ? `url(${d.photoUrl}) center/cover`
+                      : "linear-gradient(135deg,#eff6ff,#dbeafe)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 4px 12px rgba(37,99,235,0.15)",
+                    border: "3px solid white",
+                  }}
+                >
+                  {!d?.photoUrl && (
+                    <i
+                      className="fas fa-user-md"
+                      style={{
+                        fontSize: 48,
+                        color: "#2563eb",
+                      }}
+                    />
+                  )}
+                </div>
                 <div style={{
                   position: 'absolute', bottom: 2, right: 2,
                   width: 20, height: 20, borderRadius: '50%',
@@ -1827,10 +1833,10 @@ export default function SoloDoctorDashboard() {
 
                 <div className="pd-stats" style={{ marginBottom: 24 }}>
                   {[
-                    { icon: 'fa-users',                   cls: '--blue',   num: stats.total,         label: 'Total Patients'       },
-                    { icon: 'fa-calendar-check',          cls: '--green',  num: stats.today,         label: "Today's Appointments" },
-                    { icon: 'fa-user-plus',               cls: '--orange', num: stats.newMonth,      label: 'New This Month'       },
-                    { icon: 'fa-prescription-bottle-alt', cls: '--purple', num: stats.prescriptions, label: 'Total Prescriptions'  },
+                    { icon: 'fa-users', cls: '--blue', num: stats.total, label: 'Total Patients' },
+                    { icon: 'fa-calendar-check', cls: '--green', num: stats.today, label: "Today's Appointments" },
+                    { icon: 'fa-user-plus', cls: '--orange', num: stats.newMonth, label: 'New This Month' },
+                    { icon: 'fa-prescription-bottle-alt', cls: '--purple', num: stats.prescriptions, label: 'Total Prescriptions' },
                   ].map(s => (
                     <div className="pd-stat-card" key={s.label}>
                       <div className={`pd-stat-card__icon pd-stat-card__icon${s.cls}`}><i className={`fas ${s.icon}`}></i></div>
