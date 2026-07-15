@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { Link, useMatch } from 'react-router-dom';
+import { Link, useMatch, useNavigate } from 'react-router-dom';
 import PatientSidebar from '../components/PatientSidebar';
 import BottomNav from '../components/BottomNav';
+import { getPlanConfig } from '../utils/planConfig';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile is shared between two routes:
@@ -15,9 +16,15 @@ import BottomNav from '../components/BottomNav';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Profile() {
-  const { user, patient, logout } = useAuth();
+  const { user, patient, logout, clinicType, activePlan } = useAuth();
+  const navigate = useNavigate();
 
   const isStaffRoute = !!useMatch('/dashboard/profile');
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+  // ── Plan status (admins only) ──────────────────────────────────────────
+  const [planStatus, setPlanStatus] = useState(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
@@ -28,11 +35,19 @@ export default function Profile() {
 
   // ── Responsive hook ──────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
-  React.useEffect(() => {
+  useEffect(() => {
     const h = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) { setLoadingPlan(false); return; }
+    API.get('/plans/clinic')
+      .then(({ data }) => { if (data.success) setPlanStatus(data.plan); })
+      .catch((err) => console.error('Failed to fetch plan status:', err))
+      .finally(() => setLoadingPlan(false));
+  }, [isAdmin]);
 
   const fileInputRef = React.useRef(null);
 
@@ -95,6 +110,38 @@ export default function Profile() {
     }
   };
 
+  function getPlanDisplay() {
+    if (loadingPlan) return { label: 'Loading...', color: '#94a3b8', bg: '#f1f5f9' };
+
+    const plan = planStatus?.plan;
+    if (!plan || plan === 'free' || plan === 'none') {
+      return {
+        label: 'Free Plan', color: '#6c757d', bg: '#f0f4f8',
+        upgradeLabel: 'Choose a Plan →',
+      };
+    }
+    if (planStatus.planStatus === 'expired') {
+      return {
+        label: `${planStatus.planLabel || plan} (Expired)`, color: '#dc3545', bg: '#fee2e2',
+        upgradeLabel: '🔄 Renew Now',
+      };
+    }
+    if (planStatus.planStatus === 'grace_period') {
+      return {
+        label: `${planStatus.planLabel || plan} (Grace Period: ${planStatus.daysRemaining || 0} days left)`,
+        color: '#f59e0b', bg: '#fef3c7', upgradeLabel: '🔄 Renew Now',
+      };
+    }
+    return {
+      label: `${planStatus.planLabel || plan} Plan (Active)`, color: '#00a878', bg: '#e8f9f5',
+      upgradeLabel: '⬆ Upgrade Plan',
+    };
+  }
+
+  function handleUpgradeClick() {
+  const target = clinicType === 'hospital' ? '/hospital-plans' : '/plans';
+  navigate(target, { state: { intentionalVisit: true } });
+}
 
 
   const handleChangePassword = async () => {
@@ -323,6 +370,59 @@ export default function Profile() {
           <button className="prof-btn-s" onClick={() => setShowPassModal(true)}>🔒 Password</button>
         </div>
       </div>
+
+      {/* ── Plan & Subscription (admins only) ── */}
+      {isStaffRoute && isAdmin && (() => {
+        const planDisplay = getPlanDisplay();
+        return (
+          <div className="prof-section" style={{ borderColor: `${planDisplay.color}30`, borderWidth: 2 }}>
+            <div className="prof-section-hd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>📋 Plan & Subscription</div>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '4px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+                  background: planDisplay.bg, color: planDisplay.color,
+                  border: `1px solid ${planDisplay.color}30`,
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: planDisplay.color, display: 'inline-block' }} />
+                  {planDisplay.label}
+                </span>
+                {planStatus?.daysRemaining > 0 && planStatus.plan !== 'free' && planStatus.planStatus === 'active' && (
+                  <span style={{ marginLeft: 10, fontSize: 12, color: '#64748b' }}>
+                    {planStatus.daysRemaining} days remaining
+                  </span>
+                )}
+              </div>
+              {!loadingPlan && (
+                <button
+                  onClick={handleUpgradeClick}
+                  style={{
+                    padding: '8px 20px', borderRadius: 8, border: 'none',
+                    background: planDisplay.color, color: '#fff', fontWeight: 700,
+                    fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {planDisplay.upgradeLabel}
+                </button>
+              )}
+            </div>
+
+            {planStatus && (planStatus.planStatus === 'grace_period' || planStatus.planStatus === 'expired') && (
+              <div style={{
+                margin: '0 20px 14px', padding: '10px 14px', borderRadius: 8,
+                background: planStatus.planStatus === 'expired' ? '#fee2e2' : '#fef3c7',
+                color: planStatus.planStatus === 'expired' ? '#991b1b' : '#92400e',
+                fontSize: 13,
+              }}>
+                {planStatus.planStatus === 'expired'
+                  ? '🔒 Your plan has expired. Please renew to regain access to all features.'
+                  : `⏳ Your plan is in grace period. ${planStatus.daysRemaining || 0} days left to renew.`}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Hero */}
       <div className="prof-hero">

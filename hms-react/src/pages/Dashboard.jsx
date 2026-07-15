@@ -9,6 +9,7 @@ import inventoryService from '../services/inventoryService';
 import heroAdmin from "../../assets/hero-admin.png";
 import curelexLogo from "../../assets/logo.png";
 import heroDoctor from "../../assets/hero-doctor.jpg";
+import { isFeatureVisible, isSectionVisible } from '../utils/planConfig';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -209,7 +210,7 @@ function RoomSummary({ clinicId }) {
 
 // ── DoctorEmergencyAlerts ─────────────────────────────────────────────────
 function DoctorEmergencyAlerts() {
-  const { user, socket } = useAuth();  // ← use socket from AuthContext, not a new one
+  const { user, socket } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -222,7 +223,6 @@ function DoctorEmergencyAlerts() {
       setAlerts(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
 
-      // Browser notification (Web Notifications API — separate from mongoose Notification model)
       if (window.Notification?.permission === 'granted') {
         new window.Notification(notification.message, {
           body: `${notification.patientName} - ${notification.chiefComplaint}`,
@@ -400,9 +400,8 @@ function AdminPayoutManagement() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [confirm, setConfirm] = useState(null); // { message, onConfirm }
+  const [confirm, setConfirm] = useState(null);
 
-  // ── All hooks must be called before any conditional return ────────────────
   const loadPendingPayouts = useCallback(async () => {
     setLoading(true);
     try {
@@ -426,7 +425,6 @@ function AdminPayoutManagement() {
     return () => socket.off('telemedicine:payout-requested', loadPendingPayouts);
   }, [user, socket, loadPendingPayouts]);
 
-  // ── Conditional render after all hooks ───────────────────────────────────
   if (user?.role !== 'admin' && user?.role !== 'super_admin') return null;
 
   const handleApprovePayout = (id) => {
@@ -563,7 +561,7 @@ function AdminPayoutManagement() {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { user, hasPerm, getEffectiveClinicId, superAdminClinicId, superAdminClinicName, clinicType } = useAuth();
+  const { user, hasPerm, getEffectiveClinicId, superAdminClinicId, superAdminClinicName, clinicType, activePlan } = useAuth();
   const navigate = useNavigate();
 
   const isClinicUser = clinicType === 'clinic';
@@ -579,21 +577,31 @@ export default function Dashboard() {
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [notifications, setNotifications] = useState({
     lowStock: [], outOfStock: [], dueMaintenance: [], overdueMaintenance: [],
   });
-  console.log(user.role, isClinicUser);
+
+  console.log('📊 Dashboard Debug:', { 
+    userRole: user?.role, 
+    clinicType, 
+    isClinicUser, 
+    isHospitalUser, 
+    activePlan,
+    isAdmin
+  });
 
   useEffect(() => {
     // If user is a clinic admin, redirect to clinic dashboard
     if (user?.role === 'admin' && isClinicUser) {
+      console.log('🔀 Redirecting to clinic dashboard');
       navigate('/clinic-dashboard', { replace: true });
       return;
     }
 
     // If user is a hospital admin, they can stay on dashboard
     if (user?.role === 'admin' && isHospitalUser) {
-      // Hospital admins can use the main dashboard
+      console.log('🏥 Hospital admin on dashboard');
       return;
     }
   }, [user, clinicType, navigate]);
@@ -611,9 +619,18 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    console.log('📊 Fetching dashboard stats for clinic:', clinicId);
     API.get(`/dashboard/stats?clinicId=${clinicId}`)
-      .then(r => { setStats(r.data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(r => { 
+        console.log('📊 Stats received:', r.data);
+        setStats(r.data); 
+        setLoading(false); 
+      })
+      .catch(err => {
+        console.error('❌ Failed to fetch stats:', err);
+        setError(err.message);
+        setLoading(false);
+      });
   }, [clinicId]);
 
   useEffect(() => {
@@ -641,34 +658,98 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [hasPerm, clinicId]);
 
-  if (loading) return <div className="spinner" />;
+  // ── Show error if any ──
+  if (error) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh', flexDirection: 'column' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+        <div style={{ fontSize: 18, color: '#dc2626', marginBottom: 8 }}>Error Loading Dashboard</div>
+        <div style={{ color: '#64748b' }}>{error}</div>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{ marginTop: 16, padding: '10px 24px', background: '#0f4c81', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 24, marginBottom: 12 }}>⏳</div>
+        <div style={{ color: '#64748b' }}>Loading dashboard...</div>
+      </div>
+    </div>
+  );
 
   const permList = user?.permissions || [];
-  const subtitle = isSuperAdmin
-    ? 'Super Admin — full system access across all clinics.'
-    : user?.role === 'pharmacist'
-      ? 'Manage pharmacy inventory and monitor stock alerts.'
-      : isAdmin
-        ? 'Full system overview — complete access.'
-        : permList.length <= 1
-          ? 'Welcome! Contact admin to grant you module access.'
-          : `Access: ${permList.filter(p => p !== 'dashboard').join(', ')}.`;
-
   const chartData = stats?.monthlyRevenue?.map(m => ({
     name: monthNames[m._id.month - 1],
     revenue: m.total,
   })) || [];
 
-  const showTokenQueue = hasPerm('patients') && user?.role !== 'separate_doctor';
+  const showTokenQueue = hasPerm('patients') && user?.role !== 'separate_doctor' && isHospitalUser;
   const showInventoryAlerts = hasPerm('inventory') || hasPerm('pharmacy');
   const showRoomSummary = hasPerm('ipd') || hasPerm('admin');
 
-  const totalAlerts =
-    notifications.lowStock.length + notifications.outOfStock.length +
-    notifications.dueMaintenance.length + notifications.overdueMaintenance.length;
+  // ── Check if features are available based on plan ──
+  const planKey = activePlan || 'free';
+  const showBilling = isFeatureVisible('hospital', planKey, 'billing');
+  const showIPD = isFeatureVisible('hospital', planKey, 'ipd');
+  const showEmergency = isFeatureVisible('hospital', planKey, 'emergency');
+  const showLab = isFeatureVisible('hospital', planKey, 'lab');
+  const showTasks = isFeatureVisible('hospital', planKey, 'tasks');
+
+  // ── Show plan upgrade banner if needed ──
+  const showPlanBanner = isHospitalUser && (planKey === 'free' || planKey === 'none');
 
   return (
     <div>
+      {/* ── Plan Upgrade Banner for Hospital ── */}
+      {showPlanBanner && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+          border: '2px solid #f59e0b',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '28px' }}>🚀</span>
+            <div>
+              <div style={{ fontWeight: '700', color: '#92400e', fontSize: '16px' }}>
+                Upgrade Your Hospital Plan
+              </div>
+              <div style={{ color: '#78350f', fontSize: '13px' }}>
+                You're on the Free Plan. Upgrade to Standard or Enterprise to unlock all features.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/hospital-plans')}
+            style={{
+              padding: '8px 20px',
+              background: '#f59e0b',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            Upgrade Now →
+          </button>
+        </div>
+      )}
+
       {/* Super admin clinic context banner */}
       {isSuperAdmin && (
         <div style={{ background: superAdminClinicId ? '#0f2942' : '#fee2e2', color: superAdminClinicId ? '#fff' : '#991b1b', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: 13 }}>
@@ -688,27 +769,25 @@ export default function Dashboard() {
 
       {showDoctorWidgets && user?.role !== 'separate_doctor' && <DoctorEmergencyAlerts />}
 
+      {/* Hero Section */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background:
-            isDoctor
-              ? "linear-gradient(135deg,#f4fffb,#dcfce7)"
-              : "linear-gradient(135deg,#f8f5ff,#ede9fe)",
+          background: isDoctor
+            ? "linear-gradient(135deg,#f4fffb,#dcfce7)"
+            : "linear-gradient(135deg,#f8f5ff,#ede9fe)",
           borderRadius: "28px",
           padding: isMobile ? "28px 22px" : "48px",
           marginBottom: "28px",
           overflow: "visible",
           position: "relative",
-          border:
-            isDoctor
-              ? "1px solid rgba(16,185,129,.18)"
-              : "1px solid rgba(124,58,237,.12)",
+          border: isDoctor
+            ? "1px solid rgba(16,185,129,.18)"
+            : "1px solid rgba(124,58,237,.12)",
         }}
       >
-
         <div
           style={{
             position: "absolute",
@@ -737,7 +816,6 @@ export default function Dashboard() {
           />
         </div>
 
-
         <div
           style={{
             flex: 1,
@@ -745,7 +823,6 @@ export default function Dashboard() {
             paddingTop: isMobile ? "75px" : 0,
           }}
         >
-
           <h1
             style={{
               margin: 0,
@@ -770,7 +847,7 @@ export default function Dashboard() {
                 <span style={{ color: "#7c3aed" }}>
                   {user?.role === "super_admin"
                     ? "Super Admin"
-                    : "Admin"}
+                    : isHospitalUser ? "Hospital Admin" : "Admin"}
                 </span>
               </>
             )}
@@ -787,7 +864,9 @@ export default function Dashboard() {
           >
             {isDoctor
               ? "Caring for patients, one consultation at a time."
-              : "Manage your hospital with confidence and keep every department running smoothly."}
+              : isHospitalUser
+                ? "Manage your hospital with confidence and keep every department running smoothly."
+                : "Manage your clinic with confidence and keep every department running smoothly."}
           </p>
 
           <button
@@ -827,7 +906,6 @@ export default function Dashboard() {
               alignItems: "center",
             }}
           >
-            {/* Purple glow */}
             <div
               style={{
                 position: "absolute",
@@ -841,11 +919,6 @@ export default function Dashboard() {
                 zIndex: 0,
               }}
             />
-
-
-            {/* Hero Illustration */}
-
-
 
             <div
               style={{
@@ -882,13 +955,10 @@ export default function Dashboard() {
                   alt="Doctor"
                   style={{
                     position: "absolute",
-
                     width: "138%",
                     height: "138%",
-
                     left: "-20%",
                     top: "-15%",
-
                     objectFit: "cover",
                   }}
                 />
@@ -909,7 +979,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards - Only show if user has permissions */}
       <div className="stat-grid">
         {hasPerm('patients') && user?.role !== 'separate_doctor' && (
           <>
@@ -917,7 +987,7 @@ export default function Dashboard() {
             <StatCard label="Active Patients" value={stats?.activePatients || 0} icon="🟢" color="#d1fae5" />
           </>
         )}
-        {hasPerm('billing') && (
+        {showBilling && hasPerm('billing') && (
           <>
             <StatCard label="Total Revenue" value={`₹${(stats?.totalRevenue || 0).toLocaleString()}`} icon="💰" color="#d1fae5" />
             <StatCard label="Pending Bills" value={stats?.pendingBills || 0} icon="📋" color="#fee2e2" />
@@ -928,6 +998,9 @@ export default function Dashboard() {
             <StatCard label="Low Stock Items" value={notifications.lowStock.length} icon="⚠️" color="#fef3c7" />
             <StatCard label="Out of Stock" value={notifications.outOfStock.length} icon="❌" color="#fee2e2" />
           </>
+        )}
+        {showIPD && hasPerm('ipd') && (
+          <StatCard label="Admitted Patients" value={stats?.admittedPatients || 0} icon="🏥" color="#ede9fe" />
         )}
       </div>
 
@@ -1052,7 +1125,7 @@ export default function Dashboard() {
       )}
 
       {/* Chart */}
-      {hasPerm('billing') && (
+      {showBilling && hasPerm('billing') && (
         <div
           id="analytics-section"
           className="grid-2-col"

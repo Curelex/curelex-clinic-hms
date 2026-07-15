@@ -10,7 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { isSectionVisible, canAddStaff, getPlanConfig, isFeatureVisible } from '../utils/planConfig';
 import { useMemo } from 'react';
 import inventoryService from '../services/inventoryService';
-
+import { useNavigate } from 'react-router-dom';
+import API from '../utils/api';
 
 const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
 const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || '/api/clinic';
@@ -522,12 +523,12 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   }, [clinic?.plan]);
 
   useEffect(() => {
-    const section = TAB_TO_SECTION[tab];
-    if (section && !isSectionVisible(safePlan, section)) {
-      console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
-      setTab('overview');
-    }
-  }, [safePlan, tab]);
+  const section = TAB_TO_SECTION[tab];
+  if (section && !isSectionVisible('clinic', safePlan, section)) {
+    console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
+    setTab('overview');
+  }
+}, [safePlan, tab]);
 
   // ── Safe data access with null checks ──
   const todayStr = new Date().toISOString().split('T')[0];
@@ -682,31 +683,31 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
     </span>
   );
 
-  // ── Nav items with plan filtering ──
-  const navItems = [
-    { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
-    { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
-    { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
-    { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
-    { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
-    { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
-    { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
-    { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
-  ]
-    .filter(item => {
-      const isVisible = isSectionVisible(safePlan, item.section);
-      return isVisible;
-    })
-    .map(item => ({
-      icon: item.icon,
-      label: item.label,
-      active: tab === item.tab,
-      onClick: () => setTab(item.tab),
-      badge: item.badge,
-    }));
+const navItems = [
+  { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
+  { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
+  { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
+  { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
+  { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
+  { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
+  { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
+  { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
+]
+  .filter(item => {
+    const planKey = safePlan || 'free';
+    const isVisible = isSectionVisible('clinic', planKey, item.section);
+    return isVisible;
+  })
+  .map(item => ({
+    icon: item.icon,
+    label: item.label,
+    active: tab === item.tab,
+    onClick: () => setTab(item.tab),
+    badge: item.badge,
+  }));
 
   // ── Check if pharmacists are allowed in this plan ──
-  const planConfig = getPlanConfig(safePlan);
+  const planConfig = getPlanConfig('clinic',safePlan);
   const canManagePharmacists = planConfig.maxPharmacists !== 0;
 
   return (
@@ -765,8 +766,183 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
 
 // ── Overview Component ──
 function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
+  const [planStatus, setPlanStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkPlanStatus = async () => {
+      try {
+        const response = await API.get('/plans/clinic');
+        if (response.data.success) {
+          setPlanStatus(response.data.plan);
+        }
+      } catch (err) {
+        console.error('Failed to fetch plan status:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkPlanStatus();
+  }, []);
+
+  // ── Grace Period Warning Banner ──
+  const renderGracePeriodWarning = () => {
+    if (!planStatus) return null;
+    
+    const isGracePeriod = planStatus.planStatus === 'grace_period';
+    const isExpired = planStatus.planStatus === 'expired';
+    const daysRemaining = planStatus.daysRemaining || 0;
+    
+    if (isExpired && planStatus.isDataLocked) {
+      return (
+        <div style={{
+          background: '#fee2e2',
+          border: '2px solid #dc2626',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '28px' }}>🔒</span>
+            <div>
+              <div style={{ fontWeight: '700', color: '#991b1b', fontSize: '16px' }}>
+                ⚠️ Your Plan Has Expired
+              </div>
+              <div style={{ color: '#7f1d1d', fontSize: '13px', marginTop: '2px' }}>
+                Your {planStatus.planLabel || planStatus.plan} plan has expired. Your data is locked. Please renew to regain access.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => window.location.href = '/plans'}
+            style={{
+              padding: '8px 20px',
+              background: '#dc2626',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Renew Now
+          </button>
+        </div>
+      );
+    }
+    
+    if (isGracePeriod) {
+      const isUrgent = daysRemaining <= 3;
+      return (
+        <div style={{
+          background: isUrgent ? '#fef3c7' : '#fef9e7',
+          border: `2px solid ${isUrgent ? '#f59e0b' : '#fcd34d'}`,
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '28px' }}>{isUrgent ? '⚠️' : '⏳'}</span>
+            <div>
+              <div style={{ 
+                fontWeight: '700', 
+                color: isUrgent ? '#92400e' : '#78350f', 
+                fontSize: '16px' 
+              }}>
+                {isUrgent ? '⚠️ Grace Period Ending Soon!' : '⏳ Grace Period Active'}
+              </div>
+              <div style={{ 
+                color: isUrgent ? '#78350f' : '#92400e', 
+                fontSize: '13px', 
+                marginTop: '2px' 
+              }}>
+                Your {planStatus.planLabel || planStatus.plan} plan expired. You have 
+                <strong style={{ color: isUrgent ? '#dc2626' : '#d97706' }}> {daysRemaining} </strong> 
+                day{daysRemaining > 1 ? 's' : ''} left in the grace period.
+                {isUrgent && ' Please renew immediately to avoid data lock!'}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => window.location.href = '/plans'}
+            style={{
+              padding: '8px 20px',
+              background: isUrgent ? '#f59e0b' : '#d97706',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Renew Now
+          </button>
+        </div>
+      );
+    }
+    
+    // If plan is active but expiring soon (less than 7 days)
+    if (planStatus.planStatus === 'active' && daysRemaining > 0 && daysRemaining <= 7 && planStatus.plan !== 'free') {
+      return (
+        <div style={{
+          background: '#fefce8',
+          border: '1px solid #fde047',
+          borderRadius: '12px',
+          padding: '14px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '24px' }}>📅</span>
+            <div>
+              <div style={{ fontWeight: '600', color: '#854d0e', fontSize: '14px' }}>
+                Your plan expires in {daysRemaining} day{daysRemaining > 1 ? 's' : ''}
+              </div>
+              <div style={{ color: '#713f12', fontSize: '12px' }}>
+                Renew now to avoid any interruption in service.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => window.location.href = '/plans'}
+            style={{
+              padding: '6px 16px',
+              background: '#eab308',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: '600',
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            Renew Now
+          </button>
+        </div>
+      );
+    }
+    
+    return null;
+  };
   return (
     <div>
+      {renderGracePeriodWarning()}
       <SectionHeader title="Clinic Overview" subtitle={`Today's summary — ${today()}`} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 16, marginBottom: 24 }}>
         <Stat label="Today's Tokens" value={todayPatients.length} icon="🎫" color="var(--primary)" />
@@ -1184,103 +1360,7 @@ export function AllPatients({ patients, clinicName = '' }) {
   );
 }
 
-// // ── Other components (Overview, RevenueSection, AdminFollowUps, DoctorManagement, etc.) ──
-// // These remain the same as in your original file with proper null checks added where needed
 
-// // ── Note: The rest of the components (Overview, RevenueSection, AdminFollowUps, 
-// // DoctorManagement, DoctorCard, ReceptionistManagement, PharmacistManagement, 
-// // ClinicSettings, EditDoctorModal, etc.) remain the same as in your original file.
-// // Just make sure to add null checks (Array.isArray() checks) wherever you access
-// // arrays like patients, doctors, etc.
-
-// export { Overview, RevenueSection, AdminFollowUps, DoctorManagement, ReceptionistManagement, PharmacistManagement, ClinicSettings, EditDoctorModal };
-
-/* ── Overview ─────────────────────────────────────────────────── */
-// function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
-//   return (
-//     <div>
-//       <SectionHeader title="Clinic Overview" subtitle={`Today's summary — ${today()}`} />
-//       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))', gap:16, marginBottom:24 }}>
-//         <Stat label="Today's Tokens"      value={todayPatients.length}       icon="🎫" color="var(--primary)" />
-//         <Stat label="Today's Revenue Rs." value={paidTotal.toLocaleString()} icon="💰" color="var(--success)" />
-//         <Stat label="Pending Dues Rs."    value={duesTotal.toLocaleString()} icon="⚠️" color="var(--danger)" />
-//       </div>
-//       {doctors.length > 0 && (
-//         <div style={{ marginBottom:24 }}>
-//           <h3 style={{ fontSize:17, marginBottom:14 }}>Doctor Queue Summary</h3>
-//           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:12 }}>
-//             {doctors.map((doc) => {
-//               const docPatients = todayPatients.filter((p) => String(p.doctorId) === String(doc._id));
-//               const waiting = docPatients.filter((p) => p.status === 'waiting').length;
-//               const done    = docPatients.filter((p) => p.status === 'done').length;
-//               const limit   = doc.dailyTokenLimit ?? 0;
-//               return (
-//                 <Card key={doc._id}>
-//                   <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:10 }}>
-//                     <div style={{ width:38,height:38,borderRadius:10,background:'var(--primary-light)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18 }}>👨‍⚕️</div>
-//                     <div>
-//                       <div style={{ fontWeight:600,fontSize:14 }}>{doc.name}</div>
-//                       <div style={{ fontSize:11,color:'var(--text-muted)' }}>{doc.specialist}</div>
-//                     </div>
-//                   </div>
-//                   <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
-//                     <Badge color="blue">🎫 {docPatients.length}{limit > 0 ? `/${limit}` : ''} Total</Badge>
-//                     <Badge color="yellow">⏳ {waiting} Wait</Badge>
-//                     <Badge color="green">✓ {done} Done</Badge>
-//                     {limit > 0 && docPatients.length >= limit && <Badge color="red">🚫 Limit reached</Badge>}
-//                   </div>
-//                 </Card>
-//               );
-//             })}
-//           </div>
-//         </div>
-//       )}
-//       <Card noPad>
-//         <div style={{ padding:'14px 18px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between' }}>
-//           <h3 style={{ fontSize:16 }}>📋 Today's Patient Queue</h3>
-//           <Badge color="blue">{todayPatients.length} patients</Badge>
-//         </div>
-//         {todayPatients.length === 0 ? (
-//           <div style={{ textAlign:'center',padding:'2.5rem',color:'var(--text-muted)' }}>
-//             <div style={{ fontSize:40,marginBottom:8 }}>🪑</div>
-//             <div>No patients registered today yet.</div>
-//           </div>
-//         ) : (
-//           <div style={{ overflowX:'auto' }}>
-//             <table style={{ width:'100%',borderCollapse:'collapse',fontSize:13 }}>
-//               <thead>
-//                 <tr style={{ background:'var(--surface2)' }}>
-//                   {['Token','Patient','Doctor','Symptoms','Paid Rs.','Dues Rs.','Time','Payment','Status'].map((h) => (
-//                     <th key={h} style={{ padding:'10px 14px',textAlign:'left',fontWeight:600,color:'var(--text-muted)',whiteSpace:'nowrap' }}>{h}</th>
-//                   ))}
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {[...todayPatients].sort((a,b)=>a.token-b.token).map((p) => (
-//                   <tr key={p._id} style={{ borderBottom:'1px solid var(--border)' }}>
-//                     <td style={{ padding:'10px 14px' }}><TokenBadge token={p.token} size="sm" status={p.status} /></td>
-//                     <td style={{ padding:'10px 14px',fontWeight:500 }}>{p.name}</td>
-//                     <td style={{ padding:'10px 14px',color:'var(--text-muted)' }}>{p.doctorName}</td>
-//                     <td style={{ padding:'10px 14px',color:'var(--text-muted)',maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{p.symptoms}</td>
-//                     <td style={{ padding:'10px 14px',color:'var(--success)',fontWeight:500 }}>{p.paid||0}</td>
-//                     <td style={{ padding:'10px 14px',color:p.dues>0?'var(--danger)':'var(--text-muted)',fontWeight:p.dues>0?600:400 }}>{p.dues||0}</td>
-//                     <td style={{ padding:'10px 14px',color:'var(--text-muted)',whiteSpace:'nowrap' }}>{p.time}</td>
-//                     <td style={{ padding:'10px 14px' }}><PaymentBadge method={p.paymentMethod} /></td>
-//                     <td style={{ padding:'10px 14px' }}>
-//                       <Badge color={p.status==='called'?'green':p.status==='done'?'gray':'blue'}>
-//                         {p.status==='waiting'?'Waiting':p.status==='called'?'Called':'Done'}
-//                       </Badge>
-//                     </td>
-//                   </tr>
-//                 ))}
-//               </tbody>
-//             </table>
-//           </div>
-//         )}
-//       </Card>
-//     </div>
-//   );
-// }
 
 /* ── Revenue Section ─────────────────────────────────────────────── */
 function RevenueSection({ patients, doctors, pharmacists, session, getRevenueReport }) {
@@ -1809,8 +1889,8 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more doctors based on plan
-  const canAdd = canAddStaff(activePlan, 'doctors', doctors.length);
-  const planConfig = getPlanConfig(activePlan);
+  const canAdd = canAddStaff('clinic',activePlan, 'doctors', doctors.length);
+  const planConfig = getPlanConfig('clinic',activePlan);
   const maxDoctors = planConfig.maxDoctors === -1 ? '∞' : planConfig.maxDoctors;
 
   function handleEnterKey(e) {
@@ -2095,8 +2175,8 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more receptionists based on plan
-  const canAdd = canAddStaff(activePlan, 'receptionists', receptionists.length);
-  const planConfig = getPlanConfig(activePlan);
+  const canAdd = canAddStaff('clinic',activePlan, 'receptionists', receptionists.length);
+  const planConfig = getPlanConfig('clinic',activePlan);
   const maxReceptionists = planConfig.maxReceptionists === -1 ? '∞' : planConfig.maxReceptionists;
 
   function handleEnterKey(e) {
@@ -2289,21 +2369,33 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-  // ── Check if can add more pharmacists based on plan ──
-  const canAdd = canAddStaff(activePlan, 'pharmacists', pharmacists.length);
-  const planConfig = getPlanConfig(activePlan);
-  const maxPharmacists = planConfig.maxPharmacists === -1 ? '∞' : planConfig.maxPharmacists;
+  // ── FIX: Check if can add more pharmacists based on plan ──
+  // If plan is 'pro' or 'plus', pharmacists should be allowed
+  const planConfig = getPlanConfig('clinic',activePlan || 'free');
+  const maxPharmacists = planConfig.maxPharmacists || 0;
+  const canAddMore = maxPharmacists === -1 || pharmacists.length < maxPharmacists;
+  
+  // ── FIX: If maxPharmacists is 0, show upgrade message ──
+  const showUpgradeMessage = maxPharmacists === 0 || (!canAddMore && maxPharmacists > 0);
 
   // ── If pharmacists are not allowed in this plan ──
-  if (planConfig.maxPharmacists === 0) {
+  if (maxPharmacists === 0) {
     return (
       <Card style={{ textAlign: 'center', padding: 40 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>💊</div>
         <h3 style={{ marginBottom: 8 }}>Pharmacy Management Not Available</h3>
         <p style={{ color: '#64748b', maxWidth: 400, margin: '0 auto' }}>
-          Your {activePlan} plan does not include pharmacy management.
+          Your {activePlan || 'Free'} plan does not include pharmacy management.
           Upgrade to Plus or Pro to manage pharmacists and inventory.
         </p>
+        {activePlan !== 'pro' && activePlan !== 'plus' && (
+          <button
+            onClick={() => window.location.href = '/plans'}
+            style={{ marginTop: 16, padding: '10px 24px', background: '#0f4c81', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+          >
+            Upgrade Plan →
+          </button>
+        )}
       </Card>
     );
   }
@@ -2393,7 +2485,7 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
     }
   }
 
-  return (
+ return (
     <div>
       <SectionHeader
         title="Pharmacists"
@@ -2401,18 +2493,26 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
         action={
           <Btn
             onClick={() => setShow(true)}
-            disabled={!canAdd.allowed}
-            title={!canAdd.allowed ? `Upgrade to ${canAdd.upgradeNeeded} to add more pharmacists` : ''}
+            disabled={!canAddMore}
+            title={!canAddMore ? `You've reached the limit of ${maxPharmacists} pharmacist(s).` : ''}
           >
-            {canAdd.allowed ? '+ Add Pharmacist' : `🔒 Limit: ${canAdd.limit} pharmacist(s)`}
+            {canAddMore ? '+ Add Pharmacist' : `🔒 Limit: ${maxPharmacists} pharmacist(s)`}
           </Btn>
         }
       />
 
       {/* Show warning when limit is reached */}
-      {!canAdd.allowed && pharmacists.length >= canAdd.limit && (
+      {showUpgradeMessage && pharmacists.length >= maxPharmacists && maxPharmacists > 0 && (
         <Alert type="warning" style={{ marginBottom: 16 }}>
-          ⚠️ You've reached the limit of {canAdd.limit} pharmacist(s) for your {activePlan} plan.
+          ⚠️ You've reached the limit of {maxPharmacists} pharmacist(s) for your {activePlan} plan.
+          {activePlan !== 'pro' && (
+            <button
+              onClick={() => window.location.href = '/plans'}
+              style={{ marginLeft: 12, padding: '4px 12px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+            >
+              Upgrade
+            </button>
+          )}
         </Alert>
       )}
 
@@ -2734,7 +2834,10 @@ function usePincodeLookup() {
   return { pincode, setPincode, fetchedData, loading, error };
 }
 
+// hms-react/src/pages/AdminDashboard.jsx - Updated Clinic Component
+
 function ClinicSettings({ clinic, onSave }) {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     name: clinic.name || '', owner: clinic.owner || '', phone: clinic.phone || '',
     email: clinic.email || '', address: clinic.address || '', pincode: clinic.pincode || '',
@@ -2744,8 +2847,27 @@ function ClinicSettings({ clinic, onSave }) {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [planStatus, setPlanStatus] = useState(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
 
   const { pincode: lookupPin, setPincode: setLookupPin, fetchedData, loading: pinLoading, error: pinError } = usePincodeLookup();
+
+  // Fetch current plan status
+  useEffect(() => {
+    const fetchPlanStatus = async () => {
+      try {
+        const response = await API.get('/plans/clinic');
+        if (response.data.success) {
+          setPlanStatus(response.data.plan);
+        }
+      } catch (err) {
+        console.error('Failed to fetch plan status:', err);
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+    fetchPlanStatus();
+  }, []);
 
   useEffect(() => {
     if (!fetchedData || !fetchedData.length) return;
@@ -2764,19 +2886,16 @@ function ClinicSettings({ clinic, onSave }) {
     setForm((p) => ({ ...p, pincode: clean }));
     setLookupPin(clean);
   }
+
   function handleEnterKey(e) {
     if (e.key !== "Enter") return;
-
     e.preventDefault();
-
     const focusable = Array.from(
       document.querySelectorAll(
         'input, select, textarea, button'
       )
     ).filter(el => !el.disabled);
-
     const index = focusable.indexOf(e.target);
-
     if (index > -1 && index < focusable.length - 1) {
       focusable[index + 1].focus();
     }
@@ -2797,9 +2916,191 @@ function ClinicSettings({ clinic, onSave }) {
   const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: 9, border: '1.5px solid #d0dce8', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#0a3d62', background: '#fff', boxSizing: 'border-box' };
   const labelStyle = { fontSize: 12, fontWeight: 700, color: '#4a6278', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.4 };
 
+  // ── Determine plan status for display ──
+  const getPlanDisplay = () => {
+    if (loadingPlan) {
+      return { label: 'Loading...', color: '#94a3b8', bg: '#f1f5f9' };
+    }
+    
+    if (!planStatus || !planStatus.plan || planStatus.plan === 'free') {
+      return { 
+        label: 'Free Plan', 
+        color: '#6c757d', 
+        bg: '#f0f4f8',
+        showUpgrade: true,
+        upgradeLabel: 'Choose a Plan →'
+      };
+    }
+    
+    if (planStatus.planStatus === 'expired') {
+      return { 
+        label: `${planStatus.planLabel || planStatus.plan} (Expired)`, 
+        color: '#dc3545', 
+        bg: '#fee2e2',
+        showUpgrade: true,
+        upgradeLabel: '🔄 Renew Now'
+      };
+    }
+    
+    if (planStatus.planStatus === 'grace_period') {
+      return { 
+        label: `${planStatus.planLabel || planStatus.plan} (Grace Period: ${planStatus.daysRemaining || 0} days left)`, 
+        color: '#f59e0b', 
+        bg: '#fef3c7',
+        showUpgrade: true,
+        upgradeLabel: '🔄 Renew Now'
+      };
+    }
+    
+    return { 
+      label: `${planStatus.planLabel || planStatus.plan} Plan (Active)`, 
+      color: '#00a878', 
+      bg: '#e8f9f5',
+      showUpgrade: true,
+      upgradeLabel: '⬆ Upgrade Plan'
+    };
+  };
+
+  const planDisplay = getPlanDisplay();
+
   return (
     <div style={{ maxWidth: 680 }}>
       <SectionHeader title="Clinic Settings" subtitle="Manage your clinic information" />
+      
+      {/* ── Plan Management Card ── */}
+      <Card style={{ marginBottom: 20, border: `2px solid ${planDisplay.color}30` }}>
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    flexWrap: 'wrap',
+    gap: '12px'
+  }}>
+    <div>
+      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📋 Current Plan</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 14px',
+          borderRadius: '20px',
+          fontSize: '13px',
+          fontWeight: 700,
+          background: planDisplay.bg,
+          color: planDisplay.color,
+          border: `1px solid ${planDisplay.color}30`,
+        }}>
+          <span style={{
+            display: 'inline-block',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: planDisplay.color,
+          }} />
+          {planDisplay.label}
+        </span>
+        {planStatus && planStatus.daysRemaining > 0 && planStatus.plan !== 'free' && planStatus.planStatus === 'active' && (
+          <span style={{ fontSize: '12px', color: '#64748b' }}>
+            {planStatus.daysRemaining} days remaining
+          </span>
+        )}
+        {planStatus && planStatus.planExpiresAt && planStatus.plan !== 'free' && (
+          <span style={{ fontSize: '12px', color: '#64748b' }}>
+            Expires: {new Date(planStatus.planExpiresAt).toLocaleDateString('en-IN', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            })}
+          </span>
+        )}
+      </div>
+    </div>
+    <button
+      onClick={() => {
+        console.log('🔘 Upgrade button clicked, navigating to /plans');
+        navigate('/plans');
+      }}
+      style={{
+        padding: '8px 20px',
+        borderRadius: '8px',
+        border: 'none',
+        background: planDisplay.color,
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: '13px',
+        cursor: 'pointer',
+        transition: 'opacity 0.2s',
+        whiteSpace: 'nowrap',
+      }}
+      onMouseEnter={(e) => e.target.style.opacity = '0.85'}
+      onMouseLeave={(e) => e.target.style.opacity = '1'}
+    >
+      {planDisplay.upgradeLabel}
+    </button>
+  </div>
+        
+        {/* ── Plan Features Summary ── */}
+        {planStatus && planStatus.features && (
+          <div style={{ 
+            marginTop: '12px', 
+            paddingTop: '12px', 
+            borderTop: '1px solid #e8edf2',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}>
+            {Object.entries(planStatus.features || {})
+              .filter(([key, value]) => value === true)
+              .slice(0, 6)
+              .map(([key]) => (
+                <span key={key} style={{
+                  fontSize: '11px',
+                  padding: '2px 10px',
+                  borderRadius: '12px',
+                  background: '#f0f4f8',
+                  color: '#4a6278',
+                }}>
+                  ✓ {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                </span>
+              ))}
+            {Object.entries(planStatus.features || {}).filter(([key, value]) => value === true).length > 6 && (
+              <span style={{
+                fontSize: '11px',
+                padding: '2px 10px',
+                borderRadius: '12px',
+                background: '#f0f4f8',
+                color: '#4a6278',
+              }}>
+                +{Object.entries(planStatus.features || {}).filter(([key, value]) => value === true).length - 6} more
+              </span>
+            )}
+          </div>
+        )}
+        
+        {/* ── Grace Period / Expired Warning ── */}
+        {planStatus && (planStatus.planStatus === 'grace_period' || planStatus.planStatus === 'expired') && (
+          <div style={{
+            marginTop: '12px',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            background: planStatus.planStatus === 'expired' ? '#fee2e2' : '#fef3c7',
+            color: planStatus.planStatus === 'expired' ? '#991b1b' : '#92400e',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            {planStatus.planStatus === 'expired' ? (
+              <>🔒 Your plan has expired. Please renew to regain access to all features.</>
+            ) : (
+              <>⏳ Your plan is in grace period. {planStatus.daysRemaining || 0} days left to renew.</>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Basic Information Card ── */}
       <Card style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>🏥 Basic Information</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -2823,6 +3124,8 @@ function ClinicSettings({ clinic, onSave }) {
           <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} onKeyDown={handleEnterKey} /></div>
         </div>
       </Card>
+
+      {/* ── Location Details Card ── */}
       <Card style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>📍 Location Details</div>
         <div style={{ fontSize: 12, color: '#8fa8bc', marginBottom: 16 }}>Enter your 6-digit pincode to auto-fill State, District, Sub-district ✨</div>
@@ -2875,32 +3178,13 @@ function ClinicSettings({ clinic, onSave }) {
           </div>
         </div>
       </Card>
+
+      {/* ── Save Button Card ── */}
       <Card>
         {saved && <Alert type="success" style={{ marginBottom: 14 }}>✓ Settings saved successfully!</Alert>}
         {err && <Alert type="error" style={{ marginBottom: 14 }}>{err}</Alert>}
         <Btn onClick={save} disabled={busy} full size="lg">{busy ? 'Saving…' : '💾 Save Clinic Settings'}</Btn>
       </Card>
-      <div style={{ marginTop: 24 }}>
-        <SectionHeader title="Subscription Plan" />
-        <Card>
-          {clinic.plan ? (
-            <div style={{ display: 'grid', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: 15 }}>
-                  {clinic.plan === 'pro' ? '⭐ Pro Plan' :
-                    clinic.plan === 'plus' ? '🏢 Plus Plan' :
-                      '🏥 Lite Plan'}
-                </span>
-                <span style={{ background: 'rgba(0,184,148,0.1)', color: '#00a878', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>● Active</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Activated: {clinic.planActivatedAt}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Renews: {clinic.planExpiresAt}</div>
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No active plan. Please choose a plan to access all features.</div>
-          )}
-        </Card>
-      </div>
     </div>
   );
 }

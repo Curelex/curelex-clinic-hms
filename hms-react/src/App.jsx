@@ -43,22 +43,34 @@ import ClinicRegistration from './pages/ClinicRegister';
 import ClinicLogin from './pages/ClinicLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import PlanSelection from './pages/PlanSelection';
+import HospitalPlanSelection from './pages/HospitalPlanSelection';
 // import ResetPassword from './pages/ResetPassword';
 
 
 /* ── Auth guards ─────────────────────────────────────────────── */
 
-// Redirects to login if not authenticated
 const PrivateRoute = ({ children }) => {
-  const { user, authReady, clinicType } = useAuth();
+  const { user, authReady, clinicType, activePlan } = useAuth();
   if (!authReady) return null;
-  
-  // If clinic type is 'clinic', redirect to clinic dashboard
+  if (!user) return <Navigate to="/login" replace />;
+
   if (clinicType === 'clinic' && user?.role === 'admin') {
     return <Navigate to="/clinic-dashboard" replace />;
   }
-  
-  return user ? children : <Navigate to="/login" replace />;
+
+  if (clinicType === 'hospital' && user?.role === 'admin') {
+    const needsPlan = !activePlan || activePlan === 'free' || activePlan === 'none';
+    if (needsPlan) return <Navigate to="/hospital-plans" replace />;
+  }
+
+  return children;
+};
+// Auth route guard — only authenticated users can access (no redirects based on role)
+const AuthRoute = ({ children }) => {
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
 };
 
 // Redirects to correct home if already authenticated (login/register pages)
@@ -80,6 +92,10 @@ const PublicRoute = ({ children }) => {
   // Clinic admin goes to clinic dashboard
   if (user.role === 'admin' && clinicType === 'clinic')
     return <Navigate to="/clinic-dashboard" replace />;
+
+  // Hospital admin goes to dashboard
+  if (user.role === 'admin' && clinicType === 'hospital')
+    return <Navigate to="/dashboard" replace />;
 
   return <Navigate to="/dashboard" replace />;
 };
@@ -158,32 +174,48 @@ const ClinicTypeRoute = ({
 
 // ── Admin Route with Plan Selection ──
 const AdminRoute = ({ children }) => {
-  const { user, authReady, clinicType, activePlan } = useAuth(); // Get activePlan from context
+  const { user, authReady, clinicType, activePlan } = useAuth();
   const [choosingPlan, setChoosingPlan] = useState(false);
 
   if (!authReady) return null;
   if (!user) return <Navigate to="/login" replace />;
   
-  // Check if user is admin
   if (user.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Check if clinic type is 'clinic'
   if (clinicType !== 'clinic') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If choosing plan, show plan selection
+  // If choosing plan, show plan selection inline (for the overlay)
   if (choosingPlan) {
     return <PlanSelection onDone={() => setChoosingPlan(false)} />;
   }
 
-  // Pass the choose plan function and active plan to AdminDashboard
   return React.cloneElement(children, { 
     onChoosePlan: () => setChoosingPlan(true),
-    activePlan: activePlan // Pass the active plan
+    activePlan: activePlan
   });
+};
+
+const DashboardRoute = () => {
+  const { user, clinicType } = useAuth();
+
+  if (clinicType === "hospital" && user?.role === "admin") {
+    return <Dashboard />;
+  }
+
+  return <Layout />;
+};
+
+// ── Renders Dashboard directly for hospital admins (no Layout), Layout otherwise ──
+const DashboardRouteElement = () => {
+  const { user, clinicType } = useAuth();
+  if (clinicType === 'hospital' && user?.role === 'admin') {
+    return <Dashboard />;
+  }
+  return <Layout />;
 };
 
 // ── Main App ──
@@ -226,6 +258,24 @@ function App() {
           <Route path="/patient-login" element={<PublicRoute><PatientLogin /></PublicRoute>} />
           <Route path="/patient-register" element={<PublicRoute><PatientRegister /></PublicRoute>} />
           
+          {/* ── Plan Selection Routes ────────────────────────────── */}
+          <Route 
+            path="/plans" 
+            element={
+              <AuthRoute>
+                <PlanSelection onDone={() => window.location.href = '/clinic-dashboard'} />
+              </AuthRoute>
+            } 
+          />
+          <Route 
+  path="/hospital-plans" 
+  element={
+    <AuthRoute>
+      <HospitalPlanSelection onDone={() => window.location.href = '/dashboard'} />
+    </AuthRoute>
+  } 
+/>
+
 
 
           {/* ── Clinic Dashboard (Protected - Clinic type only) ── */}
@@ -240,79 +290,39 @@ function App() {
             }
           />
 
-          {/* ── Staff Dashboard Routes ──────────────────────────── */}
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <Layout />
-              </PrivateRoute>
-            }
-          >
+          {/* ── Dashboard Route ──────────────────────────────────── */}
+          {/* 
+            This route serves BOTH:
+            1. Hospital admins (direct access, no Layout)
+            2. Staff/doctors (with Layout wrapper)
+          */}
+         <Route
+  path="/dashboard"
+  element={
+    <PrivateRoute>
+      <Layout />
+    </PrivateRoute>
+  }
+>
+            {/* These nested routes only work with Layout */}
             <Route index element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
-
-            <Route
-              path="patients"
-              element={<PermRoute permKey="patients"><Patients /></PermRoute>}
-            />
-            <Route
-              path="billing"
-              element={<PermRoute permKey="billing"><Billing /></PermRoute>}
-            />
-            <Route
-              path="billing-requests"
-              element={<PermRoute permKey="billing"><BillingRequests /></PermRoute>}
-            />
-            <Route
-              path="ipd"
-              element={<PermRoute permKey="ipd"><IPD /></PermRoute>}
-            />
-            <Route
-              path="room-settings"
-              element={<PermRoute permKey="room-settings"><RoomSettings /></PermRoute>}
-            />
-            <Route
-              path="pharmacy/*"
-              element={<PermRoute permKey="pharmacy"><IMSApp /></PermRoute>}
-            />
-            <Route
-              path="lab"
-              element={<PermRoute permKey="lab"><Lab /></PermRoute>}
-            />
-            <Route
-              path="inventory"
-              element={<PermRoute permKey="inventory"><Inventory /></PermRoute>}
-            />
-            <Route
-              path="staff"
-              element={<PermRoute permKey="staff"><Staff /></PermRoute>}
-            />
-            <Route
-              path="tokens"
-              element={<PermRoute permKey="patients"><TokenPanel /></PermRoute>}
-            />
-            <Route
-              path="tasks"
-              element={<PrivateRoute><TaskAllocation /></PrivateRoute>}
-            />
+            <Route path="patients" element={<PermRoute permKey="patients"><Patients /></PermRoute>} />
+            <Route path="billing" element={<PermRoute permKey="billing"><Billing /></PermRoute>} />
+            <Route path="billing-requests" element={<PermRoute permKey="billing"><BillingRequests /></PermRoute>} />
+            <Route path="ipd" element={<PermRoute permKey="ipd"><IPD /></PermRoute>} />
+            <Route path="room-settings" element={<PermRoute permKey="room-settings"><RoomSettings /></PermRoute>} />
+            <Route path="pharmacy/*" element={<PermRoute permKey="pharmacy"><IMSApp /></PermRoute>} />
+            <Route path="lab" element={<PermRoute permKey="lab"><Lab /></PermRoute>} />
+            <Route path="inventory" element={<PermRoute permKey="inventory"><Inventory /></PermRoute>} />
+            <Route path="staff" element={<PermRoute permKey="staff"><Staff /></PermRoute>} />
+            <Route path="tokens" element={<PermRoute permKey="patients"><TokenPanel /></PermRoute>} />
+            <Route path="tasks" element={<PrivateRoute><TaskAllocation /></PrivateRoute>} />
             <Route path="emergency" element={<Emergency />} />
-            <Route
-              path="prescriptions"
-              element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>}
-            />
-            <Route
-              path="telemedicine"
-              element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>}
-            />
-            <Route
-              path="doctor-earnings"
-              element={<PrivateRoute><DoctorEarnings /></PrivateRoute>}
-            />
-            <Route
-              path="doctor-bank-details"
-              element={<PrivateRoute><DoctorBankDetails /></PrivateRoute>}
-            />
+            <Route path="prescriptions" element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>} />
+            <Route path="telemedicine" element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>} />
+            <Route path="doctor-earnings" element={<PrivateRoute><DoctorEarnings /></PrivateRoute>} />
+            <Route path="doctor-bank-details" element={<PrivateRoute><DoctorBankDetails /></PrivateRoute>} />
           </Route>
 
           {/* ── Patient Routes ───────────────────────────────────── */}

@@ -1,8 +1,8 @@
-// hms-react/src/pages/PlanSelection.jsx - Updated Complete File
-
+// hms-react/src/pages/HospitalPlanSelection.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const C = {
   brand: '#0a3d62', 
@@ -16,115 +16,104 @@ const C = {
   white: '#ffffff',
 };
 
-// ── All Clinic Plans: Lite, Plus, Pro ──
-const PLANS = [
+// ── Hospital Plans: Standard and Enterprise ──
+const HOSPITAL_PLANS = [
   {
-    key: 'lite', 
-    name: 'Clinic Lite', 
-    tagline: 'Perfect for single doctor clinics', 
-    price: 999,
+    key: 'standard', 
+    name: 'Standard Hospital Plan', 
+    tagline: 'Complete hospital management with essential features', 
+    price: 4999,
     icon: '🏥', 
-    badge: null, 
-    bestFor: 'Small Clinics, Solo Practitioners, Daily OPD Management',
-    color: '#1a7a4a', 
-    colorLight: 'rgba(26,122,74,0.08)', 
-    gradFrom: '#1a7a4a', 
-    gradTo: '#27ae60', 
-    shadow: 'rgba(26,122,74,0.28)',
-    features: [
-      'Up to 3 Doctors',
-      '2 Receptionist Logins',
-      'Queue Management',
-      'Token System',
-      'Patient Registration',
-      'Basic Patient Records',
-      'OPD History',
-      'Fast Patient Search',
-      'Basic Dashboard'
-    ],
-  },
-  {
-    key: 'plus', 
-    name: 'Clinic Plus', 
-    tagline: 'For growing clinics with more doctors & billing needs', 
-    price: 1499,
-    icon: '🏢', 
     badge: 'Most Popular', 
-    bestFor: 'Medium Clinics, Multi-Doctor Clinics, Clinics with In-House Pharmacy',
+    bestFor: 'Medium Hospitals, Multi-Department Centers',
     color: '#1565a8', 
     colorLight: 'rgba(21,101,168,0.08)', 
     gradFrom: '#0a3d62', 
     gradTo: '#1565a8', 
     shadow: 'rgba(10,61,98,0.28)',
-    extraLabel: 'ALL CLINIC LITE FEATURES +',
     features: [
-      'Multi Doctor & Multi User Access',
-      'Unlimited Reception Logins',
-      'Pharmacy Inventory Management',
-      'Billing & Invoice Generation',
-      'Medicine Stock Alerts',
-      'Prescription Records',
-      'Daily Revenue Reports',
-      'Staff Login Management',
-      'PDF Report Upload Support'
+      'Multi-Department Management',
+      'Patient Registration & Records',
+      'IPD / Admission Management',
+      'Emergency Department',
+      'Bed Management',
+      'Billing & Invoicing',
+      'Pharmacy Management',
+      'Lab Tests & Reports',
+      'Prescriptions',
+      'Telemedicine',
+      'Task Allocation',
+      'Revenue Reports',
+      'Up to 20 Doctors',
+      'Up to 50 Staff',
+      'Up to 50 Beds',
     ],
   },
   {
-    key: 'pro', 
-    name: 'Clinic Pro', 
-    tagline: 'Complete smart clinic ecosystem with advanced automation', 
-    price: 1999,
+    key: 'enterprise', 
+    name: 'Enterprise Hospital Plan', 
+    tagline: 'Complete smart hospital ecosystem with advanced features', 
+    price: 6999,
     icon: '⭐', 
     badge: 'Most Advanced', 
-    bestFor: 'Advanced Clinics, High Patient Flow Centers, Smart Digital Clinics',
+    bestFor: 'Large Hospitals, Multi-Specialty Centers, Medical Colleges',
     color: '#6c3fc5', 
     colorLight: 'rgba(108,63,197,0.08)', 
     gradFrom: '#6c3fc5', 
     gradTo: '#8e5cf5', 
     shadow: 'rgba(108,63,197,0.30)',
-    extraLabel: 'ALL CLINIC PLUS FEATURES +',
+    extraLabel: 'ALL STANDARD FEATURES +',
     features: [
-      'Multi Doctor & Multi User Access',
-      'Unlimited Reception Logins',
-      'Follow-Up Reminder System',
-      'Advanced EMR',
-      'Role Based Access Control',
-      'Lab Report Management',
-      'Analytics Dashboard',
+      'Operation Theatre Management',
+      'Ambulance Services',
+      'Blood Bank Management',
+      'AI Analytics',
+      'Custom Reports',
+      'Unlimited Doctors',
+      'Unlimited Staff',
+      'Unlimited Beds',
+      'Advanced Department Management',
       'Priority Patient Management',
-      'Advanced Billing & Reports',
-      'Doctor Performance Insights'
+      'Doctor Performance Insights',
+      'Advanced Analytics Dashboard',
+      'Multi-Specialty Support',
+      'Full HMS Integration',
     ],
   },
 ];
 
-export default function PlanSelection({ onDone }) {
-  const { user, updateUserData } = useAuth();
+export default function HospitalPlanSelection({ onDone }) {
+  const { user, updateUserData, clinicType } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isIntentionalVisit = !!location.state?.intentionalVisit;
   const [selected, setSelected] = useState(null);
   const [step, setStep] = useState('plans');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPlan, setCurrentPlan] = useState(null);
-  const [clinicType, setClinicType] = useState('clinic');
-  const [isUpgradeMode, setIsUpgradeMode] = useState(false);
+
+  
+
+  console.log('🏥 HospitalPlanSelection mounted:', { user, clinicType });
 
   // Fetch current plan on load
   useEffect(() => {
     const fetchCurrentPlan = async () => {
       try {
-        const type = user?.clinicType || 'clinic';
-        setClinicType(type);
-        
-        // Only fetch if user has a clinic
         if (user?.clinicId) {
           const response = await API.get('/plans/clinic');
           if (response.data.success) {
             const plan = response.data.plan;
             setCurrentPlan(plan);
-            // Check if user already has a plan (not free)
-            if (plan && plan.plan && plan.plan !== 'free') {
-              setIsUpgradeMode(true);
-              console.log('🔄 Upgrade mode enabled, current plan:', plan.plan);
+
+            // Only auto-redirect on a forced/first visit — never when the
+            // admin came here on purpose (e.g. "Upgrade Plan" from Profile).
+            if (
+              !isIntentionalVisit &&
+              plan && plan.plan && plan.plan !== 'free' && plan.plan !== 'none'
+            ) {
+              if (onDone) { onDone(); } else { navigate('/dashboard'); }
             }
           }
         }
@@ -133,12 +122,11 @@ export default function PlanSelection({ onDone }) {
       }
     };
     fetchCurrentPlan();
-  }, [user]);
+  }, [user, navigate, onDone, isIntentionalVisit]);
 
-  const plan = PLANS.find(p => p.key === selected);
+  const plan = HOSPITAL_PLANS.find(p => p.key === selected);
 
   function choosePlan(key) { 
-    // If user already has this plan, show message
     if (currentPlan && currentPlan.plan === key) {
       setError('You are already on this plan!');
       return;
@@ -148,55 +136,67 @@ export default function PlanSelection({ onDone }) {
     setError(null);
   }
 
-  async function handlePay() {
-    setStep('paying');
-    setLoading(true);
-    setError(null);
+  
+
+async function handlePay() {
+  setStep('paying');
+  setLoading(true);
+  setError(null);
+  
+  try {
+    console.log('📡 Activating hospital plan:', selected);
     
-    try {
-      console.log('📡 Upgrading to plan:', selected);
-      console.log('📡 Current plan:', currentPlan);
-      
-      const response = await API.post('/plans/upgrade', {
-        plan: selected,
-        paymentMethod: 'card'
-      });
+    const response = await API.post('/plans/upgrade', {
+      plan: selected,
+      paymentMethod: 'card'
+    });
 
-      console.log('📡 Response:', response.data);
+    console.log('📡 Response:', response.data);
 
-      if (response.data.success) {
-        if (updateUserData) {
-          updateUserData({ 
-            activePlan: selected,
-            planActivatedAt: response.data.clinic.planActivatedAt,
-            planExpiresAt: response.data.clinic.planExpiresAt,
-          });
-        }
-        setStep('success');
-        // If onDone is provided, call it after success
-        if (onDone) {
-          setTimeout(() => onDone(), 2000);
-        }
-      } else {
-        throw new Error(response.data.message || 'Activation failed');
+    if (response.data.success) {
+      if (updateUserData) {
+        updateUserData({ 
+          activePlan: selected,
+          planActivatedAt: response.data.clinic.planActivatedAt,
+          planExpiresAt: response.data.clinic.planExpiresAt,
+        });
       }
-    } catch (e) {
-      console.error('❌ Activation error:', e);
-      setError(e.response?.data?.message || e.message || 'Activation failed');
-      setStep('confirm');
-    } finally {
-      setLoading(false);
-    }
+      
+      // Clear the needsPlanSelection flag
+      sessionStorage.removeItem('needsPlanSelection');
+      
+      // ── FIX: Show success page first, THEN redirect ──
+      setStep('success');
+      
+      // And in handlePay function:
+setTimeout(() => {
+  if (onDone) {
+    onDone();
+  } else {
+    window.location.href = '/dashboard';
   }
+}, 3000);
+      
+    } else {
+      throw new Error(response.data.message || 'Activation failed');
+    }
+  } catch (e) {
+    console.error('❌ Activation error:', e);
+    setError(e.response?.data?.message || e.message || 'Activation failed');
+    setStep('confirm');
+  } finally {
+    setLoading(false);
+  }
+}
 
-  const hasCurrentPlan = currentPlan && currentPlan.plan && currentPlan.plan !== 'free';
-  const isFreePlan = !currentPlan || !currentPlan.plan || currentPlan.plan === 'free';
+  const hasCurrentPlan = currentPlan && currentPlan.plan && currentPlan.plan !== 'free' && currentPlan.plan !== 'none';
 
-  // ── Check if user already has this plan ──
   const hasPlan = (planKey) => {
     if (!currentPlan || !currentPlan.plan) return false;
     return currentPlan.plan === planKey;
   };
+
+  const isOnHighestPlan = hasPlan('enterprise');
 
   return (
     <div style={{
@@ -229,21 +229,31 @@ export default function PlanSelection({ onDone }) {
               <div style={{width:38,height:38,borderRadius:10,background:'linear-gradient(135deg,#0a3d62,#1565a8)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>➕</div>
               <span style={{fontFamily:'Georgia,serif',fontWeight:700,fontSize:22,color:C.brand,letterSpacing:1}}>CURELEX</span>
             </div>
-            <div style={{fontSize:12,color:C.textMuted,letterSpacing:1}}>Smart Clinic. Stronger Care.</div>
+            <div style={{fontSize:12,color:C.textMuted,letterSpacing:1}}>Smart Hospital. Stronger Care.</div>
           </div>
 
           {/* Heading */}
           <div style={{textAlign:'center',marginBottom:36,marginTop:20}}>
+            {isOnHighestPlan ? (
+  <div style={{
+    marginTop:12, fontSize:13, color:'#00a878', fontWeight:600,
+    display:'inline-flex', alignItems:'center', gap:6,
+    background:'rgba(0,184,148,0.08)', border:'1px solid rgba(0,184,148,0.25)',
+    borderRadius:20, padding:'6px 16px',
+  }}>
+    🏆 You're on our highest plan — Enterprise
+  </div>
+) :
             <div style={{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(0,184,148,0.10)',border:'1px solid rgba(0,184,148,0.25)',borderRadius:20,padding:'4px 14px',fontSize:12.5,color:'#00a878',fontWeight:600,marginBottom:14}}>
-              {hasCurrentPlan ? '🔄 Upgrade Your Plan' : '🎉 Choose a Plan'}
-            </div>
-            <div style={{fontFamily:'Georgia,serif',fontSize:32,fontWeight:700,color:C.textDark,marginBottom:10,lineHeight:1.2}}>
-              {hasCurrentPlan ? 'Choose the Plan That Grows With Your Clinic' : 'Choose the Plan That Grows With Your Clinic'}
+              {hasCurrentPlan ? '🔄 Upgrade Your Plan' : '🎉 Choose Your Hospital Plan'}
+            </div>}
+            <div style={{fontFamily:'Georgia,serif',fontSize:32,fontWeight:700,color:C.textDark,marginBottom:10,lineHeight:1.2, marginTop: 20}}>
+              Choose the Plan That Grows With Your Hospital
             </div>
             <div style={{color:C.textMuted,fontSize:14.5,maxWidth:520,margin:'0 auto',lineHeight:1.65}}>
               {hasCurrentPlan 
                 ? `You're currently on the ${currentPlan?.planLabel || currentPlan?.plan} plan. Select a new plan to upgrade.`
-                : 'Select a plan to activate your clinic dashboard and start managing patients.'}
+                : 'Select a plan to activate your hospital dashboard and start managing patients.'}
             </div>
             {hasCurrentPlan && (
               <div style={{marginTop:12,fontSize:13,color:C.textMuted}}>
@@ -251,7 +261,7 @@ export default function PlanSelection({ onDone }) {
                 {currentPlan.daysRemaining > 0 && ` · ${currentPlan.daysRemaining} days remaining`}
               </div>
             )}
-            {isFreePlan && (
+            {!hasCurrentPlan && (
               <div style={{marginTop:12,fontSize:13,color:C.textMuted}}>
                 You're currently on the <strong style={{color:C.brand}}>Free Plan</strong>. Choose a plan to unlock more features.
               </div>
@@ -259,9 +269,11 @@ export default function PlanSelection({ onDone }) {
           </div>
 
           {/* Plan cards */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:22}}>
-            {PLANS.map(p => {
-              const isCurrentPlan = hasPlan(p.key);
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:22}}>
+            {HOSPITAL_PLANS.map(p => {
+  const isCurrentPlan = hasPlan(p.key);
+  const isDowngrade = isOnHighestPlan && p.key !== 'enterprise';
+  const isDisabled = isCurrentPlan || isDowngrade;
               
               const color = p.color;
               const colorLight = p.colorLight;
@@ -398,26 +410,30 @@ export default function PlanSelection({ onDone }) {
                   </div>
                   <div style={{padding:'0 22px'}}>
                     <button 
-                      onClick={() => choosePlan(p.key)} 
-                      className="pay-btn"
-                      disabled={isCurrentPlan}
-                      style={{
-                        width:'100%',
-                        padding:'13px 20px',
-                        borderRadius:11,
-                        border:'none',
-                        background: isCurrentPlan ? '#94a3b8' : `linear-gradient(135deg,${gradFrom},${gradTo})`,
-                        color:'#fff',
-                        fontSize:15,
-                        fontWeight:700,
-                        cursor: isCurrentPlan ? 'not-allowed' : 'pointer',
-                        boxShadow: isCurrentPlan ? 'none' : `0 5px 18px ${shadow}`,
-                        transition:'opacity 0.18s',
-                        opacity: isCurrentPlan ? 0.7 : 1,
-                      }}
-                    >
-                      {isCurrentPlan ? '✓ Already Have This Plan' : `Choose ${p.name} →`}
-                    </button>
+    onClick={() => choosePlan(p.key)} 
+    className="pay-btn"
+    disabled={isDisabled}
+    style={{
+      width:'100%',
+      padding:'13px 20px',
+      borderRadius:11,
+      border:'none',
+      background: isDisabled ? '#94a3b8' : `linear-gradient(135deg,${gradFrom},${gradTo})`,
+      color:'#fff',
+      fontSize:15,
+      fontWeight:700,
+      cursor: isDisabled ? 'not-allowed' : 'pointer',
+      boxShadow: isDisabled ? 'none' : `0 5px 18px ${shadow}`,
+      transition:'opacity 0.18s',
+      opacity: isDisabled ? 0.7 : 1,
+    }}
+  >
+    {isCurrentPlan
+      ? '✓ Already Have This Plan'
+      : isDowngrade
+        ? '🔒 Lower Tier Plan'
+        : `Choose ${p.name} →`}
+  </button>
                   </div>
                 </div>
               );
@@ -427,15 +443,15 @@ export default function PlanSelection({ onDone }) {
           {/* Why Curelex */}
           <div style={{marginTop:40,textAlign:'center'}}>
             <div style={{fontSize:13,fontWeight:700,color:C.textMuted,textTransform:'uppercase',letterSpacing:1,marginBottom:18}}>
-              WHY CLINICS CHOOSE CURELEX?
+              WHY HOSPITALS CHOOSE CURELEX?
             </div>
             <div style={{display:'flex',justifyContent:'center',gap:24,flexWrap:'wrap',marginBottom:20}}>
               {[
-                {icon:'⚡',label:'Fast Queue Handling'},
-                {icon:'📱',label:'Hybrid QR Based Booking'},
-                {icon:'👤',label:'Easy Patient Record Access'},
-                {icon:'₹',label:'Low Cost Digital Setup'},
-                {icon:'📈',label:'Scalable from Small to Full HMS'},
+                {icon:'⚡',label:'Fast Patient Handling'},
+                {icon:'🏥',label:'Complete HMS Solution'},
+                {icon:'👤',label:'Easy Patient Records'},
+                {icon:'₹',label:'Affordable Plans'},
+                {icon:'📈',label:'Scalable Platform'},
                 {icon:'🔒',label:'Secure & Cloud Based'}
               ].map(({icon,label}) => (
                 <div key={label} style={{textAlign:'center',minWidth:90}}>
@@ -480,10 +496,10 @@ export default function PlanSelection({ onDone }) {
                 📞 Book a Free Demo Today!
               </div>
               <div style={{color:'rgba(255,255,255,0.75)',fontSize:13,marginTop:4}}>
-                Experience the Future of Clinic Management
+                Experience the Future of Hospital Management
               </div>
               <div style={{display:'flex',gap:16,marginTop:8,flexWrap:'wrap'}}>
-                {['✅ Easy to Use','✅ Secure','✅ Reliable','✅ Made for Clinics'].map(t => (
+                {['✅ Easy to Use','✅ Secure','✅ Reliable','✅ Made for Hospitals'].map(t => (
                   <span key={t} style={{fontSize:11.5,color:'rgba(255,255,255,0.8)'}}>{t}</span>
                 ))}
               </div>
@@ -566,7 +582,7 @@ export default function PlanSelection({ onDone }) {
               </div>
             )}
 
-            {isFreePlan && (
+            {!hasCurrentPlan && (
               <div style={{
                 background:'rgba(0,184,148,0.06)',
                 border:'1px solid rgba(0,184,148,0.2)',
@@ -741,7 +757,7 @@ export default function PlanSelection({ onDone }) {
             </div>
             <div style={{color:C.textMuted,fontSize:14.5,lineHeight:1.7,marginBottom:26}}>
               Your <strong>{plan.name}</strong> is now live.<br/>
-              You have full access to the clinic dashboard.
+              You have full access to the hospital dashboard.
             </div>
             <div style={{
               background: plan.colorLight,
@@ -774,7 +790,7 @@ export default function PlanSelection({ onDone }) {
               </span>
             </div>
             <button 
-              onClick={onDone || (() => window.location.href = '/clinic-dashboard')} 
+              onClick={onDone || (() => navigate('/dashboard'))} 
               className="pay-btn"
               style={{
                 width:'100%',

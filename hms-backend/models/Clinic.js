@@ -14,11 +14,23 @@ const ClinicSchema = new mongoose.Schema({
   // ── Plan fields ──
   plan: {
     type: String,
-    enum: ['lite', 'plus', 'pro', null],
+    enum: ['lite', 'plus', 'pro', 'standard', 'enterprise', null],
     default: null,
   },
   planActivatedAt: { type: String, default: null },
   planExpiresAt: { type: String, default: null },
+  planStatus: {
+    type: String,
+    enum: ['active', 'expired', 'grace_period', 'cancelled'],
+    default: 'active',
+  },
+  gracePeriodEndsAt: { type: String, default: null },
+  previousPlan: {
+    type: String,
+    enum: ['lite', 'plus', 'pro', 'standard', 'enterprise', null],
+    default: null,
+  },
+  isDataLocked: { type: Boolean, default: false },
   owner: { type: String, default: '' },
   state: { type: String, default: '' },
   district: { type: String, default: '' },

@@ -5,36 +5,37 @@ import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import taskService from '../services/taskService';
 import { useSocket } from '../hooks/useSocket';
+import { isSectionVisible, getPlanConfig, isFeatureVisible } from '../utils/planConfig';
 
-// ── Nav definition ─────────────────────────────────────────────
-const NAV_SECTIONS = [
+// ── Clinic Nav definition ─────────────────────────────────────────────
+const CLINIC_NAV_SECTIONS = [
   {
     section: 'MAIN',
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: '⊞', perm: 'dashboard', end: true },
-      { path: '/dashboard/patients', label: 'Patients', icon: '👤', perm: 'patients' },
+      { path: '/dashboard', label: 'Dashboard', icon: '⊞', perm: 'dashboard', end: true, sectionKey: 'overview' },
+      { path: '/dashboard/patients', label: 'Patients', icon: '👤', perm: 'patients', sectionKey: 'allPatients' },
     ],
   },
   {
     section: 'SERVICES',
     items: [
-      { path: '/dashboard/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd' },
-      { path: '/dashboard/billing', label: 'Billing', icon: '💳', perm: 'billing' },
-      { path: '/dashboard/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing' },
-      { path: '/dashboard/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab' },
-      { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients' },
-      { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients' },
-      { path: '/dashboard/prescriptions', label: 'Prescriptions', icon: '📋', perm: 'prescriptions' },
-      { path: '/dashboard/telemedicine', label: 'Telemedicine', icon: '📹', perm: 'telemedicine' },
+      { path: '/dashboard/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd', sectionKey: 'ipd' },
+      { path: '/dashboard/billing', label: 'Billing', icon: '💳', perm: 'billing', sectionKey: 'billing' },
+      { path: '/dashboard/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing', sectionKey: 'billing' },
+      { path: '/dashboard/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab', sectionKey: 'lab' },
+      { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients', sectionKey: 'tokens' },
+      { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients', sectionKey: 'emergency' },
+      { path: '/dashboard/prescriptions', label: 'Prescriptions', icon: '📋', perm: 'prescriptions', sectionKey: 'prescriptions' },
+      { path: '/dashboard/telemedicine', label: 'Telemedicine', icon: '📹', perm: 'telemedicine', sectionKey: 'telemedicine' },
     ],
   },
   {
     section: 'MANAGEMENT',
     items: [
-      { path: '/dashboard/inventory', label: 'Inventory', icon: '📦', perm: 'inventory' },
-      { path: '/dashboard/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff' },
-      { path: '/dashboard/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard' },
-      { path: '/dashboard/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings' }
+      { path: '/dashboard/inventory', label: 'Inventory', icon: '📦', perm: 'inventory', sectionKey: 'inventory' },
+      { path: '/dashboard/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff', sectionKey: 'staff' },
+      { path: '/dashboard/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard', sectionKey: 'tasks' },
+      { path: '/dashboard/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings', sectionKey: 'bedManagement' },
     ],
   },
 ];
@@ -98,18 +99,29 @@ const ROLE_META = {
 };
 
 export default function Layout() {
-  const { user, logout, hasPerm } = useAuth();
+  const { user, logout, hasPerm, clinicType, activePlan } = useAuth();
   const [taskCount, setTaskCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  // ── Grab the raw singleton socket once — never changes identity ──
   const { socket: rawSocket } = useSocket();
   const socketRef = useRef(rawSocket);
 
-  // ── Determine user role ──
+  // ── Determine user role and clinic type ──
   const isDoctor = user?.role?.toLowerCase() === 'doctor' || user?.role?.toLowerCase() === 'separate_doctor';
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
+  const isHospital = clinicType === 'hospital';
+  const isClinic = clinicType === 'clinic';
+
+  console.log('🔍 Layout Debug:', {
+    clinicType,
+    isHospital,
+    isClinic,
+    isAdmin,
+    isSuperAdmin,
+    userRole: user?.role,
+    activePlan
+  });
 
   // ── Stable fetch — identity only changes on login/logout ──────
   const fetchData = useCallback(async () => {
@@ -126,17 +138,13 @@ export default function Layout() {
     }
   }, [user]);
 
-  // ── Ref so socket handlers always call latest fetchData ────────
   const fetchDataRef = useRef(fetchData);
   useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
 
   useEffect(() => {
     if (!user) return;
 
-    // Initial fetch
     fetchDataRef.current();
-
-    // 60s fallback poll — sockets handle real-time updates
     const interval = setInterval(() => fetchDataRef.current(), 60_000);
 
     const handleTaskChange = () => fetchDataRef.current();
@@ -165,7 +173,7 @@ export default function Layout() {
         s.off('task:sla-breach', handleSlaBreach);
       }
     };
-  }, [user]); // user is the only real dependency — socket is accessed via ref
+  }, [user]);
 
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -202,45 +210,102 @@ export default function Layout() {
     label: user?.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.15)',
   };
 
-  // ── Filter nav by permission ──
-  // Hide telemedicine from admin
-  const visibleSections = NAV_SECTIONS.map(section => ({
-    ...section,
-    items: section.items.filter(item => {
-      // ── Hide telemedicine from admin (but NOT super_admin) ──
-      if (item.perm === 'telemedicine' && isAdmin && !isSuperAdmin) return false;
-      
-      // ── Hide tokens, emergency, patients, and tasks from separate_doctor ──
-      if (user?.role === 'separate_doctor' && (item.label === 'Token Queue' || item.label === 'Emergency Dept' || item.label === 'Patients' || item.label === 'Task Allocation')) return false;
+  // ── Get Clinic Navigation Items (Permission-based) ──
+  const getClinicNavItems = () => {
+    const visibleSections = CLINIC_NAV_SECTIONS.map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        // Hide telemedicine from admin (but NOT super_admin)
+        if (item.perm === 'telemedicine' && isAdmin && !isSuperAdmin) return false;
 
-      return hasPerm(item.perm);
-    }),
-  })).filter(s => s.items.length > 0);
+        // Hide tokens, emergency, patients, and tasks from separate_doctor
+        if (user?.role === 'separate_doctor' && (item.label === 'Token Queue' || item.label === 'Emergency Dept' || item.label === 'Patients' || item.label === 'Task Allocation')) return false;
 
-  // ── Add DOCTOR section only for doctors ──
-  // ── Add SUPER ADMIN section for super_admin (plus doctor sections) ──
-  
-  const visibleImsSections = IMS_SECTIONS.map(section => ({
-    ...section,
-    items: section.items.filter(item => hasPerm(item.perm)),
-  })).filter(s => s.items.length > 0);
+        return hasPerm(item.perm);
+      }),
+    })).filter(s => s.items.length > 0);
 
-  const mainSections = visibleSections.filter(s => s.section === 'MAIN');
-  const servicesSections = visibleSections.filter(s => s.section === 'SERVICES');
-  const managementSections = visibleSections.filter(s => s.section === 'MANAGEMENT');
+    return visibleSections;
+  };
 
-  const baseSections = [
-    ...mainSections,
-    ...servicesSections,
-    ...visibleImsSections,
-    ...managementSections
-  ];
+  // ── Get Hospital Navigation Items (Plan-based, using the same routed items as clinic) ──
+  const getHospitalNavItems = () => {
+    const planKey = activePlan || 'free';
 
-  const finalSections = isSuperAdmin
-    ? [...baseSections, ...DOCTOR_SECTIONS, ...SUPER_ADMIN_SECTIONS]
-    : isDoctor
-      ? [...baseSections, ...DOCTOR_SECTIONS]
-      : baseSections;
+    
+
+    const visibleSections = CLINIC_NAV_SECTIONS.map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        // Plan gates which sections are visible for hospitals
+        const isVisible = isSectionVisible('hospital', planKey, item.sectionKey);
+
+        
+
+        if (!isVisible) return false;
+
+        // Role permission still applies on top of the plan gate
+        return hasPerm(item.perm);
+      }),
+    })).filter(s => s.items.length > 0);
+
+    return visibleSections;
+  };
+
+  // ── Get IMS Sections ──
+  const getImsSections = () => {
+    if (!hasPerm('pharmacy')) return [];
+
+    // For hospitals, pharmacy is also gated by plan
+    if (isHospital) {
+      const planKey = activePlan || 'free';
+      if (!isSectionVisible('hospital', planKey, 'pharmacy')) return [];
+    }
+
+    return IMS_SECTIONS.map(section => ({
+      ...section,
+      items: section.items.filter(item => hasPerm(item.perm)),
+    })).filter(s => s.items.length > 0);
+  };
+
+  // ── Select nav sections based on clinic type ──
+  let navSections = [];
+
+  if (isHospital) {
+    // Hospital uses plan-based filtering
+    navSections = getHospitalNavItems();
+    
+  } else {
+    // Clinic uses permission-based filtering
+    navSections = getClinicNavItems();
+    
+  }
+
+  // Add IMS sections if applicable
+  const imsSections = getImsSections();
+  navSections = [...navSections, ...imsSections];
+
+  // ── Build final sections with doctor and super admin sections ──
+  let finalSections = navSections;
+
+  if (isDoctor) {
+    finalSections = [...finalSections, ...DOCTOR_SECTIONS];
+  }
+
+  if (isSuperAdmin) {
+    finalSections = [...finalSections, ...SUPER_ADMIN_SECTIONS];
+  }
+
+  // Remove duplicates (if any)
+  const seen = new Set();
+  finalSections = finalSections.filter(section => {
+    const key = section.section;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  console.log('📋 Final Sections:', finalSections.map(s => s.section));
 
   return (
     <div
@@ -260,7 +325,7 @@ export default function Layout() {
           <button onClick={() => setShowNotifications(!showNotifications)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', padding: 4 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
             {notifications.filter(n => !n.read).length > 0 && (
               <span style={{
@@ -300,10 +365,10 @@ export default function Layout() {
                   }}
                     onClick={async () => {
                       if (!n.read && n._id && !n._id.startsWith('sla-')) {
-                        try { 
-                          await taskService.markNotificationRead(n._id); 
+                        try {
+                          await taskService.markNotificationRead(n._id);
                           setNotifications(prev => prev.map(notif => notif._id === n._id ? { ...notif, read: true } : notif));
-                        } catch {}
+                        } catch { }
                       }
                       if (n.taskId) {
                         const msg = n.message.toLowerCase();
@@ -348,8 +413,12 @@ export default function Layout() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>🏥</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 0.3 }}>MediCare HMS</div>
-              <div style={{ fontSize: 10, color: '#94a3b8' }}>Hospital Management System</div>
+              <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 0.3 }}>
+                {isHospital ? 'Curelex Hospital' : 'MediCare HMS'}
+              </div>
+              <div style={{ fontSize: 10, color: '#94a3b8' }}>
+                {isHospital ? 'Hospital Management System' : 'Hospital Management System'}
+              </div>
             </div>
           </div>
         </div>
@@ -364,6 +433,16 @@ export default function Layout() {
           }}>
             {roleMeta.label}
           </span>
+          {isHospital && activePlan && (
+            <span style={{
+              display: 'inline-block', padding: '3px 10px', borderRadius: 20,
+              fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+              color: '#38bdf8', background: 'rgba(56,189,248,0.15)',
+              marginLeft: 6,
+            }}>
+              {activePlan.toUpperCase()}
+            </span>
+          )}
         </div>
 
         {/* Nav */}
@@ -404,7 +483,7 @@ export default function Layout() {
                               key={sub.path} to={sub.path}
                               onClick={(e) => {
                                 setSidebarOpen(false);
-                                handlePharmacySSO(e, sub.path); // Trigger SSO when navigating to any IMS link with correct path
+                                handlePharmacySSO(e, sub.path);
                               }}
                               style={({ isActive }) => ({
                                 display: 'flex', alignItems: 'center', gap: 8,
@@ -509,7 +588,6 @@ export default function Layout() {
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────── */}
-
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}

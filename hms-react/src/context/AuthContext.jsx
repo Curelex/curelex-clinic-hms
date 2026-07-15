@@ -58,31 +58,47 @@ export const AuthProvider = ({ children }) => {
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
 
-  // ── On app load: restore session from token ──────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem('hms_token');
-    if (!token) {
+  const token = localStorage.getItem('hms_token');
+  if (!token) {
+    setAuthReady(true);
+    return;
+  }
+  API.get('/auth/profile')
+    .then(async ({ data }) => {
+      console.log('📋 Profile loaded:', data);
+      setUser(data.user || data);
+      if (data.patient) setPatient(data.patient);
+      if (data.clinicType) setClinicType(data.clinicType);
+
+      // ── Restore activePlan — check every shape the API might send it in ──
+      if (data.activePlan) {
+        setActivePlan(data.activePlan);
+      } else if (data.user?.activePlan) {
+        setActivePlan(data.user.activePlan);
+      } else if (data.clinic?.plan) {
+        setActivePlan(data.clinic.plan);
+      } else if (data.clinicType === 'hospital') {
+        try {
+          const clinicRes = await API.get('/clinics/me');
+          setActivePlan(clinicRes.data?.plan || 'free');
+        } catch (err) {
+          console.error('Failed to fetch clinic plan on profile restore:', err);
+          setActivePlan('free');
+        }
+      }
+    })
+    .catch((err) => {
+      console.error('Failed to load profile:', err);
+      localStorage.removeItem('hms_token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setPatient(null);
+    })
+    .finally(() => {
       setAuthReady(true);
-      return;
-    }
-    API.get('/auth/profile')
-      .then(({ data }) => {
-        console.log('📋 Profile loaded:', data);
-        setUser(data.user || data);
-        if (data.patient) setPatient(data.patient);
-        if (data.clinicType) setClinicType(data.clinicType);
-      })
-      .catch((err) => {
-        console.error('Failed to load profile:', err);
-        localStorage.removeItem('hms_token');
-        localStorage.removeItem('user');
-        setUser(null);
-        setPatient(null);
-      })
-      .finally(() => {
-        setAuthReady(true);
-      });
-  }, []);
+    });
+}, []);
 
   // ── Setup socket events when user is loaded ──────────────────────────────
   useEffect(() => {
@@ -221,10 +237,34 @@ const login = async (email, password) => {
         if (clinicRes.data?.type) {
           setClinicType(clinicRes.data.type);
         }
+        if (clinicRes.data?.plan) {
+          setActivePlan(clinicRes.data.plan);
+        } else {
+          // If no plan, set to 'free'
+          setActivePlan('free');
+        }
       } catch (err) {
         console.error('Failed to fetch clinic type:', err);
-      }
+      } 
     }
+    else {
+        setActivePlan('free');
+      }
+
+      if (data.user?.activePlan) {
+      setActivePlan(data.user.activePlan);
+    } else if (data.clinic?.plan) {
+      setActivePlan(data.clinic.plan);
+    }
+
+    const clinicType = data.clinicType || data.user?.clinicType;
+    const plan = data.clinic?.plan || data.user?.activePlan || 'free';
+
+    if (clinicType === 'hospital' && (plan === 'free' || !plan || plan === 'none')) {
+      // Store that user needs to select a plan
+      sessionStorage.setItem('needsPlanSelection', 'true');
+    }
+
 
     return { success: true, user: data.user, patient: data.patient };
   } catch (err) {

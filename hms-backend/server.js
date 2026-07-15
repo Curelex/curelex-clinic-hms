@@ -51,6 +51,7 @@ import telemedicineRoutes from './routes/telemedicine.js';
 import feedbackRoutes from './routes/feedback.js';
 import payrollRoutes from './routes/payroll.js';
 import imsRoutes from './ims/src/routes/index.js';
+import planRoutes from './routes/plans.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 import consultationRoutes from './routes/consultations.js';
 // __dirname fix (ESM)
@@ -467,6 +468,18 @@ cron.schedule('0 * * * *', async () => {
   try {
     const now = new Date();
 
+    const clinics = await Clinic.find({
+      planStatus: { $in: ['active', 'grace_period'] },
+      planExpiresAt: { $ne: null }
+    });
+
+    for (const clinic of clinics) {
+      const expiresAt = new Date(clinic.planExpiresAt);
+      if (expiresAt < now) {
+        await planService.handleExpiredPlan(clinic._id);
+      }
+    }
+
     const overdueTasks = await Task.find({
       deadline: { $lt: now },
       status: { $ne: 'Completed' }
@@ -537,6 +550,7 @@ app.use('/api/telemedicine', telemedicineRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/consultations', consultationRoutes);
+app.use('/api/plans', planRoutes);
 app.use('/api/v1/ims', imsRoutes);
 
 // app.use('/api/clinic', clinicApp);
