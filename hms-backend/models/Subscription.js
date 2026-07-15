@@ -27,8 +27,8 @@ const subscriptionSchema = new mongoose.Schema(
     // Plan info
     plan: {
       type: String,
-      enum: ['lite', 'plus', 'pro'],
-      default: 'lite',
+      enum: ['lite', 'plus', 'pro', 'standard', 'enterprise', null],
+      default: null,
     },
 
     // Subscription status mirrors Stripe statuses

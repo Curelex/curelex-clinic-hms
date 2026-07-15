@@ -1,236 +1,383 @@
-// hms-backend/config/planConfig.js - Clinic Plans Only
+// hms-backend/config/planConfig.js - Add Hospital Plans
 
 export const PLAN_CONFIGS = {
-  // ── FREE PLAN (No plan) ──
-  free: {
-    label: 'Free Plan',
-    price: 0,
-    maxDoctors: 1,
-    maxReceptionists: 1,
-    maxPharmacists: 0,
-    maxStaff: 2,
-    features: {
-      patients: true,
-      billing: false,
-      pharmacy: false,
-      inventory: false,
-      lab: false,
-      ipd: false,
-      staff: false,
-      telemedicine: false,
-      prescriptions: false,
-      tokens: true,
-      emergency: false,
-      tasks: false,
-      reports: false,
+  // ── CLINIC PLANS (Keep existing) ──
+  clinic: {
+    free: {
+      label: 'Free Plan',
+      price: 0,
+      maxDoctors: 1,
+      maxReceptionists: 1,
+      maxPharmacists: 0,
+      maxStaff: 2,
+      features: {
+        patients: true,
+        billing: false,
+        pharmacy: false,
+        inventory: false,
+        lab: false,
+        ipd: false,
+        staff: false,
+        telemedicine: false,
+        prescriptions: false,
+        tokens: true,
+        emergency: false,
+        tasks: false,
+        reports: false,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: false,
+        receptionists: false,
+        allPatients: true,
+        followUps: false,
+        settings: true,
+        pharmacists: false,
+        revenue: false,
+      },
+      limits: {
+        patients: 50,
+        staff: 2,
+        doctors: 1,
+        receptionists: 1,
+      },
+      stripePriceId: null,
     },
-    visibleSections: {
-      overview: true,
-      doctors: false,
-      receptionists: false,
-      allPatients: true,
-      followUps: false,
-      settings: true,
-      pharmacists: false,
-      revenue: false,
+    lite: {
+      label: 'Clinic Lite',
+      price: 999,
+      maxDoctors: 3,
+      maxReceptionists: 2,
+      maxPharmacists: 0,
+      maxStaff: 5,
+      features: {
+        patients: true,
+        billing: false,
+        pharmacy: false,
+        inventory: false,
+        lab: false,
+        ipd: false,
+        staff: false,
+        telemedicine: false,
+        prescriptions: false,
+        tokens: true,
+        emergency: false,
+        tasks: false,
+        reports: false,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: true,
+        receptionists: true,
+        allPatients: true,
+        followUps: false,
+        settings: true,
+        pharmacists: false,
+        revenue: false,
+      },
+      limits: {
+        patients: 100,
+        staff: 5,
+        doctors: 3,
+        receptionists: 2,
+      },
+      stripePriceId: process.env.STRIPE_PRICE_LITE || null,
     },
-    limits: {
-      patients: 50,
-      staff: 2,
-      doctors: 1,
-      receptionists: 1,
+    plus: {
+      label: 'Clinic Plus',
+      price: 1499,
+      maxDoctors: -1,
+      maxReceptionists: -1,
+      maxPharmacists: 2,
+      maxStaff: -1,
+      features: {
+        patients: true,
+        billing: true,
+        pharmacy: true,
+        inventory: false,
+        lab: false,
+        ipd: false,
+        staff: true,
+        telemedicine: false,
+        prescriptions: true,
+        tokens: true,
+        emergency: false,
+        tasks: false,
+        reports: true,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: true,
+        receptionists: true,
+        allPatients: true,
+        followUps: false,
+        settings: true,
+        pharmacists: true,
+        revenue: true,
+      },
+      limits: {
+        patients: 500,
+        staff: 20,
+        doctors: -1,
+        receptionists: -1,
+      },
+      stripePriceId: process.env.STRIPE_PRICE_PLUS || null,
     },
-    stripePriceId: null,
+    pro: {
+      label: 'Clinic Pro',
+      price: 1999,
+      maxDoctors: -1,
+      maxReceptionists: -1,
+      maxPharmacists: -1,
+      maxStaff: -1,
+      features: {
+        patients: true,
+        billing: true,
+        pharmacy: true,
+        inventory: true,
+        lab: true,
+        ipd: true,
+        staff: true,
+        telemedicine: true,
+        prescriptions: true,
+        tokens: true,
+        emergency: true,
+        tasks: true,
+        reports: true,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: true,
+        receptionists: true,
+        allPatients: true,
+        followUps: true,
+        settings: true,
+        pharmacists: true,
+        revenue: true,
+      },
+      limits: {
+        patients: 2000,
+        staff: 100,
+        doctors: -1,
+        receptionists: -1,
+      },
+      stripePriceId: process.env.STRIPE_PRICE_PRO || null,
+    }
   },
-  // ── LITE PLAN ──
-  lite: {
-    label: 'Clinic Lite',
-    price: 999,
-    maxDoctors: 3,
-    maxReceptionists: 2,
-    maxPharmacists: 0,
-    maxStaff: 5,
-    features: {
-      patients: true,
-      billing: false,
-      pharmacy: false,
-      inventory: false,
-      lab: false,
-      ipd: false,
-      staff: false,
-      telemedicine: false,
-      prescriptions: false,
-      tokens: true,
-      emergency: false,
-      tasks: false,
-      reports: false,
+
+  // ── HOSPITAL PLANS ──
+  hospital: {
+    free: {
+      label: 'Free Plan',
+      price: 0,
+      maxDoctors: 2,
+      maxReceptionists: 2,
+      maxPharmacists: 0,
+      maxNurses: 0,
+      maxLabTechnicians: 0,
+      maxStaff: 5,
+      features: {
+        patients: true,
+        billing: false,
+        pharmacy: false,
+        inventory: false,
+        lab: false,
+        ipd: false,
+        staff: false,
+        telemedicine: false,
+        prescriptions: false,
+        tokens: true,
+        emergency: false,
+        tasks: false,
+        reports: false,
+        multiDepartment: false,
+        bedManagement: false,
+        operationTheatre: false,
+        ambulance: false,
+        bloodBank: false,
+        aiAnalytics: false,
+        customReports: false,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: false,
+        receptionists: false,
+        allPatients: true,
+        followUps: false,
+        settings: true,
+        pharmacists: false,
+        revenue: false,
+        lab: false,
+        ipd: false,
+        emergency: false,
+        tasks: false,
+        bedManagement: false,
+        billing: false,
+        prescriptions: false,
+      },
+      limits: {
+        patients: 100,
+        staff: 5,
+        doctors: 2,
+        receptionists: 2,
+        beds: 10,
+      },
+      stripePriceId: null,
     },
-    visibleSections: {
-      overview: true,
-      doctors: true,
-      receptionists: true,
-      allPatients: true,
-      followUps: false,
-      settings: true,
-      pharmacists: false,
-      revenue: false,
+    standard: {
+      label: 'Standard Hospital Plan',
+      price: 4999,
+      maxDoctors: 20,
+      maxReceptionists: 10,
+      maxPharmacists: 5,
+      maxNurses: 15,
+      maxLabTechnicians: 5,
+      maxStaff: 50,
+      features: {
+        patients: true,
+        billing: true,
+        pharmacy: true,
+        inventory: true,
+        lab: true,
+        ipd: true,
+        staff: true,
+        telemedicine: true,
+        prescriptions: true,
+        tokens: true,
+        emergency: true,
+        tasks: true,
+        reports: true,
+        multiDepartment: true,
+        bedManagement: true,
+        operationTheatre: false,
+        ambulance: false,
+        bloodBank: false,
+        aiAnalytics: false,
+        customReports: false,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: true,
+        receptionists: true,
+        allPatients: true,
+        followUps: true,
+        settings: true,
+        pharmacists: true,
+        revenue: true,
+        lab: true,
+        ipd: true,
+        emergency: true,
+        tasks: true,
+        bedManagement: true,
+        billing: true,
+        prescriptions: true,
+      },
+      limits: {
+        patients: 5000,
+        staff: 50,
+        doctors: 20,
+        receptionists: 10,
+        beds: 50,
+      },
+      stripePriceId: process.env.STRIPE_PRICE_HOSPITAL_STANDARD || null,
     },
-    limits: {
-      patients: 100,
-      staff: 5,
-      doctors: 3,
-      receptionists: 2,
-    },
-    stripePriceId: process.env.STRIPE_PRICE_LITE || null,
-  },
-  // ── PLUS PLAN ──
-  plus: {
-    label: 'Clinic Plus',
-    price: 1499,
-    maxDoctors: -1, // Unlimited
-    maxReceptionists: -1,
-    maxPharmacists: 2,
-    maxStaff: -1,
-    features: {
-      patients: true,
-      billing: true,
-      pharmacy: true,
-      inventory: false,
-      lab: false,
-      ipd: false,
-      staff: true,
-      telemedicine: false,
-      prescriptions: true,
-      tokens: true,
-      emergency: false,
-      tasks: false,
-      reports: true,
-    },
-    visibleSections: {
-      overview: true,
-      doctors: true,
-      receptionists: true,
-      allPatients: true,
-      followUps: false,
-      settings: true,
-      pharmacists: true,
-      revenue: true,
-    },
-    limits: {
-      patients: 500,
-      staff: 20,
-      doctors: -1,
-      receptionists: -1,
-    },
-    stripePriceId: process.env.STRIPE_PRICE_PLUS || null,
-  },
-  // ── PRO PLAN ──
-  pro: {
-    label: 'Clinic Pro',
-    price: 1999,
-    maxDoctors: -1,
-    maxReceptionists: -1,
-    maxPharmacists: -1,
-    maxStaff: -1,
-    features: {
-      patients: true,
-      billing: true,
-      pharmacy: true,
-      inventory: true,
-      lab: true,
-      ipd: true,
-      staff: true,
-      telemedicine: true,
-      prescriptions: true,
-      tokens: true,
-      emergency: true,
-      tasks: true,
-      reports: true,
-    },
-    visibleSections: {
-      overview: true,
-      doctors: true,
-      receptionists: true,
-      allPatients: true,
-      followUps: true,
-      settings: true,
-      pharmacists: true,
-      revenue: true,
-    },
-    limits: {
-      patients: 2000,
-      staff: 100,
-      doctors: -1,
-      receptionists: -1,
-    },
-    stripePriceId: process.env.STRIPE_PRICE_PRO || null,
+    enterprise: {
+      label: 'Enterprise Hospital Plan',
+      price: 6999,
+      maxDoctors: -1,
+      maxReceptionists: -1,
+      maxPharmacists: -1,
+      maxNurses: -1,
+      maxLabTechnicians: -1,
+      maxStaff: -1,
+      features: {
+        patients: true,
+        billing: true,
+        pharmacy: true,
+        inventory: true,
+        lab: true,
+        ipd: true,
+        staff: true,
+        telemedicine: true,
+        prescriptions: true,
+        tokens: true,
+        emergency: true,
+        tasks: true,
+        reports: true,
+        multiDepartment: true,
+        bedManagement: true,
+        operationTheatre: true,
+        ambulance: true,
+        bloodBank: true,
+        aiAnalytics: true,
+        customReports: true,
+      },
+      visibleSections: {
+        overview: true,
+        doctors: true,
+        receptionists: true,
+        allPatients: true,
+        followUps: true,
+        settings: true,
+        pharmacists: true,
+        revenue: true,
+        lab: true,
+        ipd: true,
+        emergency: true,
+        tasks: true,
+        bedManagement: true,
+        billing: true,
+        prescriptions: true,
+        operationTheatre: true,
+        ambulance: true,
+        bloodBank: true,
+        aiAnalytics: true,
+      },
+      limits: {
+        patients: -1,
+        staff: -1,
+        doctors: -1,
+        receptionists: -1,
+        beds: -1,
+      },
+      stripePriceId: process.env.STRIPE_PRICE_HOSPITAL_ENTERPRISE || null,
+    }
   }
 };
 
 // ── Stripe Plan Mapping ──
 export const STRIPE_PLANS = {
-  free: {
-    name: 'Free Plan',
-    priceId: null,
-    amount: 0,
-    currency: 'inr',
-    interval: 'month',
-  },
-  lite: {
-    name: 'Clinic Lite',
-    priceId: process.env.STRIPE_PRICE_LITE || null,
-    amount: 99900, // ₹999 in paise
-    currency: 'inr',
-    interval: 'month',
-  },
-  plus: {
-    name: 'Clinic Plus',
-    priceId: process.env.STRIPE_PRICE_PLUS || null,
-    amount: 149900, // ₹1499 in paise
-    currency: 'inr',
-    interval: 'month',
-  },
-  pro: {
-    name: 'Clinic Pro',
-    priceId: process.env.STRIPE_PRICE_PRO || null,
-    amount: 199900, // ₹1999 in paise
-    currency: 'inr',
-    interval: 'month',
-  },
+  // Clinic plans
+  free: { name: 'Free Plan', priceId: null, amount: 0, currency: 'inr', interval: 'month' },
+  lite: { name: 'Clinic Lite', priceId: process.env.STRIPE_PRICE_LITE || null, amount: 99900, currency: 'inr', interval: 'month' },
+  plus: { name: 'Clinic Plus', priceId: process.env.STRIPE_PRICE_PLUS || null, amount: 149900, currency: 'inr', interval: 'month' },
+  pro: { name: 'Clinic Pro', priceId: process.env.STRIPE_PRICE_PRO || null, amount: 199900, currency: 'inr', interval: 'month' },
+  // Hospital plans
+  standard: { name: 'Standard Hospital', priceId: process.env.STRIPE_PRICE_HOSPITAL_STANDARD || null, amount: 499900, currency: 'inr', interval: 'month' },
+  enterprise: { name: 'Enterprise Hospital', priceId: process.env.STRIPE_PRICE_HOSPITAL_ENTERPRISE || null, amount: 699900, currency: 'inr', interval: 'month' },
 };
 
 // ── Helper Functions ──
 
-/**
- * Get plan configuration by plan key
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {object} Plan configuration
- */
-export function getPlanConfig(planKey) {
-  // If planKey is null, undefined, or 'free', return free plan
+export function getPlanConfig(clinicType, planKey) {
+  const typeConfigs = PLAN_CONFIGS[clinicType] || PLAN_CONFIGS.clinic;
   if (!planKey || planKey === 'free') {
-    return PLAN_CONFIGS.free;
+    return typeConfigs.free || typeConfigs.lite;
   }
-  return PLAN_CONFIGS[planKey] || PLAN_CONFIGS.free;
+  return typeConfigs[planKey] || typeConfigs.free || typeConfigs.lite;
 }
 
-/**
- * Get all available plans
- * @returns {array} Array of plan objects with id
- */
-export function getAvailablePlans() {
-  return Object.entries(PLAN_CONFIGS).map(([key, config]) => ({
+export function getAvailablePlans(clinicType) {
+  const typeConfigs = PLAN_CONFIGS[clinicType] || PLAN_CONFIGS.clinic;
+  return Object.entries(typeConfigs).map(([key, config]) => ({
     id: key,
     ...config,
   }));
 }
 
-/**
- * Get only paid plans (excludes free)
- * @returns {array} Array of paid plan objects with id
- */
-export function getPaidPlans() {
-  return Object.entries(PLAN_CONFIGS)
+export function getPaidPlans(clinicType) {
+  const typeConfigs = PLAN_CONFIGS[clinicType] || PLAN_CONFIGS.clinic;
+  return Object.entries(typeConfigs)
     .filter(([key, config]) => key !== 'free' && config.price > 0)
     .map(([key, config]) => ({
       id: key,
@@ -238,21 +385,11 @@ export function getPaidPlans() {
     }));
 }
 
-/**
- * Get plan by Stripe price ID
- * @param {string} priceId - Stripe price ID
- * @returns {object|null} Plan object or null if not found
- */
 export function getPlanByPriceId(priceId) {
   if (!priceId) return null;
   return Object.values(STRIPE_PLANS).find((p) => p.priceId === priceId) ?? null;
 }
 
-/**
- * Get plan key by Stripe price ID
- * @param {string} priceId - Stripe price ID
- * @returns {string|null} Plan key or null if not found
- */
 export function getPlanKeyByPriceId(priceId) {
   if (!priceId) return null;
   return Object.keys(STRIPE_PLANS).find(
@@ -260,15 +397,8 @@ export function getPlanKeyByPriceId(priceId) {
   ) ?? null;
 }
 
-/**
- * Check if a staff role can be added based on plan limits
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @param {string} roleType - 'doctors', 'receptionists', 'pharmacists', 'staff'
- * @param {number} currentCount - Current count of this role
- * @returns {object} { allowed, limit, upgradeNeeded, message }
- */
-export function canAddStaff(planKey, roleType, currentCount) {
-  const config = getPlanConfig(planKey);
+export function canAddStaff(clinicType, planKey, roleType, currentCount) {
+  const config = getPlanConfig(clinicType, planKey);
   
   let maxCount = 0;
   switch (roleType) {
@@ -281,6 +411,12 @@ export function canAddStaff(planKey, roleType, currentCount) {
     case 'pharmacists':
       maxCount = config.maxPharmacists;
       break;
+    case 'nurses':
+      maxCount = config.maxNurses || 0;
+      break;
+    case 'labTechnicians':
+      maxCount = config.maxLabTechnicians || 0;
+      break;
     case 'staff':
       maxCount = config.maxStaff;
       break;
@@ -288,13 +424,12 @@ export function canAddStaff(planKey, roleType, currentCount) {
       return { allowed: true, limit: -1, upgradeNeeded: null };
   }
 
-  // Unlimited
   if (maxCount === -1) {
     return { allowed: true, limit: -1, upgradeNeeded: null };
   }
 
   const allowed = currentCount < maxCount;
-  const upgradeNeeded = allowed ? null : getUpgradePath(planKey);
+  const upgradeNeeded = allowed ? null : getUpgradePath(clinicType, planKey);
   
   return { 
     allowed, 
@@ -304,13 +439,10 @@ export function canAddStaff(planKey, roleType, currentCount) {
   };
 }
 
-/**
- * Get the next plan in the upgrade path
- * @param {string} currentPlan - 'free', 'lite', 'plus', 'pro'
- * @returns {string|null} Next plan key or null if at highest plan
- */
-function getUpgradePath(currentPlan) {
-  const planOrder = ['free', 'lite', 'plus', 'pro'];
+function getUpgradePath(clinicType, currentPlan) {
+  const planOrder = clinicType === 'hospital' 
+    ? ['free', 'standard', 'enterprise'] 
+    : ['free', 'lite', 'plus', 'pro'];
   const currentIndex = planOrder.indexOf(currentPlan);
   if (currentIndex === -1 || currentIndex >= planOrder.length - 1) {
     return null;
@@ -318,112 +450,74 @@ function getUpgradePath(currentPlan) {
   return planOrder[currentIndex + 1];
 }
 
-/**
- * Check if a section is visible in the current plan
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @param {string} sectionKey - 'overview', 'doctors', 'receptionists', etc.
- * @returns {boolean} True if section is visible
- */
-export function isSectionVisible(planKey, sectionKey) {
-  const config = getPlanConfig(planKey);
+export function isSectionVisible(clinicType, planKey, sectionKey) {
+  const config = getPlanConfig(clinicType, planKey);
   return config.visibleSections?.[sectionKey] ?? false;
 }
 
-/**
- * Get plan limits for a specific plan
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {object} Limits object
- */
-export function getPlanLimits(planKey) {
-  const config = getPlanConfig(planKey);
-  return config.limits || { patients: 0, staff: 0, doctors: 0, receptionists: 0 };
+export function isFeatureAvailable(clinicType, planKey, featureKey) {
+  const config = getPlanConfig(clinicType, planKey);
+  return config.features?.[featureKey] ?? false;
 }
 
-/**
- * Get plan price
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {number} Price in INR
- */
-export function getPlanPrice(planKey) {
+export function getPlanLimits(clinicType, planKey) {
+  const config = getPlanConfig(clinicType, planKey);
+  return config.limits || { patients: 0, staff: 0, doctors: 0 };
+}
+
+export function getPlanPrice(clinicType, planKey) {
   if (!planKey || planKey === 'free') return 0;
-  const config = getPlanConfig(planKey);
+  const config = getPlanConfig(clinicType, planKey);
   return config.price || 0;
 }
 
-/**
- * Get plan label
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {string} Plan label
- */
-export function getPlanLabel(planKey) {
+export function getPlanLabel(clinicType, planKey) {
   if (!planKey || planKey === 'free') return 'Free Plan';
-  const config = getPlanConfig(planKey);
+  const config = getPlanConfig(clinicType, planKey);
   return config.label || 'Free Plan';
 }
 
-/**
- * Get plan features
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {object} Features object
- */
-export function getPlanFeatures(planKey) {
-  const config = getPlanConfig(planKey);
+export function getPlanFeatures(clinicType, planKey) {
+  const config = getPlanConfig(clinicType, planKey);
   return config.features || {};
 }
 
-/**
- * Get visible sections for a plan
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {object} Visible sections object
- */
-export function getPlanVisibleSections(planKey) {
-  const config = getPlanConfig(planKey);
+export function getPlanVisibleSections(clinicType, planKey) {
+  const config = getPlanConfig(clinicType, planKey);
   return config.visibleSections || {};
 }
 
-/**
- * Check if a plan is free
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {boolean} True if plan is free
- */
-export function isFreePlan(planKey) {
+export function isFreePlan(clinicType, planKey) {
   return !planKey || planKey === 'free';
 }
 
-/**
- * Check if a plan is paid
- * @param {string} planKey - 'free', 'lite', 'plus', 'pro'
- * @returns {boolean} True if plan is paid
- */
-export function isPaidPlan(planKey) {
-  return planKey && planKey !== 'free' && planKey !== 'lite' ? true : planKey === 'lite';
+export function isPaidPlan(clinicType, planKey) {
+  return planKey && planKey !== 'free';
 }
 
-/**
- * Get the next plan in upgrade path
- * @param {string} currentPlan - 'free', 'lite', 'plus', 'pro'
- * @returns {string|null} Next plan or null
- */
 export const PLAN_UPGRADE_PATH = {
-  free: 'lite',
-  lite: 'plus',
-  plus: 'pro',
-  pro: null,
+  clinic: {
+    free: 'lite',
+    lite: 'plus',
+    plus: 'pro',
+    pro: null,
+  },
+  hospital: {
+    free: 'standard',
+    standard: 'enterprise',
+    enterprise: null,
+  },
 };
 
-export function getNextPlan(currentPlan) {
-  return PLAN_UPGRADE_PATH[currentPlan] || null;
+export function getNextPlan(clinicType, currentPlan) {
+  const paths = PLAN_UPGRADE_PATH[clinicType] || PLAN_UPGRADE_PATH.clinic;
+  return paths[currentPlan] || null;
 }
 
-/**
- * Get Stripe plans mapping
- * @returns {object} Stripe plans object
- */
 export function getStripePlans() {
   return STRIPE_PLANS;
 }
 
-// ── Default export ──
 export default {
   PLAN_CONFIGS,
   STRIPE_PLANS,
@@ -434,6 +528,7 @@ export default {
   getPlanKeyByPriceId,
   canAddStaff,
   isSectionVisible,
+  isFeatureAvailable,
   getPlanLimits,
   getPlanPrice,
   getPlanLabel,

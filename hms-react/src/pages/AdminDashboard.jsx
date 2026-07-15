@@ -523,12 +523,12 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   }, [clinic?.plan]);
 
   useEffect(() => {
-    const section = TAB_TO_SECTION[tab];
-    if (section && !isSectionVisible(safePlan, section)) {
-      console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
-      setTab('overview');
-    }
-  }, [safePlan, tab]);
+  const section = TAB_TO_SECTION[tab];
+  if (section && !isSectionVisible('clinic', safePlan, section)) {
+    console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
+    setTab('overview');
+  }
+}, [safePlan, tab]);
 
   // ── Safe data access with null checks ──
   const todayStr = new Date().toISOString().split('T')[0];
@@ -694,10 +694,8 @@ const navItems = [
   { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
 ]
   .filter(item => {
-    // ── Filter by plan visibility ──
     const planKey = safePlan || 'free';
-    const isVisible = isSectionVisible(planKey, item.section);
-    
+    const isVisible = isSectionVisible('clinic', planKey, item.section);
     return isVisible;
   })
   .map(item => ({
@@ -709,7 +707,7 @@ const navItems = [
   }));
 
   // ── Check if pharmacists are allowed in this plan ──
-  const planConfig = getPlanConfig(safePlan);
+  const planConfig = getPlanConfig('clinic',safePlan);
   const canManagePharmacists = planConfig.maxPharmacists !== 0;
 
   return (
@@ -1891,8 +1889,8 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more doctors based on plan
-  const canAdd = canAddStaff(activePlan, 'doctors', doctors.length);
-  const planConfig = getPlanConfig(activePlan);
+  const canAdd = canAddStaff('clinic',activePlan, 'doctors', doctors.length);
+  const planConfig = getPlanConfig('clinic',activePlan);
   const maxDoctors = planConfig.maxDoctors === -1 ? '∞' : planConfig.maxDoctors;
 
   function handleEnterKey(e) {
@@ -2177,8 +2175,8 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more receptionists based on plan
-  const canAdd = canAddStaff(activePlan, 'receptionists', receptionists.length);
-  const planConfig = getPlanConfig(activePlan);
+  const canAdd = canAddStaff('clinic',activePlan, 'receptionists', receptionists.length);
+  const planConfig = getPlanConfig('clinic',activePlan);
   const maxReceptionists = planConfig.maxReceptionists === -1 ? '∞' : planConfig.maxReceptionists;
 
   function handleEnterKey(e) {
@@ -2373,7 +2371,7 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
 
   // ── FIX: Check if can add more pharmacists based on plan ──
   // If plan is 'pro' or 'plus', pharmacists should be allowed
-  const planConfig = getPlanConfig(activePlan || 'free');
+  const planConfig = getPlanConfig('clinic',activePlan || 'free');
   const maxPharmacists = planConfig.maxPharmacists || 0;
   const canAddMore = maxPharmacists === -1 || pharmacists.length < maxPharmacists;
   
