@@ -5,38 +5,38 @@ import { useAuth } from '../context/AuthContext';
 
 // ── Module definitions ────────────────────────────────────────
 const ALL_MODULES = [
-  { key: 'dashboard',     label: 'Dashboard',      icon: '🏠' },
-  { key: 'patients',      label: 'Patients',        icon: '👤' },
-  { key: 'ipd',           label: 'IPD / Admitted',  icon: '🏥' },
-  { key: 'billing',       label: 'Billing',         icon: '💳' },
-  { key: 'prescriptions', label: 'Prescriptions',   icon: '📝' },
-  { key: 'pharmacy',      label: 'Pharmacy',        icon: '💊' },
-  { key: 'lab',           label: 'Lab Tests',       icon: '🧪' },
-  { key: 'inventory',     label: 'Inventory',       icon: '📦' },
-  { key: 'room-settings', label: 'Room Settings',   icon: '🏨' },
-  { key: 'telemedicine',  label: 'Telemedicine',    icon: '📹' },
+  { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
+  { key: 'patients', label: 'Patients', icon: '👤' },
+  { key: 'ipd', label: 'IPD / Admitted', icon: '🏥' },
+  { key: 'billing', label: 'Billing', icon: '💳' },
+  { key: 'prescriptions', label: 'Prescriptions', icon: '📝' },
+  { key: 'pharmacy', label: 'Pharmacy', icon: '💊' },
+  { key: 'lab', label: 'Lab Tests', icon: '🧪' },
+  { key: 'inventory', label: 'Inventory', icon: '📦' },
+  { key: 'room-settings', label: 'Room Settings', icon: '🏨' },
+  { key: 'telemedicine', label: 'Telemedicine', icon: '📹' },
 ];
 
 const ROLE_DEFAULTS = {
-  admin:          ['dashboard', 'patients', 'ipd', 'billing', 'prescriptions', 'pharmacy', 'lab', 'inventory', 'room-settings', 'staff'],
-  doctor:         ['dashboard', 'patients', 'ipd', 'prescriptions', 'lab', 'telemedicine'],
-  nurse:          ['dashboard', 'patients', 'ipd', 'lab'],
-  receptionist:   ['dashboard', 'patients', 'ipd', 'billing', 'room-settings'],
-  pharmacist:     ['dashboard', 'prescriptions', 'pharmacy', 'inventory'],
+  admin: ['dashboard', 'patients', 'ipd', 'billing', 'prescriptions', 'pharmacy', 'lab', 'inventory', 'room-settings', 'staff'],
+  doctor: ['dashboard', 'patients', 'ipd', 'prescriptions', 'lab', 'telemedicine'],
+  nurse: ['dashboard', 'patients', 'ipd', 'lab'],
+  receptionist: ['dashboard', 'patients', 'ipd', 'billing', 'room-settings'],
+  pharmacist: ['dashboard', 'prescriptions', 'pharmacy', 'inventory'],
   lab_technician: ['dashboard', 'patients', 'lab'],
 };
 
 const ROLE_STYLE = {
-  admin:          { bg: '#fee2e2', color: '#dc2626', dot: '#dc2626' },
-  doctor:         { bg: '#dbeafe', color: '#1d4ed8', dot: '#1d4ed8' },
-  nurse:          { bg: '#d1fae5', color: '#059669', dot: '#059669' },
-  receptionist:   { bg: '#fef3c7', color: '#b45309', dot: '#b45309' },
-  pharmacist:     { bg: '#ede9fe', color: '#7c3aed', dot: '#7c3aed' },
+  admin: { bg: '#fee2e2', color: '#dc2626', dot: '#dc2626' },
+  doctor: { bg: '#dbeafe', color: '#1d4ed8', dot: '#1d4ed8' },
+  nurse: { bg: '#d1fae5', color: '#059669', dot: '#059669' },
+  receptionist: { bg: '#fef3c7', color: '#b45309', dot: '#b45309' },
+  pharmacist: { bg: '#ede9fe', color: '#7c3aed', dot: '#7c3aed' },
   lab_technician: { bg: '#ffedd5', color: '#c2410c', dot: '#c2410c' },
 };
 
 const AVATAR_COLORS = [
-  '#0f4c81','#059669','#7c3aed','#b45309','#dc2626','#0369a1',
+  '#0f4c81', '#059669', '#7c3aed', '#b45309', '#dc2626', '#0369a1',
 ];
 
 const emptyForm = {
@@ -46,10 +46,10 @@ const emptyForm = {
   consultationFee: '',   // ✅ NEW
 };
 
-const roles = ['admin','doctor','nurse','receptionist','pharmacist','lab_technician'];
+const roles = ['admin', 'doctor', 'nurse', 'receptionist', 'pharmacist', 'lab_technician'];
 const departments = [
-  'General Medicine','Surgery','Cardiology','Pediatrics','Orthopedics',
-  'Neurology','Gynecology','Radiology','Pathology','Emergency','Pharmacy','Administration',
+  'General Medicine', 'Surgery', 'Cardiology', 'Pediatrics', 'Orthopedics',
+  'Neurology', 'Gynecology', 'Radiology', 'Pathology', 'Emergency', 'Pharmacy', 'Administration',
 ];
 
 const fmt = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -177,28 +177,28 @@ const css = {
 
 export default function Staff() {
   const { user, getEffectiveClinicId } = useAuth();
-  const [users,        setUsers]        = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [modal,        setModal]        = useState(false);
-  const [form,         setForm]         = useState(emptyForm);
-  const [editId,       setEditId]       = useState(null);
-  const [filterRole,   setFilterRole]   = useState('');
-  const [saving,       setSaving]       = useState(false);
-  const [error,        setError]        = useState('');
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
+  const [filterRole, setFilterRole] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
 
-  const [workPanel,    setWorkPanel]    = useState(null);
-  const [workData,     setWorkData]     = useState(null);
-  const [workLoading,  setWorkLoading]  = useState(false);
+  const [workPanel, setWorkPanel] = useState(null);
+  const [workData, setWorkData] = useState(null);
+  const [workLoading, setWorkLoading] = useState(false);
   const [clinics, setClinics] = useState([]);
 
   useEffect(() => {
-  if (user?.role === 'super_admin') {
-    API.get('/auth/clinics')
-      .then(res => setClinics(res.data.clinics || []))
-      .catch(console.error);
-  }
-}, [user]);
+    if (user?.role === 'super_admin') {
+      API.get('/auth/clinics')
+        .then(res => setClinics(res.data.clinics || []))
+        .catch(console.error);
+    }
+  }, [user]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -249,7 +249,7 @@ export default function Staff() {
 
   const toggleAll = () => {
     const allKeys = ALL_MODULES.map(m => m.key);
-    const hasAll  = allKeys.every(k => form.permissions.includes(k));
+    const hasAll = allKeys.every(k => form.permissions.includes(k));
     setForm(f => ({ ...f, permissions: hasAll ? ['dashboard'] : allKeys }));
   };
 
@@ -263,16 +263,27 @@ export default function Staff() {
       setError('This email is already registered in this clinic');
       return;
     }
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    // New staff must always have a valid password
+    // While editing, validate only if a new password is entered
+    if ((!editId || form.password) && !passwordRegex.test(form.password)) {
+      setError(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
     setSaving(true); setError('');
     try {
       const effectiveClinicId = getEffectiveClinicId();
       if (!effectiveClinicId) {
-      setError('No clinic selected. Please select a clinic first.');
-      setSaving(false);
-      return;
-    }
+        setError('No clinic selected. Please select a clinic first.');
+        setSaving(false);
+        return;
+      }
       if (editId) {
-        
+
         const payload = { ...form, clinicId: effectiveClinicId };
         if (!payload.password) delete payload.password;
         // ✅ Only send consultationFee for doctors
@@ -305,10 +316,10 @@ export default function Staff() {
 
   const openAdd = () => { setForm(emptyForm); setEditId(null); setError(''); setEmailTouched(false); setModal(true); };
 
-  const filtered    = filterRole ? users.filter(u => u.role === filterRole) : users;
+  const filtered = filterRole ? users.filter(u => u.role === filterRole) : users;
   const isAdminRole = (role) => role === 'admin';
-  const allKeys     = ALL_MODULES.map(m => m.key);
-  const hasAll      = allKeys.every(k => form.permissions.includes(k));
+  const allKeys = ALL_MODULES.map(m => m.key);
+  const hasAll = allKeys.every(k => form.permissions.includes(k));
 
   return (
     <div style={css.page}>
@@ -598,6 +609,17 @@ export default function Staff() {
                       onChange={e => setForm({ ...form, password: e.target.value })}
                       {...(!editId && { required: true })}
                     />
+                    <small
+                      style={{
+                        color: '#94a3b8',
+                        fontSize: '12px',
+                        marginTop: '4px',
+                        display: 'block',
+                        lineHeight: '1.5',
+                      }}
+                    >
+                      Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+                    </small>
                   </div>
                 </div>
 
@@ -662,7 +684,7 @@ export default function Staff() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', opacity: isAdminRole(form.role) ? 0.5 : 1, pointerEvents: isAdminRole(form.role) ? 'none' : 'auto' }}>
                     {ALL_MODULES.map((mod, idx) => {
-                      const on     = form.permissions.includes(mod.key);
+                      const on = form.permissions.includes(mod.key);
                       const locked = mod.key === 'dashboard';
                       return (
                         <div key={mod.key} style={{

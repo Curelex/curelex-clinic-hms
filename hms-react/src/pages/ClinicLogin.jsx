@@ -19,18 +19,18 @@ const isValidEmail = (email) =>
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
-  brand:       '#0a3d62',
-  brandMid:    '#1565a8',
-  accent:      '#00b894',
+  brand: '#0a3d62',
+  brandMid: '#1565a8',
+  accent: '#00b894',
   accentLight: '#00cec9',
-  textDark:    '#0a3d62',
-  textMuted:   '#4a6278',
-  textLight:   '#8fa8bc',
-  border:      '#d0dce8',
-  white:       '#ffffff',
-  errBg:       '#fef2f2',
-  errBorder:   '#fecaca',
-  errText:     '#c0392b',
+  textDark: '#0a3d62',
+  textMuted: '#4a6278',
+  textLight: '#8fa8bc',
+  border: '#d0dce8',
+  white: '#ffffff',
+  errBg: '#fef2f2',
+  errBorder: '#fecaca',
+  errText: '#c0392b',
 };
 
 const makeStyles = (mob) => ({
@@ -76,7 +76,7 @@ const makeStyles = (mob) => ({
     border: `1px solid ${C.errBorder}`, color: C.errText, fontSize: 13.5,
     display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, lineHeight: 1.4,
   },
-  hintOk:  { fontSize: 11.5, color: '#00a878', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 },
+  hintOk: { fontSize: 11.5, color: '#00a878', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 },
   hintErr: { fontSize: 11.5, color: '#e74c3c', marginTop: 4 },
   btnBase: {
     width: '100%', padding: mob ? '13px 20px' : '12px 20px',
@@ -117,7 +117,7 @@ function IcoCheck() {
 }
 
 // ── Email Field ──────────────────────────────────────────────────────────────
-function EmailField({ label, value, onChange, S, disabled, placeholder,...rest }) {
+function EmailField({ label, value, onChange, S, disabled, placeholder, ...rest }) {
   const [touched, setTouched] = useState(false);
   const valid = isValidEmail(value);
 
@@ -190,7 +190,7 @@ export default function ClinicLogin() {
   const mob = useIsMobile();
   const S = makeStyles(mob);
 
-//   const [role, setRole] = useState('superadmin');
+  //   const [role, setRole] = useState('superadmin');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [form, setForm] = useState({
@@ -200,13 +200,13 @@ export default function ClinicLogin() {
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-//   const roles = [
-//     { key: 'superadmin',   label: '⭐  Super Admin'  },
-//     { key: 'admin',        label: '🔐  Clinic Admin'  },
-//     { key: 'receptionist', label: '📋  Receptionist'  },
-//     { key: 'doctor',       label: '👨‍⚕️  Doctor'        },
-//     { key: 'pharmacist',   label: '💊  Pharmacist'    },  
-//   ];
+  //   const roles = [
+  //     { key: 'superadmin',   label: '⭐  Super Admin'  },
+  //     { key: 'admin',        label: '🔐  Clinic Admin'  },
+  //     { key: 'receptionist', label: '📋  Receptionist'  },
+  //     { key: 'doctor',       label: '👨‍⚕️  Doctor'        },
+  //     { key: 'pharmacist',   label: '💊  Pharmacist'    },  
+  //   ];
 
   async function handleLogin() {
     setErr('');
@@ -216,22 +216,32 @@ export default function ClinicLogin() {
       return;
     }
 
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setErr(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
-    //   const data = await apiLogin(role, form.email, form.password);
+      //   const data = await apiLogin(role, form.email, form.password);
 
-    //   login({
-    //     token: data.token,
-    //     type: data.role,
-    //     role: data.role,
-    //     clinicId: data.clinicId,
-    //     user: data.clinic || data.user || null,
-    //   });
+      //   login({
+      //     token: data.token,
+      //     type: data.role,
+      //     role: data.role,
+      //     clinicId: data.clinicId,
+      //     user: data.clinic || data.user || null,
+      //   });
 
-    //   navigate('/clinic');
+      //   navigate('/clinic');
 
-    const result = await login(form.email, form.password);
+      const result = await login(form.email, form.password);
       if (!result.success) {
         setErr(result.message || 'Login failed.');
         return;
@@ -290,14 +300,14 @@ export default function ClinicLogin() {
             disabled={loading}
           />
 
-          <FieldInput 
-            S={S} 
-            label="Password" 
-            type="password" 
-            value={form.password} 
-            onChange={e => f('password', e.target.value)} 
-            placeholder="Your password" 
-            disabled={loading} 
+          <FieldInput
+            S={S}
+            label="Password"
+            type="password"
+            value={form.password}
+            onChange={e => f('password', e.target.value)}
+            placeholder="Your password"
+            disabled={loading}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -306,15 +316,27 @@ export default function ClinicLogin() {
             }}
           />
 
+          <div
+            style={{
+              fontSize: 11,
+              color: "#64748b",
+              marginTop: -6,
+              marginBottom: 12,
+              lineHeight: 1.4,
+            }}
+          >
+            Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+          </div>
+
           {err && (
             <div style={S.alertError}>
               <IcoAlert /> <span>{err}</span>
             </div>
           )}
 
-          <button 
-            style={{ ...S.btnBase, ...S.btnPrimary }} 
-            onClick={handleLogin} 
+          <button
+            style={{ ...S.btnBase, ...S.btnPrimary }}
+            onClick={handleLogin}
             disabled={loading}
           >
             {loading ? (
@@ -324,13 +346,13 @@ export default function ClinicLogin() {
             )}
           </button>
 
-          <div style={{ textAlign:'center', marginTop:14, fontSize:13 }}>
-            <span style={{ color:'#8fa8bc' }}>New clinic?</span>{' '}
-            <Link 
-              to="/register-clinic" 
-              style={{ 
-                color: '#1565a8', 
-                fontWeight: 600, 
+          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13 }}>
+            <span style={{ color: '#8fa8bc' }}>New clinic?</span>{' '}
+            <Link
+              to="/register-clinic"
+              style={{
+                color: '#1565a8',
+                fontWeight: 600,
                 fontSize: 13,
                 textDecoration: 'none',
               }}

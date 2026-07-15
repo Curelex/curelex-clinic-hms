@@ -16,15 +16,15 @@ import BottomNav from '../components/BottomNav';
 
 export default function Profile() {
   const { user, patient, logout } = useAuth();
-  
+
   const isStaffRoute = !!useMatch('/dashboard/profile');
 
-  const [sidebarOpen,     setSidebarOpen]     = useState(false);
-  const [userDropdown,    setUserDropdown]     = useState(false);
-  const [showEditModal,   setShowEditModal]   = useState(false);
-  const [showPassModal,   setShowPassModal]   = useState(false);
-  const [previewImage,    setPreviewImage]    = useState(null);
-  const [selectedAvatar,  setSelectedAvatar]  = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedAvatar, setSelectedAvatar] = useState(null);
 
   // ── Responsive hook ──────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
@@ -36,12 +36,12 @@ export default function Profile() {
 
   const fileInputRef = React.useRef(null);
 
-  const patientName  = patient?.name  || user?.name  || 'User';
+  const patientName = patient?.name || user?.name || 'User';
   const patientEmail = patient?.email || user?.email || '';
-  const displayName  = user?.name || 'Unknown';
+  const displayName = user?.name || 'Unknown';
   const avatarLetter = displayName.charAt(0).toUpperCase();
-  const initials     = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  const memberSince  = user?.createdAt
+  const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'N/A';
   const roleLabel = user?.role
@@ -49,10 +49,10 @@ export default function Profile() {
     : 'User';
 
   const [editForm, setEditForm] = useState({
-    name:       user?.name          || '',
-    phone:      user?.phone         || '',
-    dob:        patient?.dob        || '',
-    gender:     patient?.gender     || '',
+    name: user?.name || '',
+    phone: user?.phone || '',
+    dob: patient?.dob || '',
+    gender: patient?.gender || '',
     bloodGroup: patient?.bloodGroup || '',
   });
 
@@ -95,7 +95,18 @@ export default function Profile() {
     }
   };
 
+
+
   const handleChangePassword = async () => {
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(passForm.newPassword)) {
+      alert(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
+      return;
+    }
     if (passForm.newPassword !== passForm.confirmPassword) { alert('Passwords do not match'); return; }
     try {
       await API.put('/auth/change-password', { currentPassword: passForm.currentPassword, newPassword: passForm.newPassword });
@@ -318,9 +329,9 @@ export default function Profile() {
         <div className="prof-hero-left">
           <div className="prof-av-wrap">
             <div className="prof-av">
-              {previewImage    ? <img src={previewImage}  alt="Profile" />
-               : user?.avatar ? <img src={user.avatar}   alt="Profile" />
-               : avatarLetter}
+              {previewImage ? <img src={previewImage} alt="Profile" />
+                : user?.avatar ? <img src={user.avatar} alt="Profile" />
+                  : avatarLetter}
             </div>
             <button className="prof-cam" onClick={() => fileInputRef.current?.click()} title="Change photo">📷</button>
           </div>
@@ -424,7 +435,7 @@ export default function Profile() {
                   <label>Blood Group</label>
                   <select value={editForm.bloodGroup} onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}>
                     <option value="">Select</option>
-                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
                   </select>
                 </div>
               </>
@@ -447,7 +458,9 @@ export default function Profile() {
         <div className="prof-overlay" onClick={(e) => e.target === e.currentTarget && setShowPassModal(false)}>
           <div className="prof-modal" style={{ maxWidth: 400 }}>
             <div className="prof-modal-hd">Change Password</div>
-            <div className="prof-f"><label>Current Password</label><input type="password" value={passForm.currentPassword} onChange={(e) => setPassForm({ ...passForm, currentPassword: e.target.value })} /></div>
+            <div className="prof-f"><label>Current Password</label><input type="password" value={passForm.currentPassword} onChange={(e) => setPassForm({ ...passForm, currentPassword: e.target.value })} /><div className="prof-hint">
+              Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+            </div></div>
             <div className="prof-f"><label>New Password</label><input type="password" value={passForm.newPassword} onChange={(e) => setPassForm({ ...passForm, newPassword: e.target.value })} /></div>
             <div className="prof-f"><label>Confirm New Password</label><input type="password" value={passForm.confirmPassword} onChange={(e) => setPassForm({ ...passForm, confirmPassword: e.target.value })} /></div>
             <div className="prof-modal-ft">
@@ -503,12 +516,12 @@ export default function Profile() {
                     </div>
                     <div className="pd-user-dropdown__divider" />
                     {[
-                      { icon: 'fa-user-circle',            label: 'Profile',            path: '/patient-profile' },
-                      { icon: 'fa-calendar-check',         label: 'Appointments',       path: '/patient-appointments' },
-                      { icon: 'fa-procedures',             label: 'Hospital Admission', path: '/patient-admission' },
-                      { icon: 'fa-video',                  label: 'Telemedicine',       path: '/patient-telemedicine' },
-                      { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',      path: '/patient-prescriptions' },
-                      { icon: 'fa-folder-open',            label: 'My Documents',       path: '/patient-documents' },
+                      { icon: 'fa-user-circle', label: 'Profile', path: '/patient-profile' },
+                      { icon: 'fa-calendar-check', label: 'Appointments', path: '/patient-appointments' },
+                      { icon: 'fa-procedures', label: 'Hospital Admission', path: '/patient-admission' },
+                      { icon: 'fa-video', label: 'Telemedicine', path: '/patient-telemedicine' },
+                      { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', path: '/patient-prescriptions' },
+                      { icon: 'fa-folder-open', label: 'My Documents', path: '/patient-documents' },
                     ].map(item => (
                       <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
                         <i className={`fas ${item.icon}`} /> {item.label}

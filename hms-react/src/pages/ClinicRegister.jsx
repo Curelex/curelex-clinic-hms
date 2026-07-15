@@ -54,18 +54,18 @@ async function fetchPincodeData(pincode) {
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
-  brand:       '#0a3d62',
-  brandMid:    '#1565a8',
-  accent:      '#00b894',
+  brand: '#0a3d62',
+  brandMid: '#1565a8',
+  accent: '#00b894',
   accentLight: '#00cec9',
-  textDark:    '#0a3d62',
-  textMuted:   '#4a6278',
-  textLight:   '#8fa8bc',
-  border:      '#d0dce8',
-  white:       '#ffffff',
-  errBg:       '#fef2f2',
-  errBorder:   '#fecaca',
-  errText:     '#c0392b',
+  textDark: '#0a3d62',
+  textMuted: '#4a6278',
+  textLight: '#8fa8bc',
+  border: '#d0dce8',
+  white: '#ffffff',
+  errBg: '#fef2f2',
+  errBorder: '#fecaca',
+  errText: '#c0392b',
 };
 
 const makeStyles = (mob) => ({
@@ -161,7 +161,7 @@ const makeStyles = (mob) => ({
     border: `1px solid ${C.errBorder}`, color: C.errText, fontSize: 13.5,
     display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, lineHeight: 1.4,
   },
-  hintOk:  { fontSize: 11.5, color: '#00a878', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 },
+  hintOk: { fontSize: 11.5, color: '#00a878', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 },
   hintErr: { fontSize: 11.5, color: '#e74c3c', marginTop: 4 },
 });
 
@@ -187,20 +187,20 @@ function IcoCheck() {
   return <svg width="14" height="14" fill="none" stroke="#00b894" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>;
 }
 function IcoLocation() {
-  return <svg width="14" height="14" fill="#00b894" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>;
+  return <svg width="14" height="14" fill="#00b894" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>;
 }
 
 // ── Validated text input ──────────────────────────────────────────────────────
-function FieldInput({ label, type = 'text', value, onChange, placeholder, inputMode, S, disabled, suffix, hint, hintType,...rest }) {
+function FieldInput({ label, type = 'text', value, onChange, placeholder, inputMode, S, disabled, suffix, hint, hintType, ...rest }) {
   const [focused, setFocused] = useState(false);
   const borderColor = hintType === 'err' ? '#e74c3c' : hintType === 'ok' ? '#00b894' : focused ? '#1565a8' : '#d0dce8';
-  const shadow     = hintType === 'err'
+  const shadow = hintType === 'err'
     ? '0 0 0 3px rgba(231,76,60,0.1)'
     : hintType === 'ok'
-    ? '0 0 0 3px rgba(0,184,148,0.12)'
-    : focused
-    ? '0 0 0 3px rgba(21,101,168,0.1)'
-    : 'none';
+      ? '0 0 0 3px rgba(0,184,148,0.12)'
+      : focused
+        ? '0 0 0 3px rgba(21,101,168,0.1)'
+        : 'none';
 
   return (
     <div style={S.field}>
@@ -221,12 +221,12 @@ function FieldInput({ label, type = 'text', value, onChange, placeholder, inputM
           onBlur={() => setFocused(false)}
         />
         {suffix && (
-          <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+          <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             {suffix}
           </span>
         )}
       </div>
-      {hint && hintType === 'ok'  && <div style={S.hintOk}><IcoCheck /> {hint}</div>}
+      {hint && hintType === 'ok' && <div style={S.hintOk}><IcoCheck /> {hint}</div>}
       {hint && hintType === 'err' && <div style={S.hintErr}>{hint}</div>}
     </div>
   );
@@ -234,7 +234,7 @@ function FieldInput({ label, type = 'text', value, onChange, placeholder, inputM
 
 // ── Searchable dropdown ───────────────────────────────────────────────────────
 function SearchDropdown({ label, value, onChange, options, placeholder, S, disabled }) {
-  const [open, setOpen]   = useState(false);
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef(null);
 
@@ -271,7 +271,7 @@ function SearchDropdown({ label, value, onChange, options, placeholder, S, disab
           </span>
           <svg width="14" height="14" fill="#8fa8bc" viewBox="0 0 24 24"
             style={{ transform: open ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', flexShrink: 0 }}>
-            <path d="M7 10l5 5 5-5z"/>
+            <path d="M7 10l5 5 5-5z" />
           </svg>
         </div>
 
@@ -325,7 +325,7 @@ function SearchDropdown({ label, value, onChange, options, placeholder, S, disab
 }
 
 // ── Pincode field ─────────────────────────────────────────────────────────────
-function PincodeField({ value, onChange, onAutoFill, S, disabled,...rest }) {
+function PincodeField({ value, onChange, onAutoFill, S, disabled, ...rest }) {
   const [status, setStatus] = useState(null);
 
   async function handleChange(e) {
@@ -361,13 +361,13 @@ function PincodeField({ value, onChange, onAutoFill, S, disabled,...rest }) {
             paddingRight: 36,
           }}
           onFocus={e => { if (!borderColor) e.target.style.borderColor = '#1565a8'; }}
-          onBlur={e  => { if (!borderColor) e.target.style.borderColor = '#d0dce8'; }}
+          onBlur={e => { if (!borderColor) e.target.style.borderColor = '#d0dce8'; }}
           {...rest}
         />
-        <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', lineHeight:1 }}>
-          {status === 'loading'   && <IcoSpinner />}
-          {status === 'found'     && <IcoLocation />}
-          {status === 'not-found' && <span style={{ fontSize:16 }}>❓</span>}
+        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', lineHeight: 1 }}>
+          {status === 'loading' && <IcoSpinner />}
+          {status === 'found' && <IcoLocation />}
+          {status === 'not-found' && <span style={{ fontSize: 16 }}>❓</span>}
         </span>
       </div>
       {status === 'found' && (
@@ -381,11 +381,11 @@ function PincodeField({ value, onChange, onAutoFill, S, disabled,...rest }) {
 }
 
 // ── Phone field ──────────────────────────────────────────────────────────────
-function PhoneField({ label, value, onChange, S, disabled, placeholder,...rest }) {
-  const digits  = value.replace(/\D/g, '');
+function PhoneField({ label, value, onChange, S, disabled, placeholder, ...rest }) {
+  const digits = value.replace(/\D/g, '');
   const touched = value.length > 0;
-  const isOk    = digits.length === 10;
-  const hint    = touched && !isOk ? `${digits.length}/10 digits — must be exactly 10 digits` : null;
+  const isOk = digits.length === 10;
+  const hint = touched && !isOk ? `${digits.length}/10 digits — must be exactly 10 digits` : null;
 
   function handleChange(e) {
     const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -404,7 +404,7 @@ function PhoneField({ label, value, onChange, S, disabled, placeholder,...rest }
 }
 
 // ── Email field ──────────────────────────────────────────────────────────────
-function EmailField({ label, value, onChange, S, disabled, placeholder,...rest }) {
+function EmailField({ label, value, onChange, S, disabled, placeholder, ...rest }) {
   const [touched, setTouched] = useState(false);
   const valid = isValidEmail(value);
 
@@ -486,20 +486,13 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
       return;
     }
 
-    if (form.password.length < 6) {
-      setErr('Password must be at least 6 characters.');
-      return;
-    }
-    if (!/[A-Z]/.test(form.password)) {
-      setErr('Password must contain at least 1 uppercase letter.');
-      return;
-    }
-    if (!/[0-9]/.test(form.password)) {
-      setErr('Password must contain at least 1 digit.');
-      return;
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(form.password)) {
-      setErr('Password must contain at least 1 special character.');
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+
+    if (!passwordRegex.test(form.password)) {
+      setErr(
+        'Password must contain at least 6 characters, 1 uppercase letter, 1 lowercase letter and 1 special character.'
+      );
       return;
     }
 
@@ -522,17 +515,17 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
         return;
       }
 
-     // register() only persists name/email/clinicName/phone/type — location
+      // register() only persists name/email/clinicName/phone/type — location
       // details need a follow-up save. Non-fatal if it fails; the account exists.
       try {
         await API.put('/clinics/me', {
-        //   owner: form.ownerName,
-        //   address: form.address,
-        //   pincode: form.pincode,
-        //  state: form.state,
-        //   district: form.district,
-        //   subDistrict: form.subDistrict,
-        //   city: form.city,
+          //   owner: form.ownerName,
+          //   address: form.address,
+          //   pincode: form.pincode,
+          //  state: form.state,
+          //   district: form.district,
+          //   subDistrict: form.subDistrict,
+          //   city: form.city,
         });
       } catch (e) {
         console.error('Failed to save clinic location details:', e);
@@ -625,7 +618,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
           <div style={S.field}>
             <label style={S.fieldLabel}>WhatsApp Number (10 digits)</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:16, lineHeight:1, pointerEvents:'none' }}>💬</span>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, lineHeight: 1, pointerEvents: 'none' }}>💬</span>
               <input
                 type="tel" inputMode="numeric"
                 value={form.whatsapp}
@@ -639,16 +632,16 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
                   boxShadow: form.whatsapp && isValidPhone(form.whatsapp)
                     ? '0 0 0 3px rgba(0,184,148,0.12)' : 'none',
                 }}
-                onFocus={e => { e.target.style.borderColor='#1565a8'; e.target.style.boxShadow='0 0 0 3px rgba(21,101,168,0.1)'; }}
-                onBlur={e  => {
+                onFocus={e => { e.target.style.borderColor = '#1565a8'; e.target.style.boxShadow = '0 0 0 3px rgba(21,101,168,0.1)'; }}
+                onBlur={e => {
                   const d = form.whatsapp.replace(/\D/g, '');
                   e.target.style.borderColor = form.whatsapp ? (d.length === 10 ? '#00b894' : '#e74c3c') : '#d0dce8';
-                  e.target.style.boxShadow   = form.whatsapp && d.length === 10 ? '0 0 0 3px rgba(0,184,148,0.12)' : 'none';
+                  e.target.style.boxShadow = form.whatsapp && d.length === 10 ? '0 0 0 3px rgba(0,184,148,0.12)' : 'none';
                 }}
               />
             </div>
             {form.whatsapp && !isValidPhone(form.whatsapp) && (
-              <div style={S.hintErr}>{form.whatsapp.replace(/\D/g,'').length}/10 digits — must be exactly 10 digits</div>
+              <div style={S.hintErr}>{form.whatsapp.replace(/\D/g, '').length}/10 digits — must be exactly 10 digits</div>
             )}
           </div>
 
@@ -723,7 +716,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
             type="password"
             value={form.password}
             onChange={e => f('password', e.target.value)}
-            placeholder="Min 6 chars, 1 uppercase, 1 digit, 1 special"
+            placeholder="Min 6 chars, 1 uppercase, 1 lowercase, 1 special"
             disabled={loading}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -732,6 +725,18 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
               }
             }}
           />
+
+          <div
+            style={{
+              fontSize: 11,
+              color: "#64748b",
+              marginTop: -6,
+              marginBottom: 12,
+              lineHeight: 1.4,
+            }}
+          >
+            Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
+          </div>
 
           {err && (
             <div style={S.alertError}>
@@ -751,13 +756,13 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
             )}
           </button>
 
-          <div style={{ 
-            textAlign: 'center', 
-            marginTop: 10, 
-            paddingTop: 10, 
+          <div style={{
+            textAlign: 'center',
+            marginTop: 10,
+            paddingTop: 10,
             borderTop: '1px solid #e5e7eb',
-            fontSize: 13, 
-            color: '#64748b' 
+            fontSize: 13,
+            color: '#64748b'
           }}>
             Are you a Clinic Admin?{' '}
             <Link to="/login-clinic" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none' }}>
@@ -765,7 +770,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
             </Link>
           </div>
 
-          <div style={{ textAlign:'center', marginTop:14, fontSize:12, color:'#8fa8bc' }}>
+          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: '#8fa8bc' }}>
             By registering, you agree to our Terms of Service
           </div>
         </div>
