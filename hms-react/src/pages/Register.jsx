@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import API from '../utils/api';
+import curelexLogo from "../../assets/logo.png";
 
 const DEPARTMENTS = [
   'General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics',
@@ -76,9 +77,18 @@ export default function Register() {
 
         {/* Header */}
         <div className="login-logo">
-          <div style={{ fontSize: 36, marginBottom: 6 }}>🏥</div>
-          <h1>MediCare HMS</h1>
-          <p>Create your account</p>
+          <img
+            src={curelexLogo}
+            alt="Curelex"
+            style={{
+              height: 60,
+              objectFit: "contain",
+              marginBottom: 10,
+            }}
+          />
+
+          <h1>Curelex HMS</h1>
+          <p>Create your Curelex account</p>
         </div>
 
         {error && <div className="error-msg">{error}</div>}
