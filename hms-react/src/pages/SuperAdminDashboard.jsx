@@ -3,8 +3,49 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import API from '../utils/api';
+import { getPlanLabel } from '../utils/planConfig';
 
 const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Consultations', 'Clinic Dashboard', 'Payroll'];
+
+function getClinicPlanInfo(clinic) {
+  const planKey = clinic.plan || 'free';
+  const clinicType = clinic.type === 'hospital' ? 'hospital' : 'clinic';
+  const label = getPlanLabel(clinicType, planKey);
+  const status = clinic.planStatus || 'active';
+
+  let color = '#6c757d', bg = '#f0f4f8';
+  if (planKey !== 'free' && planKey !== 'none') {
+    if (status === 'expired') { color = '#dc2626'; bg = '#fee2e2'; }
+    else if (status === 'grace_period') { color = '#d97706'; bg = '#fef3c7'; }
+    else { color = '#16a34a'; bg = '#dcfce7'; }
+  }
+
+  return {
+    planKey, label, status, color, bg,
+    daysRemaining: clinic.daysRemaining,
+    expiresAt: clinic.planExpiresAt,
+  };
+}
+
+function PlanBadge({ clinic, showExpiry = false }) {
+  const p = getClinicPlanInfo(clinic);
+  return (
+    <div>
+      <span style={{
+        padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+        background: p.bg, color: p.color, whiteSpace: 'nowrap', display: 'inline-block',
+      }}>
+        {p.label}
+      </span>
+      {showExpiry && p.planKey !== 'free' && p.expiresAt && (
+        <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3 }}>
+          {p.status === 'expired' ? 'Expired' : 'Expires'}: {new Date(p.expiresAt).toLocaleDateString()}
+          {p.daysRemaining > 0 && p.status !== 'expired' && ` (${p.daysRemaining}d left)`}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -72,6 +113,12 @@ function OverviewTab({ clinics, allUsers }) {
     patientCount: patientCounts[c._id] || 0,
   }));
 
+  const planCounts = clinics.reduce((acc, c) => {
+  const key = c.plan || 'free';
+  acc[key] = (acc[key] || 0) + 1;
+  return acc;
+}, {});
+
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
@@ -91,10 +138,30 @@ function OverviewTab({ clinics, allUsers }) {
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1a2236' }}>Clinics Overview</h3>
         </div>
         <div style={{ overflowX: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '16px 20px', marginBottom: 20 }}>
+  <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#1a2236' }}>📋 Plan Distribution</h3>
+  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+    {Object.entries(planCounts).map(([planKey, count]) => {
+      const label = getPlanLabel(
+        clinics.find(c => (c.plan || 'free') === planKey)?.type === 'hospital' ? 'hospital' : 'clinic',
+        planKey
+      );
+      return (
+        <span key={planKey} style={{
+          padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+          background: planKey === 'free' || planKey === 'none' ? '#f0f4f8' : '#dcfce7',
+          color: planKey === 'free' || planKey === 'none' ? '#6c757d' : '#166534',
+        }}>
+          {label}: {count}
+        </span>
+      );
+    })}
+  </div>
+</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Clinic Name', 'Type', 'Email', 'Phone', 'Patients', 'Staff', 'Doctors'].map(h => (
+                {['Clinic Name', 'Type', 'Plan', 'Email', 'Phone', 'Patients', 'Staff', 'Doctors'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
                 ))}
               </tr>
@@ -112,6 +179,9 @@ function OverviewTab({ clinics, allUsers }) {
                       {c.type === 'hospital' ? '🏨 Hospital' : '🏥 Clinic'}
                     </span>
                   </td>
+                  <td style={{ padding: '10px 16px' }}>
+  <PlanBadge clinic={c} showExpiry />
+</td>
                   <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.email}</td>
                   <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.phone || '—'}</td>
                   <td style={{ padding: '10px 16px' }}>
@@ -149,6 +219,9 @@ function ClinicsTab({ clinics, onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showEditForm, setShowEditForm] = useState(false);
+  const [filterPlan, setFilterPlan] = useState('');
+
+  const displayedClinics = clinics.filter(c => !filterPlan || (c.plan || 'free') === filterPlan);
 
   const openEdit = (c) => {
     setEditClinic(c);
@@ -221,6 +294,19 @@ function ClinicsTab({ clinics, onRefresh }) {
                 <option value="clinic">🏥 Clinic</option>
                 <option value="hospital">🏨 Hospital</option>
               </select>
+              <select
+  value={filterPlan}
+  onChange={e => setFilterPlan(e.target.value)}
+  style={{ ...inputStyle, width: 'auto', padding: '4px 10px', fontSize: 12 }}
+>
+  <option value="">All Plans</option>
+  <option value="free">Free</option>
+  <option value="lite">Lite</option>
+  <option value="plus">Plus</option>
+  <option value="pro">Pro</option>
+  <option value="standard">Standard</option>
+  <option value="enterprise">Enterprise</option>
+</select>
             </div>
           </div>
           {error && <div style={errorStyle}>{error}</div>}
@@ -239,50 +325,54 @@ function ClinicsTab({ clinics, onRefresh }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Clinic', 'Type', 'Email', 'Phone', 'Created', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
-                ))}
+                {['Clinic', 'Type', 'Plan', 'Email', 'Phone', 'Created', 'Actions'].map(h => (
+  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#6b7a99', fontWeight: 600, fontSize: 12 }}>{h}</th>
+))}
               </tr>
             </thead>
             <tbody>
-              {clinics.map(c => (
-                <tr key={c._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
-                  <td style={{ padding: '10px 16px', fontWeight: 600, color: '#1a2236' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 18 }}>{c.type === 'hospital' ? '🏨' : '🏥'}</span> {c.name}
-                    </div>
-                  </td>
-                  <td style={{ padding: '10px 16px' }}>
-                    <span style={{
-                      padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                      background: c.type === 'hospital' ? '#dbeafe' : '#dcfce7',
-                      color: c.type === 'hospital' ? '#1e40af' : '#166534',
-                    }}>
-                      {c.type === 'hospital' ? 'Hospital' : 'Clinic'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.email}</td>
-                  <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.phone || '—'}</td>
-                  <td style={{ padding: '10px 16px', color: '#6b7a99', fontSize: 12 }}>
-                    {new Date(c.createdAt).toLocaleDateString()}
-                  </td>
-                  <td style={{ padding: '10px 16px' }}>
-                    <button
-                      onClick={() => openEdit(c)}
-                      style={{ ...smallBtn, color: '#2d6be4', borderColor: '#2d6be4' }}
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {clinics.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
-                    No clinics yet. A clinic will be created automatically when a clinic admin registers.
-                  </td>
-                </tr>
-              )}
+              {displayedClinics.map(c => (
+  <tr key={c._id} style={{ borderBottom: '1px solid #f1f3f6' }}>
+    <td style={{ padding: '10px 16px', fontWeight: 600, color: '#1a2236' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 18 }}>{c.type === 'hospital' ? '🏨' : '🏥'}</span> {c.name}
+      </div>
+    </td>
+    <td style={{ padding: '10px 16px' }}>
+      <span style={{
+        padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+        background: c.type === 'hospital' ? '#dbeafe' : '#dcfce7',
+        color: c.type === 'hospital' ? '#1e40af' : '#166534',
+      }}>
+        {c.type === 'hospital' ? 'Hospital' : 'Clinic'}
+      </span>
+    </td>
+    <td style={{ padding: '10px 16px' }}>
+      <PlanBadge clinic={c} showExpiry />
+    </td>
+    <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.email}</td>
+    <td style={{ padding: '10px 16px', color: '#6b7a99' }}>{c.phone || '—'}</td>
+    <td style={{ padding: '10px 16px', color: '#6b7a99', fontSize: 12 }}>
+      {new Date(c.createdAt).toLocaleDateString()}
+    </td>
+    <td style={{ padding: '10px 16px' }}>
+      <button
+        onClick={() => openEdit(c)}
+        style={{ ...smallBtn, color: '#2d6be4', borderColor: '#2d6be4' }}
+      >
+        Edit
+      </button>
+    </td>
+  </tr>
+))}
+{displayedClinics.length === 0 && (
+  <tr>
+    <td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>
+      No clinics match this filter.
+    </td>
+  </tr>
+)}
+              
             </tbody>
           </table>
         </div>
@@ -883,6 +973,7 @@ function ClinicDashboardTab({ clinics }) {
               {selectedClinic.type === 'hospital' ? '🏨 Hospital' : '🏥 Clinic'}
             </span>
           )}
+          {selectedClinic && <PlanBadge clinic={selectedClinic} showExpiry />}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <a href="/dashboard" style={btnStyle('#0f2942')}>⊞ Open Full Dashboard</a>
