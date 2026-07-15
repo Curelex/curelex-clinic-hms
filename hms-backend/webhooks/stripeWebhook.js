@@ -3,7 +3,7 @@ import express from 'express';
 import Stripe from 'stripe';
 import Subscription from '../models/Subscription.js';
 import Clinic from '../models/Clinic.js';
-import { getPlanByPriceId } from '../config/plans.js';
+// import { getPlanByPriceId } from '../config/plans.js';
 
 
 const router = express.Router();

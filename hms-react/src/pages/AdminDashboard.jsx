@@ -683,36 +683,21 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
     </span>
   );
 
-// ── Nav items with plan filtering ──
 const navItems = [
   { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
-  
-  // ── CLINIC ONLY: Doctors, Receptionists, Patients, Follow-ups ──
-  { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined, type: 'clinic' },
-  { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined, type: 'clinic' },
-  { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined, type: 'clinic' },
-  { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined, type: 'clinic' },
-  
-  // ── HOSPITAL ONLY: IPD, Emergency, Bed Management ──
-  { icon: '🏥', label: 'IPD / Admitted', section: 'ipd', tab: 'ipd', badge: undefined, type: 'hospital' },
-  { icon: '🚨', label: 'Emergency Dept', section: 'emergency', tab: 'emergency', badge: undefined, type: 'hospital' },
-  { icon: '🛏️', label: 'Bed Management', section: 'bedManagement', tab: 'bedManagement', badge: undefined, type: 'hospital' },
-  
-  // ── BOTH: Settings ──
-  { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined, type: 'both' },
-  
-  // ── CLINIC ONLY: Pharmacists, Revenue ──
-  { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined, type: 'clinic' },
-  { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined, type: 'clinic' },
+  { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
+  { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
+  { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
+  { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
+  { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
+  { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
+  { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
 ]
   .filter(item => {
-    // ── Filter by clinic type ──
-    if (item.type === 'clinic' && clinicType !== 'clinic') return false;
-    if (item.type === 'hospital' && clinicType !== 'hospital') return false;
-    
     // ── Filter by plan visibility ──
     const planKey = safePlan || 'free';
     const isVisible = isSectionVisible(planKey, item.section);
+    
     return isVisible;
   })
   .map(item => ({
@@ -2874,10 +2859,8 @@ function ClinicSettings({ clinic, onSave }) {
     const fetchPlanStatus = async () => {
       try {
         const response = await API.get('/plans/clinic');
-        console.log(response);
         if (response.data.success) {
           setPlanStatus(response.data.plan);
-          console.log(planStatus);
         }
       } catch (err) {
         console.error('Failed to fetch plan status:', err);
