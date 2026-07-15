@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import curelexLogo from "../../assets/logo.png";
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -45,9 +46,17 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🏥</div>
-          <h1>MediCare HMS</h1>
-          <p>Hospital Management System</p>
+          <img
+            src={curelexLogo}
+            alt="Curelex"
+            style={{
+              height: 60,
+              objectFit: "contain",
+              marginBottom: 10,
+            }}
+          />
+          <h1>Curelex HMS</h1>
+          <p>Curelex Hospital Management System</p>
         </div>
 
         {error && <div className="error-msg">{error}</div>}

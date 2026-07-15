@@ -6,6 +6,7 @@ import API from '../utils/api';
 import taskService from '../services/taskService';
 import { useSocket } from '../hooks/useSocket';
 import { isSectionVisible, getPlanConfig, isFeatureVisible } from '../utils/planConfig';
+import curelexLogo from "../../assets/logo.png";
 
 // ── Clinic Nav definition ─────────────────────────────────────────────
 const CLINIC_NAV_SECTIONS = [
@@ -232,7 +233,7 @@ export default function Layout() {
   const getHospitalNavItems = () => {
     const planKey = activePlan || 'free';
 
-    
+
 
     const visibleSections = CLINIC_NAV_SECTIONS.map(section => ({
       ...section,
@@ -240,7 +241,7 @@ export default function Layout() {
         // Plan gates which sections are visible for hospitals
         const isVisible = isSectionVisible('hospital', planKey, item.sectionKey);
 
-        
+
 
         if (!isVisible) return false;
 
@@ -274,11 +275,11 @@ export default function Layout() {
   if (isHospital) {
     // Hospital uses plan-based filtering
     navSections = getHospitalNavItems();
-    
+
   } else {
     // Clinic uses permission-based filtering
     navSections = getClinicNavItems();
-    
+
   }
 
   // Add IMS sections if applicable
@@ -411,13 +412,21 @@ export default function Layout() {
         {/* Logo */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🏥</span>
+            <img
+              src={curelexLogo}
+              alt="Curelex"
+              style={{
+                height: 32,
+                width: "auto",
+                objectFit: "contain",
+              }}
+            />
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 0.3 }}>
-                {isHospital ? 'Curelex Hospital' : 'MediCare HMS'}
+                {isHospital ? 'Curelex Hospital' : 'Curelex HMS'}
               </div>
               <div style={{ fontSize: 10, color: '#94a3b8' }}>
-                {isHospital ? 'Hospital Management System' : 'Hospital Management System'}
+                Curelex Hospital Management System
               </div>
             </div>
           </div>
