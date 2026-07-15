@@ -61,6 +61,14 @@ const PrivateRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" replace />;
 };
 
+// Auth route guard — only authenticated users can access (no redirects based on role)
+const AuthRoute = ({ children }) => {
+  const { user, authReady } = useAuth();
+  if (!authReady) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+};
+
 // Redirects to correct home if already authenticated (login/register pages)
 const PublicRoute = ({ children }) => {
   const { user, authReady, clinicType } = useAuth();
@@ -158,31 +166,28 @@ const ClinicTypeRoute = ({
 
 // ── Admin Route with Plan Selection ──
 const AdminRoute = ({ children }) => {
-  const { user, authReady, clinicType, activePlan } = useAuth(); // Get activePlan from context
+  const { user, authReady, clinicType, activePlan } = useAuth();
   const [choosingPlan, setChoosingPlan] = useState(false);
 
   if (!authReady) return null;
   if (!user) return <Navigate to="/login" replace />;
   
-  // Check if user is admin
   if (user.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Check if clinic type is 'clinic'
   if (clinicType !== 'clinic') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If choosing plan, show plan selection
+  // If choosing plan, show plan selection inline (for the overlay)
   if (choosingPlan) {
     return <PlanSelection onDone={() => setChoosingPlan(false)} />;
   }
 
-  // Pass the choose plan function and active plan to AdminDashboard
   return React.cloneElement(children, { 
     onChoosePlan: () => setChoosingPlan(true),
-    activePlan: activePlan // Pass the active plan
+    activePlan: activePlan
   });
 };
 
@@ -238,6 +243,19 @@ function App() {
                 </AdminRoute>
               </ClinicTypeRoute>
             }
+          />
+
+          {/* ── Plan Selection Route (Accessible to all authenticated users) ── */}
+          <Route 
+            path="/plans" 
+            element={
+              <AuthRoute>
+                <PlanSelection onDone={() => {
+                  // Navigate back to clinic dashboard after plan selection
+                  window.location.href = '/clinic-dashboard';
+                }} />
+              </AuthRoute>
+            } 
           />
 
           {/* ── Staff Dashboard Routes ──────────────────────────── */}
