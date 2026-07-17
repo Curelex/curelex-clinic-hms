@@ -54,6 +54,7 @@ import imsRoutes from './ims/src/routes/index.js';
 import planRoutes from './routes/plans.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 import consultationRoutes from './routes/consultations.js';
+import icuRoutes from './routes/icu.js';
 // __dirname fix (ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -551,6 +552,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/plans', planRoutes);
+app.use('/api/icu', icuRoutes);
 app.use('/api/v1/ims', imsRoutes);
 
 // app.use('/api/clinic', clinicApp);

@@ -15,6 +15,24 @@ const ClinicRoomConfig = new mongoose.Schema({
   dailyRate: { type: Number, required: true, default: 800 },
   totalRooms: { type: Number, required: true, default: 5 },
   availableRooms: { type: Number, required: true, default: 5 },
+
+  icuDailyRate: { type: Number, default: 4000 },
+  icuVentilatorRate: { type: Number, default: 1500 },
+  icuMonitoringRate: { type: Number, default: 500 },
+  icuDialysisRate: { type: Number, default: 3000 },
+  
+  // ── ICU Bed Type ──
+  icuBedType: {
+    type: String,
+    enum: ['General ICU', 'Cardiac ICU', 'Pediatric ICU', 'Neuro ICU', 'Surgical ICU', 'Medical ICU'],
+    default: 'General ICU',
+  },
+  
+  // ── ICU Equipment ──
+  icuEquipment: [{
+    name: { type: String },
+    ratePerDay: { type: Number, default: 0 },
+  }],
 }, { timestamps: true });
 
 // Compound unique index: one config per clinic per room type

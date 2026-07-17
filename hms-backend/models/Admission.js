@@ -54,6 +54,22 @@ const AdmissionSchema = new mongoose.Schema({
     enum: ['Admitted', 'Discharged', 'Transferred'],
     default: 'Admitted',
   },
+
+  // ── ICU Fields ──
+  icuAdmissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ICUAdmission', default: null },
+  isICU: { type: Boolean, default: false },
+  icuBedId: { type: mongoose.Schema.Types.ObjectId, ref: 'ICUBed', default: null },
+  icuAdmissionDate: { type: Date, default: null },
+  icuDischargeDate: { type: Date, default: null },
+  ventilatorUsed: { type: Boolean, default: false },
+  
+  // ── ICU Charges ──
+  icuBaseCharges: { type: Number, default: 0 },
+  icuVentilatorCharges: { type: Number, default: 0 },
+  icuMonitoringCharges: { type: Number, default: 0 },
+  icuDialysisCharges: { type: Number, default: 0 },
+  icuEquipmentCharges: { type: Number, default: 0 },
+  icuTotalCharges: { type: Number, default: 0 },
  
   medicineLog: [MedicineLogSchema],
   followupLog: [FollowupLogSchema],
