@@ -4,692 +4,873 @@ import { Card, Btn, Modal, Input, Select, Badge, SectionHeader, Empty, Alert } f
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import startOfWeek from 'date-fns/startOfWeek';
+import getDay from 'date-fns/getDay';
+import enUS from 'date-fns/locale/en-US';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const locales = { 'en-US': enUS };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
 export default function OTManagement() {
   const { hasPerm, user } = useAuth();
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   
-  const [surgeries, setSurgeries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('calendar'); // calendar, requests, rooms
+  const [pendingRequestId, setPendingRequestId] = useState(null);
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState('');
-  
-  // Modals
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedSurgery, setSelectedSurgery] = useState(null);
-
-  // Data for dropdowns
-  const [patients, setPatients] = useState([]);
-  const [staff, setStaff] = useState([]);
-
-  // Fetch surgeries
-  const fetchSurgeries = async () => {
-    setLoading(true);
-    try {
-      const res = await API.get('/surgeries', { params: { status: statusFilter } });
-      setSurgeries(res.data);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load surgeries');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchDropdownData = async () => {
-    try {
-      const [patientsRes, staffRes] = await Promise.all([
-        API.get('/patients'),
-        API.get('/staff/doctors')
-      ]);
-      setPatients(patientsRes.data.patients || patientsRes.data);
-      setStaff(staffRes.data.staff || staffRes.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchSurgeries();
-  }, [statusFilter]);
-
-  useEffect(() => {
-    if (showScheduleModal && patients.length === 0) {
-      fetchDropdownData();
-    }
-  }, [showScheduleModal]);
-
-  const doctors = staff.filter(s => s.role === 'doctor' || s.role === 'separate_doctor');
-  
-  const canManage = hasPerm('ot-management'); // True for admin, super_admin, doctor
+  const tabs = ['calendar', 'requests'];
+  if (user?.role === 'super_admin' || user?.role === 'admin') tabs.push('rooms');
 
   return (
     <div>
       <SectionHeader 
         title="Operation Theatre Management" 
-        subtitle="Schedule and manage surgeries, pre-op checklists, and post-op recovery"
-        action={
-          canManage && (
-            <Btn onClick={() => setShowScheduleModal(true)}>
-              ➕ Schedule Surgery
-            </Btn>
-          )
-        }
+        subtitle="Manage OT schedules, surgery requests, and OT rooms."
       />
 
-      <div style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
-        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width: 200 }}>
-          <option value="">All Statuses</option>
-          <option value="Scheduled">Scheduled</option>
-          <option value="In-Progress">In-Progress</option>
-          <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
-        </Select>
-      </div>
-
-      {loading ? (
-        <p>Loading surgeries...</p>
-      ) : surgeries.length === 0 ? (
-        <Empty icon="🏥" title="No surgeries found" desc="Schedule a new surgery to get started." />
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {surgeries.map(surgery => (
-            <Card 
-              key={surgery._id} 
-              onClick={() => setSelectedSurgery(surgery)}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <div>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: 16 }}>{surgery.surgeryName}</h3>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  Patient: {surgery.patientId?.name} | OT: {surgery.operationTheatreNum}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  {new Date(surgery.startTime).toLocaleString()} - {new Date(surgery.endTime).toLocaleTimeString()}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                <div style={{ fontSize: 13 }}>
-                  Surgeon: {surgery.surgeonId?.name || 'N/A'}
-                </div>
-                <StatusBadge status={surgery.status} />
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Schedule Modal */}
-      {showScheduleModal && (
-        <ScheduleSurgeryModal 
-          onClose={() => setShowScheduleModal(false)}
-          onSuccess={() => {
-            setShowScheduleModal(false);
-            fetchSurgeries();
-          }}
-          patients={patients}
-          setPatients={setPatients}
-          doctors={doctors}
-        />
-      )}
-
-      {/* Management Panel Modal */}
-      {selectedSurgery && (
-        <SurgeryManagementModal
-          surgery={selectedSurgery}
-          onClose={() => setSelectedSurgery(null)}
-          onUpdate={(updated) => {
-            setSelectedSurgery(updated);
-            setSurgeries(surgeries.map(s => s._id === updated._id ? updated : s));
-          }}
-          doctors={doctors}
-          canManage={canManage}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Status Badge Component ──
-function StatusBadge({ status }) {
-  const map = {
-    'Scheduled': 'blue',
-    'In-Progress': 'yellow',
-    'Completed': 'green',
-    'Cancelled': 'red'
-  };
-  return <Badge color={map[status] || 'gray'}>{status}</Badge>;
-}
-
-// ── Quick Patient Modal ──
-function QuickPatientModal({ onClose, onSuccess }) {
-  const [form, setForm] = useState({ name: '', phone: '', email: '', age: '', gender: 'Male', bloodGroup: '' });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = { ...form };
-      if (!payload.email) payload.email = `${payload.phone}@placeholder.com`;
-      const res = await API.post('/patients', payload);
-      const newPatient = res.data.patient || res.data;
-      toast.success('Patient registered quickly');
-      onSuccess(newPatient);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to register patient');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title="Quick Register Patient" onClose={onClose} width={500}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-        <Input label="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
-        <Input label="Phone" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} required />
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Input label="Age" type="number" value={form.age} onChange={e => setForm({...form, age: e.target.value})} style={{ flex: 1 }} />
-          <Select label="Gender" value={form.gender} onChange={e => setForm({...form, gender: e.target.value})} style={{ flex: 1 }}>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </Select>
-        </div>
-        <Select label="Blood Group (Optional)" value={form.bloodGroup} onChange={e => setForm({...form, bloodGroup: e.target.value})}>
-          <option value="">Select</option>
-          {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-        </Select>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
-          <Btn variant="secondary" onClick={onClose} type="button">Cancel</Btn>
-          <Btn type="submit" disabled={saving}>{saving ? 'Saving...' : 'Register'}</Btn>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-// ── Schedule Surgery Modal ──
-function ScheduleSurgeryModal({ onClose, onSuccess, patients, setPatients, doctors }) {
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [formData, setFormData] = useState({
-    patientId: '',
-    surgeryName: '',
-    operationTheatreNum: '',
-    startTime: '',
-    endTime: '',
-    surgeonId: '',
-    anesthetistId: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
-    try {
-      await API.post('/surgeries', formData);
-      toast.success('Surgery scheduled successfully');
-      onSuccess();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to schedule surgery');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title="Schedule Surgery" onClose={onClose} width={600}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-        {error && <Alert type="error">{error}</Alert>}
-        
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 5 }}>
-            <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Patient</label>
-            <a href="#!" onClick={(e) => { e.preventDefault(); setShowQuickAdd(true); }} style={{ fontSize: 13, color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}>
-              ➕ New Patient
-            </a>
-          </div>
-          <Select 
-            value={formData.patientId} 
-            onChange={e => setFormData({...formData, patientId: e.target.value})}
-            required
-            style={{ width: '100%' }}
-          >
-            <option value="">Select Patient</option>
-            {patients.map(p => <option key={p._id} value={p._id}>{p.name} ({p.patientId})</option>)}
-          </Select>
-        </div>
-
-        {showQuickAdd && (
-          <QuickPatientModal 
-            onClose={() => setShowQuickAdd(false)}
-            onSuccess={(newPatient) => {
-              setPatients(prev => [...prev, newPatient]);
-              setFormData(prev => ({ ...prev, patientId: newPatient._id }));
-              setShowQuickAdd(false);
-            }}
-          />
-        )}
-
-        <Input 
-          label="Surgery Name" 
-          value={formData.surgeryName}
-          onChange={e => setFormData({...formData, surgeryName: e.target.value})}
-          required
-        />
-
-        <Input 
-          label="Operation Theatre (e.g., OT-1)" 
-          value={formData.operationTheatreNum}
-          onChange={e => setFormData({...formData, operationTheatreNum: e.target.value})}
-          required
-        />
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Input 
-            label="Start Time" 
-            type="datetime-local"
-            value={formData.startTime}
-            onChange={e => setFormData({...formData, startTime: e.target.value})}
-            required
-            style={{ flex: 1 }}
-          />
-          <Input 
-            label="End Time" 
-            type="datetime-local"
-            value={formData.endTime}
-            onChange={e => setFormData({...formData, endTime: e.target.value})}
-            required
-            style={{ flex: 1 }}
-          />
-        </div>
-
-        <Select 
-          label="Surgeon" 
-          value={formData.surgeonId} 
-          onChange={e => setFormData({...formData, surgeonId: e.target.value})}
-          required
-        >
-          <option value="">Select Surgeon</option>
-          {doctors.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-        </Select>
-
-        <Select 
-          label="Anesthetist (Optional)" 
-          value={formData.anesthetistId} 
-          onChange={e => setFormData({...formData, anesthetistId: e.target.value})}
-        >
-          <option value="">Select Anesthetist</option>
-          {doctors.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-        </Select>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
-          <Btn variant="ghost" onClick={onClose} type="button">Cancel</Btn>
-          <Btn disabled={saving} type="submit">{saving ? 'Saving...' : 'Schedule'}</Btn>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-// ── Surgery Management Modal ──
-function SurgeryManagementModal({ surgery, onClose, onUpdate, doctors, canManage }) {
-  const [activeTab, setActiveTab] = useState('details');
-
-  return (
-    <Modal title={`Manage: ${surgery.surgeryName}`} onClose={onClose} width={700}>
-      <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 15 }}>
-        {['details', 'preop', 'consent', 'postop'].map(tab => (
+      <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 20 }}>
+        {tabs.map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: '6px 12px',
+              padding: '8px 16px',
               border: 'none',
               background: activeTab === tab ? 'var(--primary)' : 'transparent',
               color: activeTab === tab ? '#fff' : 'var(--text)',
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              fontWeight: 500
+              fontWeight: 600,
+              textTransform: 'capitalize'
             }}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab}
           </button>
         ))}
       </div>
 
-      <div style={{ minHeight: 300 }}>
-        {activeTab === 'details' && <DetailsTab surgery={surgery} onUpdate={onUpdate} doctors={doctors} canManage={canManage} />}
-        {activeTab === 'preop' && <PreOpTab surgery={surgery} onUpdate={onUpdate} />}
-        {activeTab === 'consent' && <ConsentTab surgery={surgery} onUpdate={onUpdate} />}
-        {activeTab === 'postop' && <PostOpTab surgery={surgery} onUpdate={onUpdate} />}
+      {activeTab === 'calendar' && <CalendarTab pendingRequestId={pendingRequestId} setPendingRequestId={setPendingRequestId} />}
+      {activeTab === 'requests' && <RequestsTab setActiveTab={setActiveTab} setPendingRequestId={setPendingRequestId} />}
+      {activeTab === 'rooms' && <RoomsTab />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. CALENDAR TAB (Phase 2 core)
+// ─────────────────────────────────────────────────────────────────────────────
+function CalendarTab({ pendingRequestId, setPendingRequestId }) {
+  const { user } = useAuth();
+  const canSchedule = ['super_admin', 'admin', 'doctor'].includes(user?.role);
+
+  const [bookings, setBookings] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState('');
+  
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState('week');
+
+  const fetchRooms = async () => {
+    try {
+      const res = await API.get('/ot/rooms');
+      setRooms(res.data);
+      if (res.data.length > 0) setSelectedRoom(res.data[0]._id);
+    } catch (err) { toast.error('Failed to load rooms'); }
+  };
+
+  const fetchBookings = async () => {
+    if (!selectedRoom) return;
+    try {
+      const res = await API.get('/ot/bookings', { params: { otRoomId: selectedRoom } });
+      setBookings(res.data);
+    } catch (err) { toast.error('Failed to load bookings'); }
+  };
+
+  useEffect(() => { fetchRooms(); }, []);
+  useEffect(() => { fetchBookings(); }, [selectedRoom]);
+
+  const events = bookings.map(b => ({
+    id: b._id,
+    title: `${b.requestId?.patientId?.name || 'Unknown'} - ${b.status}`,
+    start: new Date(b.scheduledStart),
+    end: new Date(b.scheduledEnd),
+    booking: b,
+    priority: b.requestId?.priority || 'elective'
+  }));
+
+  const handleSelectSlot = (slotInfo) => {
+    if (!canSchedule) {
+      return toast('Only administrators or doctors can schedule new surgeries.', { icon: '🔒' });
+    }
+    if (!selectedRoom) {
+      return toast.error('Please select an OT Room first.');
+    }
+    setSelectedSlot({
+      start: slotInfo.start,
+      end: slotInfo.end,
+      otRoomId: selectedRoom
+    });
+    setShowBookingModal(true);
+  };
+
+  const handleSelectEvent = (event) => {
+    setSelectedEvent(event.booking);
+  };
+
+  const eventStyleGetter = (event) => {
+    let backgroundColor = 'var(--primary)'; // default elective
+    if (event.priority === 'urgent') backgroundColor = 'var(--warning)';
+    if (event.priority === 'emergency') backgroundColor = 'var(--danger)';
+    
+    if (event.booking.status === 'completed') backgroundColor = 'var(--success)';
+    if (event.booking.status === 'cancelled') backgroundColor = 'var(--surface2)';
+
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: '4px',
+        opacity: event.booking.status === 'cancelled' ? 0.6 : 1,
+        color: event.booking.status === 'cancelled' ? 'var(--text)' : 'white',
+        border: '0px',
+        display: 'block'
+      }
+    };
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 15, display: 'flex', gap: 15, alignItems: 'center' }}>
+        <Select label="Filter by OT Room" value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} style={{ width: 250 }}>
+          {rooms.map(r => <option key={r._id} value={r._id}>{r.name} ({r.location})</option>)}
+        </Select>
+        <div style={{ display: 'flex', gap: 10, fontSize: 13, marginTop: 15 }}>
+          <Badge color="blue">Elective</Badge>
+          <Badge color="yellow">Urgent</Badge>
+          <Badge color="red">Emergency</Badge>
+          <Badge color="green">Completed</Badge>
+        </div>
       </div>
+
+      {rooms.length === 0 ? (
+        <Empty icon="🏥" title="No OT Rooms Found" description="An administrator must add at least one OT Room from the Rooms tab before surgeries can be scheduled." />
+      ) : (
+        <div style={{ height: 650, background: 'var(--surface)', padding: 15, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            date={currentDate}
+            onNavigate={(date) => setCurrentDate(date)}
+            view={currentView}
+            onView={(view) => setCurrentView(view)}
+            views={['day', 'week', 'month']}
+            selectable
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            eventPropGetter={eventStyleGetter}
+            step={30}
+            timeslots={2}
+          />
+        </div>
+      )}
+
+      {showBookingModal && (
+        <BookingModal 
+          slot={selectedSlot}
+          preselectedRequestId={pendingRequestId}
+          onClose={() => {
+            setShowBookingModal(false);
+            setPendingRequestId(null);
+          }}
+          onSuccess={() => { 
+            setShowBookingModal(false); 
+            setPendingRequestId(null);
+            fetchBookings(); 
+          }}
+        />
+      )}
+
+      {selectedEvent && (
+        <BookingDetailsModal
+          booking={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onUpdate={(updated) => {
+            setSelectedEvent(updated);
+            fetchBookings();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. SURGERY REQUESTS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+function RequestsTab({ setActiveTab, setPendingRequestId }) {
+  const [requests, setRequests] = useState([]);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('pending');
+
+  const fetchRequests = async () => {
+    try {
+      const res = await API.get('/ot/requests', { params: { status: statusFilter } });
+      setRequests(res.data);
+    } catch (err) { toast.error('Failed to load requests'); }
+  };
+
+  useEffect(() => { fetchRequests(); }, [statusFilter]);
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await API.put(`/ot/requests/${id}/status`, { status: newStatus });
+      toast.success('Status updated');
+      fetchRequests();
+    } catch (err) {
+      toast.error('Failed to update status');
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
+        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width: 200 }}>
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="rejected">Rejected</option>
+          <option value="completed">Completed</option>
+        </Select>
+        <Btn onClick={() => setShowRequestModal(true)}>+ Raise Request</Btn>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+        {requests.map(req => (
+          <Card key={req._id}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <h4 style={{ margin: '0 0 5px 0' }}>{req.proposedProcedure}</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+                  Patient: {req.patientId?.name} | Priority: <PriorityBadge priority={req.priority} /> | Status: {req.status}
+                </p>
+                <p style={{ margin: '5px 0 0 0', fontSize: 13 }}>Diagnosis: {req.diagnosis}</p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {req.status === 'pending' && (
+                  <>
+                    <Btn variant="success" size="sm" onClick={() => handleStatusChange(req._id, 'approved')}>Approve</Btn>
+                    <Btn variant="danger" size="sm" onClick={() => handleStatusChange(req._id, 'rejected')}>Reject</Btn>
+                  </>
+                )}
+                {req.status === 'approved' && (
+                  <Btn size="sm" onClick={() => { 
+                    setPendingRequestId(req._id);
+                    setActiveTab('calendar'); 
+                    toast('Click a slot on the calendar to schedule this request', { icon: 'ℹ️' }); 
+                  }}>Schedule Now</Btn>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+        {requests.length === 0 && <Empty icon="📋" title="No Requests Found" />}
+      </div>
+
+      {showRequestModal && (
+        <RaiseRequestModal onClose={() => setShowRequestModal(false)} onSuccess={() => { setShowRequestModal(false); fetchRequests(); }} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. ROOMS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+function RoomsTab() {
+  const [rooms, setRooms] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [formData, setFormData] = useState({ name: '', location: '', equipmentTags: '' });
+
+  const fetchRooms = async () => {
+    try {
+      const res = await API.get('/ot/rooms');
+      setRooms(res.data);
+    } catch (err) { toast.error('Failed to load rooms'); }
+  };
+
+  useEffect(() => { fetchRooms(); }, []);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...formData,
+        equipmentTags: formData.equipmentTags.split(',').map(s => s.trim()).filter(Boolean)
+      };
+      await API.post('/ot/rooms', payload);
+      toast.success('Room added');
+      setShowAdd(false);
+      fetchRooms();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add room');
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
+        <Btn onClick={() => setShowAdd(true)}>+ Add OT Room</Btn>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 15 }}>
+        {rooms.map(room => (
+          <Card key={room._id}>
+            <h3 style={{ margin: '0 0 5px 0' }}>{room.name} {room.active ? <Badge color="green">Active</Badge> : <Badge color="red">Inactive</Badge>}</h3>
+            <p style={{ margin: '0 0 10px 0', fontSize: 13, color: 'var(--text-muted)' }}>Location: {room.location}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {room.equipmentTags.map((t, idx) => <span key={idx} style={{ background: 'var(--surface2)', padding: '2px 8px', borderRadius: 12, fontSize: 11 }}>{t}</span>)}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {showAdd && (
+        <Modal title="Add OT Room" onClose={() => setShowAdd(false)}>
+          <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <Input label="Room Name (e.g. OT-1)" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            <Input label="Location" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+            <Input label="Equipment Tags (comma separated)" placeholder="Ventilator, C-Arm" value={formData.equipmentTags} onChange={e => setFormData({...formData, equipmentTags: e.target.value})} />
+            <Btn type="submit">Save Room</Btn>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RaiseRequestModal({ onClose, onSuccess }) {
+  const [patients, setPatients] = useState([]);
+  const [formData, setFormData] = useState({
+    patientId: '', diagnosis: '', proposedProcedure: '', priority: 'elective', notes: ''
+  });
+
+  useEffect(() => {
+    API.get('/patients').then(res => setPatients(res.data.patients || res.data)).catch(console.error);
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await API.post('/ot/requests', formData);
+      toast.success('Surgery request raised');
+      onSuccess();
+    } catch (err) {
+      toast.error('Failed to raise request');
+    }
+  };
+
+  return (
+    <Modal title="Raise Surgery Request" onClose={onClose}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+        <Select label="Patient" required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
+          <option value="">Select Patient</option>
+          {patients.map(p => <option key={p._id} value={p._id}>{p.name} ({p.patientId})</option>)}
+        </Select>
+        <Input label="Proposed Procedure" required value={formData.proposedProcedure} onChange={e => setFormData({...formData, proposedProcedure: e.target.value})} />
+        <Input label="Diagnosis" required value={formData.diagnosis} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
+        <Select label="Priority" value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})}>
+          <option value="elective">Elective</option>
+          <option value="urgent">Urgent</option>
+          <option value="emergency">Emergency</option>
+        </Select>
+        <Input label="Notes" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+        <Btn type="submit">Submit Request</Btn>
+      </form>
     </Modal>
   );
 }
 
-// ── Tabs Components ──
+function BookingModal({ slot, preselectedRequestId, onClose, onSuccess }) {
+  const [approvedRequests, setApprovedRequests] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [formData, setFormData] = useState({
+    requestId: preselectedRequestId || '',
+    otRoomId: slot.otRoomId,
+    scheduledStart: format(slot.start, "yyyy-MM-dd'T'HH:mm"),
+    scheduledEnd: format(slot.end, "yyyy-MM-dd'T'HH:mm"),
+    surgeonId: '',
+    anesthetistId: '',
+    nurseId: '',
+    notes: ''
+  });
 
-function DetailsTab({ surgery, onUpdate, doctors, canManage }) {
-  const [status, setStatus] = useState(surgery.status);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  useEffect(() => {
+    API.get('/ot/requests', { params: { status: 'approved' } }).then(res => setApprovedRequests(res.data));
+    API.get('/staff').then(res => setStaff(res.data.staff || res.data));
+  }, []);
 
-  const handleStatusChange = async (newStatus) => {
-    setError('');
-    setSaving(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
-      const res = await API.put(`/surgeries/${surgery._id}`, { status: newStatus });
-      onUpdate(res.data);
-      setStatus(newStatus);
-      toast.success('Status updated');
+      const staffAssignments = [];
+      if (formData.surgeonId) staffAssignments.push({ staffId: formData.surgeonId, role: 'surgeon' });
+      if (formData.anesthetistId) staffAssignments.push({ staffId: formData.anesthetistId, role: 'anesthetist' });
+      if (formData.nurseId) staffAssignments.push({ staffId: formData.nurseId, role: 'nurse' });
+
+      await API.post('/ot/bookings', {
+        ...formData,
+        staffAssignments
+      });
+      toast.success('Surgery Scheduled Successfully');
+      onSuccess();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update status');
-      setStatus(surgery.status); // revert
-    } finally {
-      setSaving(false);
+      toast.error(err.response?.data?.message || 'Conflict detected or creation failed');
     }
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-      {error && <Alert type="error">{error}</Alert>}
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-        <div>
-          <p style={{ margin: '0 0 5px', fontSize: 13, color: 'var(--text-muted)' }}>Patient</p>
-          <p style={{ margin: 0, fontWeight: 500 }}>{surgery.patientId?.name}</p>
-        </div>
-        <div>
-          <p style={{ margin: '0 0 5px', fontSize: 13, color: 'var(--text-muted)' }}>Operation Theatre</p>
-          <p style={{ margin: 0, fontWeight: 500 }}>{surgery.operationTheatreNum}</p>
-        </div>
-        <div>
-          <p style={{ margin: '0 0 5px', fontSize: 13, color: 'var(--text-muted)' }}>Surgeon</p>
-          <p style={{ margin: 0, fontWeight: 500 }}>{surgery.surgeonId?.name || 'N/A'}</p>
-        </div>
-        <div>
-          <p style={{ margin: '0 0 5px', fontSize: 13, color: 'var(--text-muted)' }}>Anesthetist</p>
-          <p style={{ margin: 0, fontWeight: 500 }}>{surgery.anesthetistId?.name || 'None'}</p>
-        </div>
-        <div>
-          <p style={{ margin: '0 0 5px', fontSize: 13, color: 'var(--text-muted)' }}>Start Time</p>
-          <p style={{ margin: 0, fontWeight: 500 }}>{new Date(surgery.startTime).toLocaleString()}</p>
-        </div>
-        <div>
-          <p style={{ margin: '0 0 5px', fontSize: 13, color: 'var(--text-muted)' }}>End Time</p>
-          <p style={{ margin: 0, fontWeight: 500 }}>{new Date(surgery.endTime).toLocaleString()}</p>
-        </div>
-      </div>
+  const doctors = staff.filter(s => s.role === 'doctor' || s.role === 'separate_doctor');
+  const nurses = staff.filter(s => s.role === 'nurse');
 
-      <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Status Management</h4>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Select 
-            value={status} 
-            onChange={e => handleStatusChange(e.target.value)}
-            disabled={!canManage || saving || surgery.status === 'Completed' || surgery.status === 'Cancelled'}
-            style={{ width: 200 }}
-          >
-            <option value="Scheduled">Scheduled</option>
-            <option value="In-Progress">In-Progress</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
-          </Select>
-          {saving && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Updating...</span>}
+  return (
+    <Modal title="Schedule Booking" onClose={onClose} width={600}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+        <Select label="Approved Surgery Request" required value={formData.requestId} onChange={e => setFormData({...formData, requestId: e.target.value})}>
+          <option value="">Select Request</option>
+          {approvedRequests.map(r => <option key={r._id} value={r._id}>{r.patientId?.name} - {r.proposedProcedure} ({r.priority})</option>)}
+        </Select>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Input type="datetime-local" label="Start Time" required value={formData.scheduledStart} onChange={e => setFormData({...formData, scheduledStart: e.target.value})} style={{ flex: 1 }}/>
+          <Input type="datetime-local" label="End Time" required value={formData.scheduledEnd} onChange={e => setFormData({...formData, scheduledEnd: e.target.value})} style={{ flex: 1 }}/>
         </div>
-      </div>
-    </div>
+
+        <Select label="Surgeon (Optional for now, Phase 3 focus)" value={formData.surgeonId} onChange={e => setFormData({...formData, surgeonId: e.target.value})}>
+          <option value="">Select Surgeon</option>
+          {doctors.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+        </Select>
+        
+        <Select label="Anesthetist" value={formData.anesthetistId} onChange={e => setFormData({...formData, anesthetistId: e.target.value})}>
+          <option value="">Select Anesthetist</option>
+          {doctors.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+        </Select>
+
+        <Select label="OT Nurse" value={formData.nurseId} onChange={e => setFormData({...formData, nurseId: e.target.value})}>
+          <option value="">Select Nurse</option>
+          {nurses.map(n => <option key={n._id} value={n._id}>{n.name}</option>)}
+        </Select>
+
+        <Input label="Notes" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+        
+        <Btn type="submit">Confirm Schedule</Btn>
+      </form>
+    </Modal>
   );
 }
 
-function PreOpTab({ surgery, onUpdate }) {
-  const [checklist, setChecklist] = useState(surgery.preOpChecklist || []);
-  const [customItem, setCustomItem] = useState('');
-  const [saving, setSaving] = useState(false);
+function BookingDetailsModal({ booking, onClose, onUpdate }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
-  const toggleItem = (index) => {
-    const newChecklist = [...checklist];
-    newChecklist[index].isCompleted = !newChecklist[index].isCompleted;
-    setChecklist(newChecklist);
-  };
+  const [activeTab, setActiveTab] = useState('details');
+  const [assignments, setAssignments] = useState([]);
+  const [allStaff, setAllStaff] = useState([]);
+  const [savingAssignments, setSavingAssignments] = useState(false);
 
-  const addCustomItem = (e) => {
-    e.preventDefault();
-    if (!customItem.trim()) return;
-    setChecklist([...checklist, { task: customItem, isCompleted: false }]);
-    setCustomItem('');
-  };
+  useEffect(() => {
+    API.get(`/ot/bookings/${booking._id}/assignments`).then(res => setAssignments(res.data));
+    API.get('/staff').then(res => setAllStaff(res.data.staff || res.data));
+  }, [booking._id]);
 
-  const saveChecklist = async () => {
-    setSaving(true);
+  const handleStatus = async (newStatus, override = false) => {
     try {
-      const res = await API.put(`/surgeries/${surgery._id}/preop`, { checklist });
+      const res = await API.put(`/ot/bookings/${booking._id}/status`, { status: newStatus, override });
+      toast.success('Status updated');
       onUpdate(res.data);
-      toast.success('Checklist updated');
     } catch (err) {
-      toast.error('Failed to update checklist');
+      if (err.response?.status === 403 && err.response?.data?.requiresOverride) {
+        if (!isAdmin) {
+          return toast.error('Mandatory safety steps missing. Only admins can override this.');
+        }
+        if (window.confirm(err.response.data.message + '\n\nDo you want to override and proceed?')) {
+          handleStatus(newStatus, true);
+        }
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to update status');
+      }
+    }
+  };
+
+  const handleAssignmentChange = (idx, field, value) => {
+    const newAssig = [...assignments];
+    newAssig[idx][field] = value;
+    setAssignments(newAssig);
+  };
+
+  const addAssignmentRow = () => {
+    setAssignments([...assignments, { staffId: '', role: 'surgeon' }]);
+  };
+
+  const saveAssignments = async () => {
+    setSavingAssignments(true);
+    try {
+      // Map to expected format
+      const payload = assignments.filter(a => a.staffId).map(a => ({
+        staffId: typeof a.staffId === 'object' ? a.staffId._id : a.staffId,
+        role: a.role
+      }));
+      await API.put(`/ot/bookings/${booking._id}/assignments`, { assignments: payload });
+      toast.success('Assignments updated');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update assignments (Conflict?)');
     } finally {
-      setSaving(false);
+      setSavingAssignments(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {checklist.map((item, idx) => (
-          <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-            <input 
-              type="checkbox" 
-              checked={item.isCompleted} 
-              onChange={() => toggleItem(idx)}
-              style={{ width: 18, height: 18 }}
-            />
-            <span style={{ textDecoration: item.isCompleted ? 'line-through' : 'none', color: item.isCompleted ? 'var(--text-muted)' : 'var(--text)' }}>
-              {item.task}
-            </span>
-          </label>
+    <Modal title="Booking Details" onClose={onClose} width={700}>
+      <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 15, flexWrap: 'wrap' }}>
+        {['details', 'assignments', 'preop', 'consent', 'safety', 'postop'].map(tab => (
+          <button 
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{ padding: '6px 12px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : 'var(--text)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', textTransform: 'capitalize' }}
+          >
+            {tab.replace('_', ' ')}
+          </button>
         ))}
       </div>
 
-      <form onSubmit={addCustomItem} style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-        <Input 
-          placeholder="Add custom checklist item" 
-          value={customItem} 
-          onChange={e => setCustomItem(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <Btn type="submit" variant="ghost">Add</Btn>
-      </form>
+      {activeTab === 'details' && (
+        <div>
+          <p><strong>Patient:</strong> {booking.requestId?.patientId?.name}</p>
+          <p><strong>Status:</strong> {booking.status}</p>
+          <p><strong>Time:</strong> {new Date(booking.scheduledStart).toLocaleString()} - {new Date(booking.scheduledEnd).toLocaleTimeString()}</p>
 
-      <div style={{ marginTop: 15, display: 'flex', justifyContent: 'flex-end' }}>
-        <Btn onClick={saveChecklist} disabled={saving}>{saving ? 'Saving...' : 'Save Checklist'}</Btn>
-      </div>
-    </div>
+          <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 15 }}>
+            <h4>Update Status</h4>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Btn variant="primary" onClick={() => handleStatus('confirmed')} disabled={booking.status !== 'scheduled'}>Confirm</Btn>
+              <Btn variant="warning" onClick={() => handleStatus('in_progress')} disabled={booking.status !== 'confirmed'}>In Progress</Btn>
+              <Btn variant="success" onClick={() => handleStatus('completed')} disabled={booking.status !== 'in_progress'}>Complete</Btn>
+              <Btn variant="danger" onClick={() => handleStatus('cancelled')} disabled={!isAdmin}>Cancel</Btn>
+              <Btn variant="ghost" onClick={() => handleStatus('postponed')} disabled={!isAdmin}>Postpone</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'assignments' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+          {assignments.map((assig, idx) => {
+            const currentStaffId = typeof assig.staffId === 'object' ? assig.staffId?._id : assig.staffId;
+            return (
+              <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                <Select label="Role" value={assig.role} onChange={e => handleAssignmentChange(idx, 'role', e.target.value)} style={{ flex: 1 }}>
+                  <option value="surgeon">Surgeon</option>
+                  <option value="assistant_surgeon">Assistant Surgeon</option>
+                  <option value="anesthetist">Anesthetist</option>
+                  <option value="nurse">Nurse</option>
+                </Select>
+                <Select label="Staff Member" value={currentStaffId || ''} onChange={e => handleAssignmentChange(idx, 'staffId', e.target.value)} style={{ flex: 2 }}>
+                  <option value="">Select Staff</option>
+                  {allStaff.filter(s => {
+                    if (assig.role === 'nurse') return s.role === 'nurse';
+                    return s.role === 'doctor' || s.role === 'separate_doctor';
+                  }).map(s => <option key={s._id} value={s._id}>{s.name} ({s.role})</option>)}
+                </Select>
+                <Btn variant="danger" onClick={() => setAssignments(assignments.filter((_, i) => i !== idx))} type="button">Remove</Btn>
+              </div>
+            );
+          })}
+          
+          {isAdmin && (
+            <>
+              <div>
+                <Btn variant="ghost" onClick={addAssignmentRow}>+ Add Staff</Btn>
+              </div>
+
+              <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 15 }}>
+                <Btn onClick={saveAssignments} disabled={savingAssignments}>{savingAssignments ? 'Saving...' : 'Save Assignments'}</Btn>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'preop' && <PreOpTab bookingId={booking._id} />}
+      {activeTab === 'consent' && <ConsentTab bookingId={booking._id} />}
+      {activeTab === 'safety' && <SafetyTab bookingId={booking._id} />}
+      {activeTab === 'postop' && <PostOpTab bookingId={booking._id} />}
+    </Modal>
   );
 }
 
-function ConsentTab({ surgery, onUpdate }) {
-  const [uploading, setUploading] = useState(false);
-  const [docName, setDocName] = useState('');
-  const [file, setFile] = useState(null);
+// ── Phase 5 Tab Components ──
 
-  const handleUpload = async (e) => {
-    e.preventDefault();
-    if (!file) return;
+function PostOpTab({ bookingId }) {
+  const [data, setData] = useState({ vitals: [], status: 'in_recovery', notes: '' });
+  const [vitalForm, setVitalForm] = useState({ bp: '', pulse: '', spo2: '', consciousness: 'Alert' });
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('consentForm', file);
-    formData.append('documentName', docName || file.name);
-
+  const fetchData = async () => {
     try {
-      const res = await API.post(`/surgeries/${surgery._id}/consent`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      onUpdate(res.data);
-      toast.success('Consent form uploaded');
-      setFile(null);
-      setDocName('');
-      // Reset file input
-      document.getElementById('consentFileInput').value = '';
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to upload');
-    } finally {
-      setUploading(false);
-    }
+      const res = await API.get(`/ot/bookings/${bookingId}/postop`);
+      if (res.data) setData(res.data);
+    } catch(err){}
+  };
+
+  useEffect(() => { fetchData(); }, [bookingId]);
+
+  const addVital = async (e) => {
+    e.preventDefault();
+    try {
+      await API.put(`/ot/bookings/${bookingId}/postop/vitals`, vitalForm);
+      toast.success('Vitals added');
+      setVitalForm({ bp: '', pulse: '', spo2: '', consciousness: 'Alert' });
+      fetchData();
+    } catch(err) { toast.error('Failed to add vitals'); }
+  };
+
+  const updateStatus = async (newStatus) => {
+    try {
+      await API.put(`/ot/bookings/${bookingId}/postop/status`, { status: newStatus, notes: data.notes });
+      toast.success('Recovery status updated');
+      fetchData();
+    } catch(err) { toast.error('Failed to update status'); }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface2)', padding: 10, borderRadius: 8 }}>
+        <div>
+          <strong>Current Recovery Status: </strong>
+          <Badge color={data.status === 'transferred' ? 'green' : 'yellow'}>{data.status.replace('_', ' ').toUpperCase()}</Badge>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Btn size="sm" onClick={() => updateStatus('stable')} disabled={data.status !== 'in_recovery'}>Mark Stable</Btn>
+          <Btn size="sm" onClick={() => updateStatus('ready_for_transfer')} disabled={data.status !== 'stable'}>Ready for Transfer</Btn>
+          <Btn size="sm" variant="success" onClick={() => updateStatus('transferred')} disabled={data.status !== 'ready_for_transfer'}>Transfer to Ward</Btn>
+        </div>
+      </div>
+
       <div>
-        <h4 style={{ margin: '0 0 10px 0' }}>Uploaded Forms</h4>
-        {surgery.consentForms && surgery.consentForms.length > 0 ? (
-          <ul style={{ paddingLeft: 20, margin: 0 }}>
-            {surgery.consentForms.map((form, idx) => (
-              <li key={idx} style={{ marginBottom: 5 }}>
-                <a href={`http://localhost:5000${form.fileUrl}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
-                  {form.documentName}
-                </a>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>
-                  ({new Date(form.uploadedAt).toLocaleDateString()})
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No forms uploaded yet.</p>
-        )}
+        <Input label="PACU/Recovery Notes" value={data.notes} onChange={e => setData({...data, notes: e.target.value})} placeholder="Notes to attach upon transfer..." />
+        <Btn size="sm" variant="ghost" onClick={() => updateStatus(data.status)} style={{ marginTop: 5 }}>Save Notes</Btn>
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 15 }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Upload New Form</h4>
-        <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Input 
-            label="Document Name (Optional)" 
-            value={docName} 
-            onChange={e => setDocName(e.target.value)}
-            placeholder="e.g., General Consent"
-          />
-          <div>
-            <input 
-              id="consentFileInput"
-              type="file" 
-              accept=".pdf,image/jpeg,image/png"
-              onChange={e => setFile(e.target.files[0])}
-              required
-            />
-          </div>
-          <div style={{ marginTop: 5 }}>
-            <Btn type="submit" disabled={uploading || !file}>{uploading ? 'Uploading...' : 'Upload'}</Btn>
-          </div>
+        <h4>Vitals Flowsheet</h4>
+        {data.vitals.length > 0 ? (
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', marginBottom: 15 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', background: 'var(--surface2)' }}>
+                <th style={{ padding: 8 }}>Time</th>
+                <th>BP</th>
+                <th>Pulse</th>
+                <th>SpO2</th>
+                <th>Consciousness</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.vitals.map((v, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: 8 }}>{new Date(v.timestamp).toLocaleTimeString()}</td>
+                  <td>{v.bp}</td>
+                  <td>{v.pulse}</td>
+                  <td>{v.spo2}%</td>
+                  <td>{v.consciousness}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No vitals recorded yet.</p>}
+
+        <form onSubmit={addVital} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', background: 'var(--surface)', padding: 10, borderRadius: 8, boxShadow: 'var(--shadow-sm)' }}>
+          <Input label="BP" placeholder="120/80" value={vitalForm.bp} onChange={e => setVitalForm({...vitalForm, bp: e.target.value})} style={{ flex: 1 }} required />
+          <Input label="Pulse" type="number" value={vitalForm.pulse} onChange={e => setVitalForm({...vitalForm, pulse: e.target.value})} style={{ flex: 1 }} required />
+          <Input label="SpO2" type="number" value={vitalForm.spo2} onChange={e => setVitalForm({...vitalForm, spo2: e.target.value})} style={{ flex: 1 }} required />
+          <Select label="Consciousness" value={vitalForm.consciousness} onChange={e => setVitalForm({...vitalForm, consciousness: e.target.value})} style={{ flex: 1 }}>
+            <option value="Alert">Alert</option>
+            <option value="Drowsy">Drowsy</option>
+            <option value="Stuporous">Stuporous</option>
+            <option value="Unconscious">Unconscious</option>
+          </Select>
+          <Btn type="submit" size="sm">Add Vital</Btn>
         </form>
       </div>
     </div>
   );
 }
 
-function PostOpTab({ surgery, onUpdate }) {
-  const [notes, setNotes] = useState(surgery.postOpRecovery?.notes || '');
-  const [condition, setCondition] = useState(surgery.postOpRecovery?.condition || '');
-  const [savingNotes, setSavingNotes] = useState(false);
+// ── Phase 4 Tab Components ──
 
-  const [vital, setVital] = useState({ hr: '', bpSystolic: '', bpDiastolic: '', spo2: '' });
-  const [addingVital, setAddingVital] = useState(false);
+function PreOpTab({ bookingId }) {
+  const [data, setData] = useState({ asaScore: '', pacNotes: '', investigationsReviewed: '', fitForSurgery: false });
+  const [loading, setLoading] = useState(false);
 
-  const saveNotes = async () => {
-    setSavingNotes(true);
-    try {
-      const res = await API.put(`/surgeries/${surgery._id}/postop`, { notes, condition });
-      onUpdate(res.data);
-      toast.success('Recovery notes updated');
-    } catch (err) {
-      toast.error('Failed to update notes');
-    } finally {
-      setSavingNotes(false);
-    }
-  };
+  useEffect(() => {
+    API.get(`/ot/bookings/${bookingId}/preop`).then(res => {
+      if (res.data) {
+        setData({
+          ...res.data,
+          investigationsReviewed: res.data.investigationsReviewed?.join(', ') || ''
+        });
+      }
+    });
+  }, [bookingId]);
 
-  const addVital = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setAddingVital(true);
+    setLoading(true);
     try {
       const payload = {
-        hr: Number(vital.hr),
-        bpSystolic: Number(vital.bpSystolic),
-        bpDiastolic: Number(vital.bpDiastolic),
-        spo2: Number(vital.spo2)
+        ...data,
+        investigationsReviewed: data.investigationsReviewed.split(',').map(s => s.trim()).filter(Boolean)
       };
-      const res = await API.put(`/surgeries/${surgery._id}/postop`, { vital: payload });
-      onUpdate(res.data);
-      toast.success('Vitals added');
-      setVital({ hr: '', bpSystolic: '', bpDiastolic: '', spo2: '' });
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add vitals');
-    } finally {
-      setAddingVital(false);
-    }
+      await API.put(`/ot/bookings/${bookingId}/preop`, payload);
+      toast.success('Pre-Op Assessment saved');
+    } catch (err) { toast.error('Failed to save'); }
+    setLoading(false);
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-      {/* Vitals Section */}
-      <div>
-        <h4 style={{ margin: '0 0 10px 0' }}>Vitals Tracker</h4>
-        <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 15, paddingRight: 5 }}>
-          {surgery.postOpRecovery?.vitals?.length > 0 ? (
-            surgery.postOpRecovery.vitals.map((v, idx) => (
-              <div key={idx} style={{ padding: 10, background: 'var(--surface2)', borderRadius: 'var(--radius-sm)', marginBottom: 8, fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <strong>{new Date(v.timestamp).toLocaleTimeString()}</strong>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
-                  <span>HR: {v.hr} bpm</span>
-                  <span>BP: {v.bpSystolic}/{v.bpDiastolic}</span>
-                  <span>SpO2: {v.spo2}%</span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No vitals recorded.</p>
-          )}
-        </div>
+    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+      <Select label="ASA Score" value={data.asaScore} onChange={e => setData({...data, asaScore: e.target.value})}>
+        <option value="">Select Score</option>
+        {['I','II','III','IV','V','VI'].map(s => <option key={s} value={s}>{s}</option>)}
+      </Select>
+      <Input label="PAC Notes" value={data.pacNotes} onChange={e => setData({...data, pacNotes: e.target.value})} />
+      <Input label="Investigations Reviewed (comma separated)" value={data.investigationsReviewed} onChange={e => setData({...data, investigationsReviewed: e.target.value})} />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+        <input type="checkbox" checked={data.fitForSurgery} onChange={e => setData({...data, fitForSurgery: e.target.checked})} style={{ width: 18, height: 18 }} />
+        <strong>Patient is Fit for Surgery</strong>
+      </label>
+      <Btn type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Assessment'}</Btn>
+    </form>
+  );
+}
 
-        <form onSubmit={addVital} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, background: 'var(--surface2)', padding: 10, borderRadius: 'var(--radius-sm)' }}>
-          <Input label="HR (bpm)" type="number" required min="0" max="300" value={vital.hr} onChange={e => setVital({...vital, hr: e.target.value})} />
-          <Input label="SpO2 (%)" type="number" required min="0" max="100" value={vital.spo2} onChange={e => setVital({...vital, spo2: e.target.value})} />
-          <Input label="BP Systolic" type="number" required min="0" max="300" value={vital.bpSystolic} onChange={e => setVital({...vital, bpSystolic: e.target.value})} />
-          <Input label="BP Diastolic" type="number" required min="0" max="200" value={vital.bpDiastolic} onChange={e => setVital({...vital, bpDiastolic: e.target.value})} />
-          <div style={{ gridColumn: '1 / -1', marginTop: 5 }}>
-            <Btn type="submit" size="sm" full disabled={addingVital}>{addingVital ? 'Adding...' : '+ Record Vitals'}</Btn>
-          </div>
-        </form>
+function ConsentTab({ bookingId }) {
+  const [consents, setConsents] = useState([]);
+  const [file, setFile] = useState(null);
+  const [templateId, setTemplateId] = useState('General Surgery Consent');
+
+  const fetchConsents = async () => {
+    try {
+      const res = await API.get(`/ot/bookings/${bookingId}/consent`);
+      setConsents(res.data);
+    } catch(err){}
+  };
+  
+  useEffect(() => { fetchConsents(); }, [bookingId]);
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!file) return toast.error('Select a file');
+    const formData = new FormData();
+    formData.append('patientSignature', file);
+    formData.append('templateId', templateId);
+    
+    try {
+      await API.post(`/ot/bookings/${bookingId}/consent`, formData, { headers: { 'Content-Type': 'multipart/form-data' }});
+      toast.success('Consent uploaded');
+      setFile(null);
+      fetchConsents();
+    } catch(err) { toast.error('Upload failed'); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {consents.length > 0 && (
+        <div>
+          <h4>Uploaded Consents</h4>
+          <ul style={{ paddingLeft: 20 }}>
+            {consents.map(c => (
+              <li key={c._id}>
+                {c.templateId} - <a href={`http://localhost:5000${c.patientSignatureUrl}`} target="_blank" rel="noreferrer">View Document</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--surface2)', padding: 15, borderRadius: 8 }}>
+        <h4>Upload New Consent</h4>
+        <Input label="Template/Document Type" value={templateId} onChange={e => setTemplateId(e.target.value)} required />
+        <input type="file" accept=".pdf,image/*" onChange={e => setFile(e.target.files[0])} required />
+        <Btn type="submit">Upload</Btn>
+      </form>
+    </div>
+  );
+}
+
+function SafetyTab({ bookingId }) {
+  const [stage, setStage] = useState('sign_in');
+  const [items, setItems] = useState({});
+
+  useEffect(() => {
+    API.get(`/ot/bookings/${bookingId}/safety`).then(res => {
+      const currentStageData = res.data.find(c => c.stage === stage);
+      setItems(currentStageData ? currentStageData.items : {});
+    });
+  }, [bookingId, stage]);
+
+  const checklistTemplates = {
+    sign_in: ['Patient identity confirmed', 'Site marked', 'Anesthesia safety check complete', 'Allergies known'],
+    time_out: ['Introduce team', 'Confirm procedure & site', 'Antibiotic prophylaxis given', 'Imaging displayed'],
+    sign_out: ['Procedure recorded', 'Instrument & sponge count correct', 'Specimen labeled']
+  };
+
+  const toggleItem = (key) => {
+    const newItems = { ...items, [key]: !items[key] };
+    setItems(newItems);
+    API.put(`/ot/bookings/${bookingId}/safety/${stage}`, { items: newItems })
+       .catch(err => toast.error('Failed to auto-save checklist'));
+  };
+
+  const saveChecklist = async () => {
+    try {
+      await API.put(`/ot/bookings/${bookingId}/safety/${stage}`, { items });
+      toast.success(`${stage.replace('_', ' ')} checklist saved manually`);
+    } catch (err) { toast.error('Failed to save'); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
+        {['sign_in', 'time_out', 'sign_out'].map(s => (
+          <Btn key={s} variant={stage === s ? 'primary' : 'ghost'} size="sm" onClick={() => setStage(s)}>{s.replace('_', ' ')}</Btn>
+        ))}
       </div>
-
-      {/* Notes Section */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-        <h4 style={{ margin: '0' }}>Recovery Notes</h4>
-        <Input 
-          label="Current Condition" 
-          placeholder="e.g., Stable, Critical, Recovering" 
-          value={condition}
-          onChange={e => setCondition(e.target.value)}
-        />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>Detailed Notes</label>
-          <textarea 
-            value={notes} 
-            onChange={e => setNotes(e.target.value)}
-            rows={5}
-            style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }}
-          />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Btn onClick={saveNotes} disabled={savingNotes}>{savingNotes ? 'Saving...' : 'Save Notes'}</Btn>
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {checklistTemplates[stage].map(item => (
+          <label key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={items[item] || false} onChange={() => toggleItem(item)} style={{ width: 18, height: 18 }} />
+            {item}
+          </label>
+        ))}
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <Btn onClick={saveChecklist}>Save Checklist</Btn>
       </div>
     </div>
   );
+}
+
+function PriorityBadge({ priority }) {
+  if (priority === 'emergency') return <Badge color="red">Emergency</Badge>;
+  if (priority === 'urgent') return <Badge color="yellow">Urgent</Badge>;
+  return <Badge color="blue">Elective</Badge>;
 }

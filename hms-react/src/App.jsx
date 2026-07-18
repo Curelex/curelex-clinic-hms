@@ -20,6 +20,7 @@ import TokenPanel from './pages/TokenPanel';
 import IPD from './pages/IPD';
 import RoomSettings from './pages/RoomSettings';
 import Emergency from './pages/Emergency';
+import OTManagement from './pages/OTManagement';
 import PatientDashboard from './pages/PatientDashboard';
 import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
@@ -323,6 +324,7 @@ function App() {
             <Route path="emergency" element={<Emergency />} />
             <Route path="prescriptions" element={<PermRoute permKey="prescriptions"><DoctorPrescriptions /></PermRoute>} />
             <Route path="telemedicine" element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>} />
+            <Route path="ot" element={<PrivateRoute><OTManagement /></PrivateRoute>} />
             <Route path="doctor-earnings" element={<PrivateRoute><DoctorEarnings /></PrivateRoute>} />
             <Route path="doctor-bank-details" element={<PrivateRoute><DoctorBankDetails /></PrivateRoute>} />
             <Route path="icu" element={<PermRoute permKey="ipd"><ICUManagement /></PermRoute>} />

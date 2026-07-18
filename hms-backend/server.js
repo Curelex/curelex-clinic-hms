@@ -54,6 +54,7 @@ import imsRoutes from './ims/src/routes/index.js';
 import planRoutes from './routes/plans.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 import consultationRoutes from './routes/consultations.js';
+import otRoutes from './routes/otRoutes.js';
 import icuRoutes from './routes/icu.js';
 import icuEquipmentRoutes from './routes/icuEquipment.js';
 // __dirname fix (ESM)
@@ -494,6 +495,7 @@ app.use('/api/telemedicine', telemedicineRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/consultations', consultationRoutes);
+app.use('/api/ot', otRoutes);
 app.use('/api/plans', planRoutes);
 app.use('/api/icu', icuRoutes);
 app.use('/api/icu/equipment', icuEquipmentRoutes);
