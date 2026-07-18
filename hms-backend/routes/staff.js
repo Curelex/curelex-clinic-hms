@@ -34,7 +34,15 @@ function resolveClinicId(req) {
     req.user?.clinicId ||
     null
   );
-  return toObjectId(id);
+  
+  // ── FIX: If no clinicId found, return null ──
+  if (!id) return null;
+  
+  // ── FIX: Convert to ObjectId properly ──
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    return new mongoose.Types.ObjectId(String(id));
+  }
+  return null;
 }
 
 // ── GET all staff — admin only, scoped to clinic ──────────────────────────────
@@ -42,12 +50,16 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
     
-    // ── If no clinicId, return empty array ──
+    console.log('🔍 Staff API - clinicId:', clinicId);
+    
+    // ── FIX: If no clinicId, return empty array ──
     if (!clinicId) {
+      console.log('⚠️ No clinicId found, returning empty staff list');
       return res.json([]);
     }
     
     const staff = await User.find({ clinicId }, '-password').sort({ createdAt: -1 });
+    console.log('🔍 Staff found:', staff.length);
     res.json(staff);
   } catch (err) {
     console.error('Error fetching staff:', err);

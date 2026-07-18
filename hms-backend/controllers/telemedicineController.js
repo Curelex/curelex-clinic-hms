@@ -48,13 +48,13 @@ export const requestTelemedicine = async (req, res) => {
   try {
     const { doctorId, symptoms, preferredTime, urgency } = req.body;
 
-    // FIX: Find patient by userId only — no clinicId filter
+    // ── Find patient by userId only ──
     const patient = await Patient.findOne({ userId: req.user.id });
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    // FIX: Find doctor by _id + role only — no clinicId filter
+    // ── Find doctor by _id + role only ──
     const doctor = await User.findOne({ _id: doctorId, role: { $in: ['doctor', 'separate_doctor'] } });
     if (!doctor) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
@@ -64,15 +64,29 @@ export const requestTelemedicine = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Doctor is not available' });
     }
 
-    
     if (!doctor.bankDetails?.accountNumber) {
       return res.status(400).json({ success: false, message: 'Doctor has not set up payment details yet.' });
     }
 
     const isDoctorOnline = global.doctorStatus?.get(String(doctorId))?.status === 'online';
 
-    // Use patient's clinicId for the record (informational only, not used for filtering)
-    const clinicId = patient.clinicId || doctor.clinicId || null;
+    // ── Get clinicId from doctor ──
+    const clinicId = doctor.clinicId || null;
+
+    // ── FIX: Add clinicId to patient if not already present ──
+    if (clinicId) {
+      // Convert clinicId to string for comparison (in case it's ObjectId)
+      const clinicIdStr = String(clinicId);
+      const hasClinic = patient.clinicIds.some(id => String(id) === clinicIdStr);
+      
+      if (!hasClinic) {
+        patient.clinicIds.push(clinicId);
+        await patient.save();
+        console.log(`✅ Added clinic ${clinicId} to patient ${patient._id}`);
+      } else {
+        console.log(`ℹ️ Patient ${patient._id} already has clinic ${clinicId}`);
+      }
+    }
 
     const telemedicine = await Telemedicine.create({
       patientId:            patient._id,
@@ -121,7 +135,8 @@ export const requestTelemedicine = async (req, res) => {
       success:         true,
       message:         'Telemedicine request sent successfully',
       telemedicine,
-      doctorAvailable: isDoctorOnline
+      doctorAvailable: isDoctorOnline,
+      clinicAdded:     clinicId ? true : false,
     });
   } catch (error) {
     console.error('Request telemedicine error:', error);
@@ -136,7 +151,6 @@ export const approveTelemedicine = async (req, res) => {
     const { scheduledTime, doctorNotes } = req.body;
     const doctorId = req.user.id;
 
-    // FIX: find by _id only
     const telemedicine = await Telemedicine.findById(id);
     if (!telemedicine) {
       return res.status(404).json({ success: false, message: 'Request not found' });
@@ -148,6 +162,16 @@ export const approveTelemedicine = async (req, res) => {
 
     if (telemedicine.status !== 'requested') {
       return res.status(400).json({ success: false, message: 'Request already processed' });
+    }
+
+    // ── FIX: Ensure patient has the clinicId ──
+    if (telemedicine.clinicId) {
+      const patient = await Patient.findById(telemedicine.patientId);
+      if (patient && !patient.clinicIds.includes(telemedicine.clinicId)) {
+        patient.clinicIds.push(telemedicine.clinicId);
+        await patient.save();
+        console.log(`✅ Added clinic ${telemedicine.clinicId} to patient ${patient._id} during approval`);
+      }
     }
 
     telemedicine.status = 'payment_pending';
@@ -203,6 +227,13 @@ export const processPayment = async (req, res) => {
 
     if (String(telemedicine.patientId) !== String(patient._id)) {
       return res.status(403).json({ success: false, message: 'Not authorized to pay for this request' });
+    }
+
+    // ── FIX: Ensure patient has the clinicId ──
+    if (telemedicine.clinicId && !patient.clinicIds.includes(telemedicine.clinicId)) {
+      patient.clinicIds.push(telemedicine.clinicId);
+      await patient.save();
+      console.log(`✅ Added clinic ${telemedicine.clinicId} to patient ${patient._id} during payment`);
     }
 
     if (telemedicine.status !== 'payment_pending') {

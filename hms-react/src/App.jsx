@@ -44,6 +44,8 @@ import ClinicLogin from './pages/ClinicLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import PlanSelection from './pages/PlanSelection';
 import HospitalPlanSelection from './pages/HospitalPlanSelection';
+import ICUManagement from './pages/ICUManagement';
+import OTManagement from './pages/OTManagement';
 // import ResetPassword from './pages/ResetPassword';
 
 
@@ -323,6 +325,8 @@ function App() {
             <Route path="telemedicine" element={<PermRoute permKey="telemedicine"><DoctorTelemedicine /></PermRoute>} />
             <Route path="doctor-earnings" element={<PrivateRoute><DoctorEarnings /></PrivateRoute>} />
             <Route path="doctor-bank-details" element={<PrivateRoute><DoctorBankDetails /></PrivateRoute>} />
+            <Route path="icu" element={<PermRoute permKey="ipd"><ICUManagement /></PermRoute>} />
+            <Route path="ot-management" element={<PermRoute permKey="ot"><OTManagement /></PermRoute>} />
           </Route>
 
           {/* ── Patient Routes ───────────────────────────────────── */}

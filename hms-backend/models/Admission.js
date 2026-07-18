@@ -1,4 +1,5 @@
 // hms-backend/models/Admission.js
+
 import mongoose from 'mongoose';
 
 const MedicineLogSchema = new mongoose.Schema({
@@ -29,6 +30,7 @@ const FollowupLogSchema = new mongoose.Schema({
 });
 
 const AdmissionSchema = new mongoose.Schema({
+  // ── Existing fields ──
   admissionId:    { type: String },
   clinicId:       { type: String, required: true, index: true, default: 'default' },
   patient:        { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
@@ -54,14 +56,32 @@ const AdmissionSchema = new mongoose.Schema({
     enum: ['Admitted', 'Discharged', 'Transferred'],
     default: 'Admitted',
   },
+ 
+  medicineLog: [MedicineLogSchema],
+  followupLog: [FollowupLogSchema],
+ 
+  bill:  { type: mongoose.Schema.Types.ObjectId, ref: 'Billing' },
+  notes: { type: String },
 
-  // ── ICU Fields ──
-  icuAdmissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ICUAdmission', default: null },
+  // ── NEW: ICU Fields ──
   isICU: { type: Boolean, default: false },
   icuBedId: { type: mongoose.Schema.Types.ObjectId, ref: 'ICUBed', default: null },
   icuAdmissionDate: { type: Date, default: null },
   icuDischargeDate: { type: Date, default: null },
+  
+  // ── ICU Ventilator ──
   ventilatorUsed: { type: Boolean, default: false },
+  ventilatorStartDate: { type: Date, default: null },
+  ventilatorEndDate: { type: Date, default: null },
+  
+  // ── ICU Severity ──
+  severity: {
+    type: String,
+    enum: ['Mild', 'Moderate', 'Severe', 'Critical'],
+    default: 'Moderate',
+  },
+  reasonForICU: { type: String },
+  diagnosis: { type: String },
   
   // ── ICU Charges ──
   icuBaseCharges: { type: Number, default: 0 },
@@ -70,35 +90,31 @@ const AdmissionSchema = new mongoose.Schema({
   icuDialysisCharges: { type: Number, default: 0 },
   icuEquipmentCharges: { type: Number, default: 0 },
   icuTotalCharges: { type: Number, default: 0 },
- 
-  medicineLog: [MedicineLogSchema],
-  followupLog: [FollowupLogSchema],
- 
-  bill:  { type: mongoose.Schema.Types.ObjectId, ref: 'Billing' },
-  notes: { type: String },
+  
+  // ── ICU Staff ──
+  icuAssignedReceptionist: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  icuAssignedReceptionistName: { type: String },
+
 }, { timestamps: true });
  
 AdmissionSchema.index({ clinicId: 1, admissionId: 1 }, { unique: true });
+AdmissionSchema.index({ clinicId: 1, patient: 1, status: 1 });
 
-// ─── Reliable admissionId generation ────────────────────────────────────────
-// Uses the highest existing number for this clinic rather than countDocuments,
-// so deletions and race conditions don't cause duplicate key errors.
+// ─── admissionId generation ────────────────────────────────────────
 AdmissionSchema.pre('save', async function (next) {
-  if (this.admissionId) return next(); // already set, skip
+  if (this.admissionId) return next();
 
   try {
     const AdmissionModel = mongoose.model('Admission');
-
-    // Find the admission with the highest numeric suffix for this clinic
     const last = await AdmissionModel
       .findOne({ clinicId: this.clinicId, admissionId: /^ADM\d+$/ })
-      .sort({ admissionId: -1 })  // lexicographic sort works because IDs are zero-padded
+      .sort({ admissionId: -1 })
       .select('admissionId')
       .lean();
 
     let nextNumber = 1;
     if (last?.admissionId) {
-      const parsed = parseInt(last.admissionId.slice(3), 10); // strip 'ADM'
+      const parsed = parseInt(last.admissionId.slice(3), 10);
       if (!isNaN(parsed)) nextNumber = parsed + 1;
     }
 
