@@ -54,6 +54,8 @@ import imsRoutes from './ims/src/routes/index.js';
 import planRoutes from './routes/plans.js';
 import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 import consultationRoutes from './routes/consultations.js';
+import icuRoutes from './routes/icu.js';
+import icuEquipmentRoutes from './routes/icuEquipment.js';
 // __dirname fix (ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,6 +113,7 @@ app.use((req, res, next) => {
 
 // MongoDB
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import Clinic from './models/Clinic.js';
 // import { clinicConnection } from './clinic/clinic/config/db.js';
 
 // ── Seed Demo Accounts and Super Admin on boot ───────────────────────────
@@ -140,82 +143,23 @@ async function seedSuperAdmin() {
 
     // Load Clinic model
     const Clinic = (await import('./models/Clinic.js')).default;
-    const Patient = (await import('./models/Patient.js')).default;
+    
 
     // Create a demo Clinic
-    let demoClinic = await Clinic.findOne({ name: 'Curelex Demo Clinic' });
-    if (!demoClinic) {
-      demoClinic = await Clinic.create({
-        name: 'Curelex Demo Clinic',
-        email: 'clinic@curelex.com',
-        phone: '1234567890',
-        type: 'clinic',
-        plan: 'pro',
-        status: 'Active'
-      });
-      console.log(`🚀 Seeded Demo Clinic: Curelex Demo Clinic`);
-    }
+    // let demoClinic = await Clinic.findOne({ name: 'Curelex Demo Clinic' });
+    // if (!demoClinic) {
+    //   demoClinic = await Clinic.create({
+    //     name: 'Curelex Demo Clinic',
+    //     email: 'clinic@curelex.com',
+    //     phone: '1234567890',
+    //     type: 'clinic',
+    //     plan: 'pro',
+    //     status: 'Active'
+    //   });
+    //   console.log(`🚀 Seeded Demo Clinic: Curelex Demo Clinic`);
+    // }
 
-    // 2. Seed Clinic Admin
-    const adminEmail = 'admin@curelex.com';
-    let existingAdmin = await User.findOne({ email: adminEmail });
-    if (!existingAdmin) {
-      await User.create({
-        name: 'Clinic Admin',
-        email: adminEmail,
-        password: 'Password123',
-        role: 'admin',
-        clinicId: demoClinic._id,
-        permissions: [
-          'dashboard', 'patients', 'ipd', 'billing', 'billing-requests',
-          'pharmacy', 'lab', 'inventory', 'staff', 'room-settings', 'prescriptions'
-        ],
-        isActive: true,
-      });
-      console.log(`🚀 Seeded Clinic Admin: ${adminEmail} / Password123`);
-    }
-
-    // 3. Seed Doctor
-    const doctorEmail = 'doctor@curelex.com';
-    let existingDoctor = await User.findOne({ email: doctorEmail });
-    if (!existingDoctor) {
-      await User.create({
-        name: 'Dr. Elizabeth Blackwell',
-        email: doctorEmail,
-        password: 'Password123',
-        role: 'doctor',
-        clinicId: demoClinic._id,
-        permissions: ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'],
-        isActive: true,
-      });
-      console.log(`🚀 Seeded Doctor: ${doctorEmail} / Password123`);
-    }
-
-    // 4. Seed Patient
-    const patientEmail = 'patient@curelex.com';
-    let existingPatient = await User.findOne({ email: patientEmail });
-    if (!existingPatient) {
-      const patientUser = await User.create({
-        name: 'Lenin J',
-        email: patientEmail,
-        password: 'Password123',
-        role: 'patient',
-        clinicId: demoClinic._id,
-        permissions: ['patient-dashboard', 'appointments', 'prescriptions', 'profile', 'telemedicine'],
-        isActive: true,
-      });
-
-      await Patient.create({
-        userId: patientUser._id,
-        name: 'Lenin J',
-        email: patientEmail,
-        phone: '9876543210',
-        clinicIds: [demoClinic._id],
-        status: 'Active',
-        registrationDate: new Date()
-      });
-      console.log(`🚀 Seeded Patient: ${patientEmail} / Password123`);
-    }
+    
 
   } catch (err) {
     console.error('❌ Seeding failed:', err.message);
@@ -551,6 +495,8 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/plans', planRoutes);
+app.use('/api/icu', icuRoutes);
+app.use('/api/icu/equipment', icuEquipmentRoutes);
 app.use('/api/v1/ims', imsRoutes);
 
 // app.use('/api/clinic', clinicApp);

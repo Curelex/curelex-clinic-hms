@@ -4,6 +4,9 @@ import { patientAuth } from '../middleware/auth.js';
 import Patient from '../models/Patient.js';
 import Token from '../models/Token.js';
 import User from '../models/User.js';
+import VitalLog from '../models/VitalLog.js';
+import Billing from '../models/Billing.js';
+import VentilatorLog from '../models/VentilatorLog.js';
 import Admission from '../models/Admission.js';
 
 const router = express.Router();
@@ -21,11 +24,9 @@ function genTransactionId() {
   return 'MOCKTXN-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
 }
 
-/** Same day-counting logic used on the staff IPD page — kept identical so
- * the patient never sees a different total than staff. */
 function computeDays(admissionDate, dischargeDate) {
-  const a    = new Date(admissionDate);
-  const d    = dischargeDate ? new Date(dischargeDate) : new Date();
+  const a = new Date(admissionDate);
+  const d = dischargeDate ? new Date(dischargeDate) : new Date();
   const diff = Math.max(0, Math.round((d - a) / (1000 * 60 * 60 * 24)));
   return diff || 1;
 }
@@ -54,7 +55,7 @@ async function getLinkedPatientIds(patient) {
   return linked.map((p) => p._id);
 }
 
-// ── GET /:id/dashboard ───────────────────────────────────────────────────
+
 router.get('/:id/dashboard', patientAuth, async (req, res) => {
   try {
     let patient = await Patient.findById(req.params.id);
@@ -63,8 +64,6 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    // Include tokens booked under any of this person's clinic-scoped
-    // Patient records, not just the one they originally logged in with.
     const patientIds = await getLinkedPatientIds(patient);
 
     const totalAppointments = await Token.countDocuments({ patient: { $in: patientIds } });
@@ -72,6 +71,19 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
       patient: { $in: patientIds },
       status: { $in: ['Waiting', 'Pending', 'Called'] },
     });
+
+    const activeAdmission = await Admission.findOne({ 
+      patient: patient._id, 
+      status: 'Admitted' 
+    });
+
+    // ── NEW: Get pending bills ──
+    const pendingBills = await Billing.find({ 
+      patient: patient._id, 
+      paymentStatus: { $in: ['Pending', 'Partial'] } 
+    });
+
+    const totalPendingAmount = pendingBills.reduce((sum, b) => sum + (b.totalAmount - b.paidAmount), 0);
 
     res.json({
       success: true,
@@ -83,6 +95,10 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
         patientName: patient.name,
         patientEmail: patient.email,
         patientMobile: patient.mobile || patient.phone,
+        isAdmitted: !!activeAdmission,
+        hasICUAdmission: activeAdmission?.isICU || false,
+        pendingBills: pendingBills.length,          // ← NEW
+        totalPendingAmount,                          // ← NEW
       },
     });
   } catch (error) {
@@ -321,95 +337,238 @@ router.get('/:id/prescriptions', patientAuth, async (req, res) => {
   }
 });
 
-// ── GET /:id/admission — live, transparent view of an active admission ───
-// Returns the patient's CURRENT admission (if any), with the exact same
-// room/rate/medicine/billing data the clinic staff sees on the IPD page —
-// computed with the identical day-counting logic, so totals always match.
+
 router.get('/:id/admission', patientAuth, async (req, res) => {
   try {
-    let patient = await Patient.findById(req.params.id);
-    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
+    const patientId = req.params.id;
+    
+    let patient = await Patient.findById(patientId);
+    if (!patient) {
+      patient = await Patient.findOne({ userId: patientId });
+    }
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const admission = await Admission.findOne({ patient: patient._id, status: 'Admitted' })
+    // ── Find the most recent ICU admission ──
+    const admission = await Admission.findOne({ 
+      patient: patient._id,
+      isICU: true
+    })
       .populate('doctor', 'name department')
       .populate('admittedBy', 'name')
-      .sort({ admissionDate: -1 });
+      .populate('icuAssignedReceptionist', 'name')
+      .sort({ createdAt: -1 });
 
     if (!admission) {
-      return res.json({ success: true, admitted: false, admission: null });
+      return res.json({ 
+        success: true, 
+        admitted: false, 
+        admission: null,
+        message: 'No ICU admission found'
+      });
     }
 
-    const days          = admission.daysAdmitted || computeDays(admission.admissionDate, admission.dischargeDate);
-    const roomRent       = days * admission.roomRatePerDay;
+    const isCurrentlyAdmitted = admission.status === 'Admitted';
+
+    // ── Get vitals ──
+    let latestVitals = null;
+    let vitalsHistory = [];
+    let ventilatorLogs = [];
+    
+    if (admission.isICU) {
+      vitalsHistory = await VitalLog.find({ 
+        patientId: patient._id,
+        admissionId: admission._id
+      }).sort({ createdAt: -1 }).limit(50);
+      
+      latestVitals = vitalsHistory[0] || null;
+      
+      ventilatorLogs = await VentilatorLog.find({
+        patientId: patient._id,
+        admissionId: admission._id
+      }).sort({ createdAt: -1 });
+    }
+
+    const days = admission.daysAdmitted || computeDays(admission.admissionDate, admission.dischargeDate);
+    const roomRent = days * admission.roomRatePerDay;
     const medicinesTotal = admission.medicineLog.reduce((sum, m) => sum + (m.total || 0), 0);
-    const grandTotal     = roomRent + medicinesTotal;
+    const grandTotal = roomRent + medicinesTotal + (admission.icuTotalCharges || 0);
 
     res.json({
       success: true,
-      admitted: true,
+      admitted: isCurrentlyAdmitted,
       admission: {
-        _id:            admission._id,
-        admissionId:    admission.admissionId,
-        roomType:       admission.roomType,
-        roomNumber:     admission.roomNumber,
-        roomRatePerDay: admission.roomRatePerDay,
-        admissionDate:  admission.admissionDate,
+        ...admission.toObject(),
         days,
         roomRent,
         medicinesTotal,
         grandTotal,
-        doctor:         admission.doctor,
-        admittedBy:     admission.admittedBy,
-        medicineLog:    admission.medicineLog,
-        followupLog:    admission.followupLog,
-        notes:          admission.notes,
-        status:         admission.status,
+        latestVitals,
+        vitalsHistory,
+        ventilatorLogs,
+        isICU: admission.isICU || false,
+        isDischarged: admission.status === 'Discharged',
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    console.error('Get admission error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ── GET /:id/admissions/history — past (discharged) admissions ───────────
+
 router.get('/:id/admissions/history', patientAuth, async (req, res) => {
   try {
-    let patient = await Patient.findById(req.params.id);
-    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
+    const patientId = req.params.id;
+    
+    let patient = await Patient.findById(patientId);
+    if (!patient) {
+      patient = await Patient.findOne({ userId: patientId });
+    }
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    const admissions = await Admission.find({ patient: patient._id, status: 'Discharged' })
+    // ── FIX: Get ALL admissions (including discharged) ──
+    const admissions = await Admission.find({ patient: patient._id })
       .populate('doctor', 'name department')
-      .sort({ dischargeDate: -1 });
+      .sort({ createdAt: -1 }); // Most recent first
 
+    // ── Format each admission ──
     const history = admissions.map((adm) => {
-      const days          = adm.daysAdmitted || computeDays(adm.admissionDate, adm.dischargeDate);
-      const roomRent       = adm.roomRent || days * adm.roomRatePerDay;
+      const days = adm.daysAdmitted || computeDays(adm.admissionDate, adm.dischargeDate);
+      const roomRent = adm.roomRent || days * adm.roomRatePerDay;
       const medicinesTotal = adm.medicineLog.reduce((sum, m) => sum + (m.total || 0), 0);
+      
       return {
-        _id:            adm._id,
-        admissionId:    adm.admissionId,
-        roomType:       adm.roomType,
-        roomNumber:     adm.roomNumber,
+        _id: adm._id,
+        admissionId: adm.admissionId,
+        roomType: adm.roomType,
+        roomNumber: adm.roomNumber,
         roomRatePerDay: adm.roomRatePerDay,
-        admissionDate:  adm.admissionDate,
-        dischargeDate:  adm.dischargeDate,
+        admissionDate: adm.admissionDate,
+        dischargeDate: adm.dischargeDate,
         days,
         roomRent,
         medicinesTotal,
         grandTotal: roomRent + medicinesTotal,
         doctor: adm.doctor,
+        status: adm.status,
+        isICU: adm.isICU || false,
+        notes: adm.notes,
+        createdAt: adm.createdAt,
       };
     });
 
-    res.json({ success: true, admissions: history });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    // ── Separate current admission (if any) ──
+    const currentAdmission = admissions.find(a => a.status === 'Admitted');
+    const pastAdmissions = admissions.filter(a => a.status === 'Discharged' || a.status === 'Transferred');
+
+    res.json({
+      success: true,
+      currentAdmission: currentAdmission || null,
+      pastAdmissions: pastAdmissions,
+      history: history,
+      total: admissions.length,
+    });
+  } catch (err) {
+    console.error('Get admission history error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── NEW: GET /:id/bills ──
+router.get('/:id/bills', patientAuth, async (req, res) => {
+  try {
+    const patientId = req.params.id;
+    
+    let patient = await Patient.findById(patientId);
+    if (!patient) {
+      patient = await Patient.findOne({ userId: patientId });
+    }
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const bills = await Billing.find({ patient: patient._id })
+      .populate('generatedBy', 'name')
+      .sort({ createdAt: -1 });
+
+    const pendingBills = bills.filter(b => b.paymentStatus === 'Pending' || b.paymentStatus === 'Partial');
+    const paidBills = bills.filter(b => b.paymentStatus === 'Paid');
+
+    res.json({
+      success: true,
+      bills,
+      pendingBills,
+      paidBills,
+      totalPending: pendingBills.reduce((sum, b) => sum + (b.totalAmount - b.paidAmount), 0),
+      totalPaid: paidBills.reduce((sum, b) => sum + b.paidAmount, 0),
+    });
+  } catch (err) {
+    console.error('Get bills error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── NEW: POST /:id/bills/:billId/pay ──
+router.post('/:id/bills/:billId/pay', patientAuth, async (req, res) => {
+  try {
+    const { id, billId } = req.params;
+    const { amount, paymentMethod } = req.body;
+    
+    let patient = await Patient.findById(id);
+    if (!patient) {
+      patient = await Patient.findOne({ userId: id });
+    }
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const bill = await Billing.findOne({ _id: billId, patient: patient._id });
+    if (!bill) {
+      return res.status(404).json({ success: false, message: 'Bill not found' });
+    }
+
+    const payAmount = Number(amount) || bill.totalAmount - bill.paidAmount;
+    
+    if (payAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be greater than 0' });
+    }
+
+    if (payAmount > (bill.totalAmount - bill.paidAmount)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Amount exceeds remaining balance. Remaining: ₹${(bill.totalAmount - bill.paidAmount).toLocaleString()}` 
+      });
+    }
+
+    bill.paidAmount += payAmount;
+    bill.paymentMethod = paymentMethod || bill.paymentMethod || 'UPI';
+    
+    if (bill.paidAmount >= bill.totalAmount) {
+      bill.paymentStatus = 'Paid';
+    } else {
+      bill.paymentStatus = 'Partial';
+    }
+    
+    await bill.save();
+
+    const transactionId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+
+    res.json({
+      success: true,
+      message: 'Payment processed successfully',
+      bill,
+      transactionId,
+      paidAmount: payAmount,
+      remainingAmount: bill.totalAmount - bill.paidAmount,
+      paymentStatus: bill.paymentStatus,
+    });
+  } catch (err) {
+    console.error('Pay bill error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
