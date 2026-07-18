@@ -9,7 +9,7 @@ const BillingSchema = new mongoose.Schema({
  
   items: [{
     description: String,
-    category:    { type: String, enum: ['Medicine', 'Lab', 'Procedure', 'Consultation', 'Other'], default: 'Other' },
+    category:    { type: String, enum: ['Medicine', 'Lab', 'Procedure', 'Consultation', 'ICU', 'Other'], default: 'Other' },
     addedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     addedByName: String,
     quantity:    { type: Number, default: 1 },
@@ -51,6 +51,17 @@ const BillingSchema = new mongoose.Schema({
     policyNumber: String,
     claimAmount:  Number,
   },
+
+  icuCharges: {
+    bedRent: { type: Number, default: 0 },
+    ventilator: { type: Number, default: 0 },
+    monitoring: { type: Number, default: 0 },
+    dialysis: { type: Number, default: 0 },
+    equipment: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+  },
+  icuDays: { type: Number, default: 0 },
+  icuDischargeDate: { type: Date, default: null },
  
   notes:       { type: String },
   generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -37,6 +37,7 @@ const CLINIC_NAV_SECTIONS = [
       { path: '/dashboard/staff', label: 'Staff Mgmt', icon: '👥', perm: 'staff', sectionKey: 'staff' },
       { path: '/dashboard/tasks', label: 'Task Allocation', icon: '📋', perm: 'dashboard', sectionKey: 'tasks' },
       { path: '/dashboard/room-settings', label: 'Room Settings', icon: '🏨', perm: 'room-settings', sectionKey: 'bedManagement' },
+      { path: '/dashboard/icu', label: 'ICU Management', icon: '🏥', perm: 'ipd', sectionKey: 'ipd' },
       { path: '/dashboard/ot', label: 'OT Management', icon: '💉', perm: 'dashboard', sectionKey: 'operationTheatre' },
     ],
   },
