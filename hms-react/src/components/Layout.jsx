@@ -600,23 +600,51 @@ export default function Layout() {
 
       {/* ── Main content ─────────────────────────────────────────── */}
       {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+        <div
           style={{
-            position: 'fixed',
-            top: isMobile ? 10 : 12,
-            left: isMobile ? 10 : 24,
+            position: "fixed",
+            top: isMobile ? 12 : 18,
+            left: isMobile ? 12 : 22,
             zIndex: 2000,
-            padding: '4px 14px',
-            border: 'none',
-            borderRadius: 8,
-            background: '#0f2942',
-            color: '#fff',
-            cursor: 'pointer',
+            display: "flex",
+            alignItems: "center",
+            gap: isMobile ? 12 : 16,
           }}
         >
-          {sidebarOpen ? '✕ Close' : '☰ Menu'}
-        </button>
+          {/* Menu Button */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            style={{
+              padding: "8px 14px",
+              border: "none",
+              borderRadius: 10,
+              background: "#0f2942",
+              color: "#fff",
+              cursor: "pointer",
+              fontWeight: 600,
+              fontSize: 14,
+              height: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ☰ Menu
+          </button>
+
+          {/* Curelex Logo */}
+          <img
+            src={curelexLogo}
+            alt="Curelex"
+            style={{
+              height: isMobile ? 36 : 40,
+              width: "auto",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </div>
       )}
 
       <main
@@ -625,7 +653,11 @@ export default function Layout() {
           overflowY: 'auto',
           background: '#f1f5f9',
           padding: isMobile ? 12 : 24,
-          paddingTop: sidebarOpen ? (isMobile ? 70 : 24) : (isMobile ? 70 : 45),
+
+          // Extra top space when floating Menu + Curelex logo are visible
+          paddingTop: sidebarOpen
+            ? (isMobile ? 70 : 24)
+            : (isMobile ? 70 : 80),
         }}
       >
         <Outlet />
