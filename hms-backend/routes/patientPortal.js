@@ -4,7 +4,6 @@ import { patientAuth } from '../middleware/auth.js';
 import Patient from '../models/Patient.js';
 import Token from '../models/Token.js';
 import User from '../models/User.js';
-import ICUAdmission from '../models/ICUAdmission.js';
 import VitalLog from '../models/VitalLog.js';
 import Billing from '../models/Billing.js';
 import VentilatorLog from '../models/VentilatorLog.js';
@@ -73,7 +72,7 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
       status: { $in: ['Waiting', 'Pending', 'Called'] },
     });
 
-    const activeAdmission = await ICUAdmission.findOne({ 
+    const activeAdmission = await Admission.findOne({ 
       patient: patient._id, 
       status: 'Admitted' 
     });
