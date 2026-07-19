@@ -186,6 +186,7 @@ export default function Staff() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [workPanel, setWorkPanel] = useState(null);
   const [workData, setWorkData] = useState(null);
@@ -602,13 +603,37 @@ export default function Staff() {
 
                   <div className="form-group">
                     <label className="form-label">{editId ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-                    <input
-                      className="form-control"
-                      type="password"
-                      value={form.password}
-                      onChange={e => setForm({ ...form, password: e.target.value })}
-                      {...(!editId && { required: true })}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="form-control"
+                        type={showPassword ? 'text' : 'password'}
+                        value={form.password}
+                        onChange={e => setForm({ ...form, password: e.target.value })}
+                        {...(!editId && { required: true })}
+                        style={{ paddingRight: '45px' }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          fontSize: '18px',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {showPassword ? '🙈' : '👁️'}
+                      </button>
+                    </div>
                     <small
                       style={{
                         color: '#94a3b8',

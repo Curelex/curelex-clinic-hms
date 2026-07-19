@@ -6,6 +6,7 @@ import curelexLogo from "../../assets/logo.png";
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
@@ -75,14 +76,37 @@ export default function Login() {
           </div>
           <div className="form-group">
             <label className="form-label">Password</label>
-            <input
-              className="form-control"
-              type="password"
-              placeholder="Enter your password"
-              value={form.password}
-              onChange={e => setForm({ ...form, password: e.target.value })}
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                className="form-control"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={form.password}
+                onChange={e => setForm({ ...form, password: e.target.value })}
+                required
+                style={{ paddingRight: '45px' }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '4px',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  lineHeight: 1
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
 
             <p
               style={{

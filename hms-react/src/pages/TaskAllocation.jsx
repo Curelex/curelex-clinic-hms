@@ -396,11 +396,7 @@ export default function TaskAllocation() {
       </div>
 
       {/* ── Enhanced Stats Dashboard ──────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: 16, marginBottom: 28
-      }}>
+      <div className="task-stats-grid" style={{ marginBottom: 28 }}>
         {statCards.map(stat => (
           <div key={stat.label} className="stat-card" style={{ gap: 14, padding: '18px 20px' }}>
             <div className="stat-icon" style={{ background: stat.bg, width: 44, height: 44, borderRadius: 10, fontSize: 20 }}>
