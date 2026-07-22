@@ -191,11 +191,12 @@ export const HOSPITAL_PLAN_CONFIGS = {
       reports: false,
       multiDepartment: false,
       bedManagement: false,
-      operationTheatre: false,
       ambulance: false,
       bloodBank: false,
       aiAnalytics: false,
       customReports: false,
+      icu: false,
+      ot: false,
     },
     visibleSections: {
       overview: true,
@@ -218,6 +219,8 @@ export const HOSPITAL_PLAN_CONFIGS = {
   staff: false,          // ← add
   tokens: true,          // ← add (tokens feature is true even on free)
   pharmacy: false,
+  icu: false,
+        ot: false,
     },
     limits: {
       patients: 100,
@@ -252,11 +255,12 @@ export const HOSPITAL_PLAN_CONFIGS = {
       reports: true,
       multiDepartment: true,
       bedManagement: true,
-      operationTheatre: false,
       ambulance: false,
       bloodBank: false,
       aiAnalytics: false,
       customReports: false,
+      icu: false,
+        ot: false,
     },
     visibleSections: {
       overview: true,
@@ -279,6 +283,8 @@ export const HOSPITAL_PLAN_CONFIGS = {
   staff: true,           // ← add
   tokens: true,          // ← add
   pharmacy: false,
+  icu: false,
+        ot: false,
     },
     limits: {
       patients: 5000,
@@ -313,11 +319,12 @@ export const HOSPITAL_PLAN_CONFIGS = {
       reports: true,
       multiDepartment: true,
       bedManagement: true,
-      operationTheatre: true,
       ambulance: true,
       bloodBank: true,
       aiAnalytics: true,
       customReports: true,
+      icu: true,
+        ot: true,
     },
     visibleSections: {
       overview: true,
@@ -335,7 +342,6 @@ export const HOSPITAL_PLAN_CONFIGS = {
   bedManagement: true,
   billing: true,
   prescriptions: true,
-  operationTheatre: true,
   ambulance: true,
   bloodBank: true,
   aiAnalytics: true,
@@ -344,7 +350,8 @@ export const HOSPITAL_PLAN_CONFIGS = {
   staff: true,           // ← add
   tokens: true,          // ← add
   pharmacy: true,        // ← add
-
+icu: true,
+        ot: true,
     },
     limits: {
       patients: -1,

@@ -1,7 +1,7 @@
-// hms-backend/config/planConfig.js - Add Hospital Plans
+// hms-backend/config/planConfig.js
 
 export const PLAN_CONFIGS = {
-  // ── CLINIC PLANS (Keep existing) ──
+  // ── CLINIC PLANS (unchanged) ──
   clinic: {
     free: {
       label: 'Free Plan',
@@ -192,11 +192,13 @@ export const PLAN_CONFIGS = {
         reports: false,
         multiDepartment: false,
         bedManagement: false,
-        operationTheatre: false,
         ambulance: false,
         bloodBank: false,
         aiAnalytics: false,
         customReports: false,
+        // ── ICU & OT (Only in Enterprise) ──
+        icu: false,
+        ot: false,
       },
       visibleSections: {
         overview: true,
@@ -214,6 +216,9 @@ export const PLAN_CONFIGS = {
         bedManagement: false,
         billing: false,
         prescriptions: false,
+        // ── ICU & OT (Only in Enterprise) ──
+        icu: false,
+        ot: false,
       },
       limits: {
         patients: 100,
@@ -249,11 +254,13 @@ export const PLAN_CONFIGS = {
         reports: true,
         multiDepartment: true,
         bedManagement: true,
-        operationTheatre: false,
         ambulance: false,
         bloodBank: false,
         aiAnalytics: false,
         customReports: false,
+        // ── ICU & OT (Only in Enterprise) ──
+        icu: false,
+        ot: false,
       },
       visibleSections: {
         overview: true,
@@ -271,6 +278,9 @@ export const PLAN_CONFIGS = {
         bedManagement: true,
         billing: true,
         prescriptions: true,
+        // ── ICU & OT (Only in Enterprise) ──
+        icu: false,
+        ot: false,
       },
       limits: {
         patients: 5000,
@@ -306,11 +316,13 @@ export const PLAN_CONFIGS = {
         reports: true,
         multiDepartment: true,
         bedManagement: true,
-        operationTheatre: true,
         ambulance: true,
         bloodBank: true,
         aiAnalytics: true,
         customReports: true,
+        // ── ICU & OT (Only in Enterprise) ──
+        icu: true,
+        ot: true,
       },
       visibleSections: {
         overview: true,
@@ -328,10 +340,12 @@ export const PLAN_CONFIGS = {
         bedManagement: true,
         billing: true,
         prescriptions: true,
-        operationTheatre: true,
         ambulance: true,
         bloodBank: true,
         aiAnalytics: true,
+        // ── ICU & OT ──
+        icu: true,
+        ot: true,
       },
       limits: {
         patients: -1,
