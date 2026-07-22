@@ -41,18 +41,18 @@ const calcTotal = (tests) =>
 export default function Lab() {
   const clinicId = getClinicId();
 
-  const [labs,         setLabs]         = useState([]);
-  const [total,        setTotal]        = useState(0);
-  const [loading,      setLoading]      = useState(true);
-  const [modal,        setModal]        = useState(false);
-  const [form,         setForm]         = useState(emptyForm);
-  const [editId,       setEditId]       = useState(null);
-  const [patients,     setPatients]     = useState([]);
+  const [labs, setLabs] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
+  const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
-  const [page,         setPage]         = useState(1);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [error,        setError]        = useState('');
+  const [page, setPage] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   // ── Fetch lab list — clinicId now sent explicitly, not inferred ───────────
   const fetchLabs = async () => {
@@ -101,7 +101,7 @@ export default function Lab() {
   // ── Remove a test row + recalculate total ──────────────────────────────────
   const removeTest = (idx) => {
     setForm(f => {
-      const tests     = f.tests.filter((_, i) => i !== idx);
+      const tests = f.tests.filter((_, i) => i !== idx);
       const safeTests = tests.length > 0 ? tests : [{ ...emptyTest }];
       return { ...f, tests: safeTests, totalAmount: calcTotal(safeTests) };
     });
@@ -125,7 +125,7 @@ export default function Lab() {
     setForm({
       ...emptyForm,
       ...lab,
-      patient:     lab.patient?._id || lab.patient || '',
+      patient: lab.patient?._id || lab.patient || '',
       tests,
       totalAmount: calcTotal(tests),
     });
@@ -196,11 +196,11 @@ export default function Lab() {
   // ── Badges ─────────────────────────────────────────────────────────────────
   const statusBadge = (s) => {
     const map = {
-      Ordered:            'badge-info',
+      Ordered: 'badge-info',
       'Sample Collected': 'badge-warning',
-      Processing:         'badge-purple',
-      Completed:          'badge-success',
-      Cancelled:          'badge-danger',
+      Processing: 'badge-purple',
+      Completed: 'badge-success',
+      Cancelled: 'badge-danger',
     };
     return <span className={`badge ${map[s] || 'badge-gray'}`}>{s}</span>;
   };
@@ -404,11 +404,10 @@ export default function Lab() {
                     style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, marginBottom: 8 }}
                   >
                     {/* Row 1: name / category / price / ref range / remove */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
-                      gap: 8, marginBottom: editId ? 8 : 0,
-                    }}>
+                    <div
+                      className="lab-test-fields-grid"
+                      style={{ marginBottom: editId ? 8 : 0 }}
+                    >
                       <input
                         className="form-control"
                         placeholder="Test name *"

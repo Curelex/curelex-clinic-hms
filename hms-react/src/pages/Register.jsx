@@ -24,6 +24,8 @@ export default function Register() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -173,8 +175,38 @@ export default function Register() {
 
           <div className="form-group">
             <label className="form-label">Password *</label>
-            <input className="form-control" name="password" type="password" placeholder="Create a strong password"
-              value={form.password} onChange={handleChange} required />
+            <div style={{ position: 'relative' }}>
+              <input
+                className="form-control"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Create a strong password"
+                value={form.password}
+                onChange={handleChange}
+                required
+                style={{ paddingRight: '45px' }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '4px',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  lineHeight: 1
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
 
             <small
               style={{
@@ -191,8 +223,38 @@ export default function Register() {
 
           <div className="form-group">
             <label className="form-label">Confirm Password *</label>
-            <input className="form-control" name="confirmPassword" type="password" placeholder="Re-enter password"
-              value={form.confirmPassword} onChange={handleChange} required />
+            <div style={{ position: 'relative' }}>
+              <input
+                className="form-control"
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Re-enter password"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                required
+                style={{ paddingRight: '45px' }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '4px',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  lineHeight: 1
+                }}
+              >
+                {showConfirmPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
 
           <button

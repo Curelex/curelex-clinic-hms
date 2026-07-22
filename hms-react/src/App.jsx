@@ -20,7 +20,7 @@ import TokenPanel from './pages/TokenPanel';
 import IPD from './pages/IPD';
 import RoomSettings from './pages/RoomSettings';
 import Emergency from './pages/Emergency';
-import OTManagement from './pages/OTManagement';
+
 import PatientDashboard from './pages/PatientDashboard';
 import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
