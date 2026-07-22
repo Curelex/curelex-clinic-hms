@@ -38,11 +38,12 @@ export const createSurgeryRequest = async (req, res) => {
     });
 
     await logOTAction({
-      entity: 'SurgeryRequest',
+      entityType: 'SurgeryRequest',
       entityId: request._id,
       action: 'CREATED',
-      performedBy: userId,
-      details: { diagnosis, proposedProcedure, priority }
+      actor: userId,
+      details: { diagnosis, proposedProcedure, priority },
+      
     });
 
     // Populate for response
@@ -83,10 +84,10 @@ export const updateSurgeryRequestStatus = async (req, res) => {
     const request = await SurgeryRequest.findById(id).populate('patientId', 'name').populate('requestedBy', 'name');
 
     await logOTAction({
-      entity: 'SurgeryRequest',
+      entityType: 'SurgeryRequest',
       entityId: request._id,
       action: 'STATUS_CHANGED',
-      performedBy: userId,
+      actor: userId,
       details: { status }
     });
 

@@ -8,6 +8,7 @@ import VitalLog from '../models/VitalLog.js';
 import Billing from '../models/Billing.js';
 import VentilatorLog from '../models/VentilatorLog.js';
 import Admission from '../models/Admission.js';
+import otBillingService from '../services/otBillingService.js';
 
 const router = express.Router();
 
@@ -568,6 +569,30 @@ router.post('/:id/bills/:billId/pay', patientAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Pay bill error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/:id/ot-charges', patientAuth, async (req, res) => {
+  try {
+    const patientId = req.params.id;
+    
+    let patient = await Patient.findById(patientId);
+    if (!patient) {
+      patient = await Patient.findOne({ userId: patientId });
+    }
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const result = await otBillingService.getPatientOTCharges(patientId);
+    
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    console.error('Get OT charges error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

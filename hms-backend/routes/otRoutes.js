@@ -1,5 +1,5 @@
 import express from 'express';
-import { auth } from '../middleware/auth.js';
+import { auth, patientAuth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 
 import { getOTRooms, createOTRoom, updateOTRoom } from '../controllers/otRoomController.js';
@@ -11,6 +11,11 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import otBillingService from '../services/otBillingService.js';
+import OTBooking from '../models/ot/OTBooking.js';
+import SurgeryRequest from '../models/ot/SurgeryRequest.js';
+import Patient from '../models/Patient.js';
+import Billing from '../models/Billing.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,11 +64,48 @@ router.post(
 );
 
 router.get('/bookings/:id/safety', auth, getSafetyChecklist);
-router.put('/bookings/:id/safety/:stage', auth, roleCheck('super_admin', 'admin', 'doctor', 'nurse'), updateSafetyChecklist);
+router.put('/bookings/:id/safety/:stage', auth, roleCheck('super_admin', 'admin', 'doctor', 'receptionist'), updateSafetyChecklist);
 
 // ── Phase 5: Post-Op Recovery ──
 router.get('/bookings/:id/postop', auth, getPostOp);
-router.put('/bookings/:id/postop/vitals', auth, roleCheck('super_admin', 'admin', 'doctor', 'nurse'), addVital);
-router.put('/bookings/:id/postop/status', auth, roleCheck('super_admin', 'admin', 'doctor', 'nurse'), updatePostOpStatus);
+router.put('/bookings/:id/postop/vitals', auth, roleCheck('super_admin', 'admin', 'doctor', 'receptionist'), addVital);
+router.put('/bookings/:id/postop/status', auth, roleCheck('super_admin', 'admin', 'doctor', 'receptionist'), updatePostOpStatus);
+
+// ── GET /bookings/:id/billing ──
+router.get('/bookings/:id/billing', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clinicId } = req.user;
+
+    const booking = await OTBooking.findOne({ _id: id, clinicId });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Calculate charges
+    const charges = await otBillingService.calculateOTCharges(id);
+
+    // Find bill if exists
+    const request = await SurgeryRequest.findById(booking.requestId);
+    const bill = await Billing.findOne({ 
+      patient: request?.patientId,
+      'items.sourceRef': id,
+      'items.category': 'OT'
+    });
+
+    res.json({
+      ...charges,
+      billId: bill?.billId || null,
+      paymentStatus: bill?.paymentStatus || null,
+      billDate: bill?.createdAt || null,
+    });
+  } catch (err) {
+    console.error('Get OT billing error:', err);
+    res.status(500).json({ message: 'Error fetching billing info' });
+  }
+});
+
+
+
 
 export default router;

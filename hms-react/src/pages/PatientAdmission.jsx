@@ -607,6 +607,16 @@ export default function PatientAdmission() {
               )}
             </div>
 
+            {/* ── OT Charges Section ── */}
+{patientId && (
+  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 22, marginBottom: 20 }}>
+    <h3 style={{ fontSize: 15, margin: '0 0 14px', color: '#1e293b' }}>
+      🏥 Operation Theatre Charges
+    </h3>
+    <OTChargesSection patientId={patientId} />
+  </div>
+)}
+
             {/* ── Past Admissions History ── */}
             {history.filter(a => a.status === 'Discharged' || a.status === 'Transferred').length > 0 && (
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 22 }}>
@@ -783,6 +793,93 @@ export default function PatientAdmission() {
       )}
 
       <BottomNav activeItem="admission" />
+    </div>
+  );
+}
+
+// ── OT Charges Component ──
+function OTChargesSection({ patientId }) {
+  const [otCharges, setOtCharges] = useState({ otItems: [], totalOTCharges: 0, bills: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOTCharges = async () => {
+      try {
+        const res = await API.get(`/patient-portal/${patientId}/ot-charges`);
+        if (res.data.success) {
+          setOtCharges({
+            otItems: res.data.otItems || [],
+            totalOTCharges: res.data.totalOTCharges || 0,
+            bills: res.data.bills || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch OT charges:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOTCharges();
+  }, [patientId]);
+
+  if (loading) {
+    return <div style={{ fontSize: 13, color: '#64748b', padding: '12px 0' }}>Loading OT charges...</div>;
+  }
+
+  if (otCharges.otItems.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8', fontSize: 13 }}>
+        No OT charges recorded yet
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: 12,
+        padding: '12px 16px',
+        background: '#f0fdf4',
+        borderRadius: 8,
+        border: '1px solid #bbf7d0',
+      }}>
+        <div>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>🏥 Total OT Charges</span>
+          <span style={{ fontSize: 12, color: '#64748b', marginLeft: 8 }}>
+            ({otCharges.bills} bill{otCharges.bills > 1 ? 's' : ''})
+          </span>
+        </div>
+        <span style={{ fontWeight: 700, fontSize: 18, color: '#0f4c81' }}>
+          ₹{otCharges.totalOTCharges.toLocaleString()}
+        </span>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: '#f8fafc' }}>
+              {['Description', 'Amount', 'Bill', 'Date'].map(h => (
+                <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {otCharges.otItems.map((item, idx) => (
+              <tr key={idx} style={{ borderBottom: idx < otCharges.otItems.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                <td style={{ padding: '6px 10px' }}>{item.description}</td>
+                <td style={{ padding: '6px 10px', fontWeight: 600, color: '#0f4c81' }}>₹{item.total.toLocaleString()}</td>
+                <td style={{ padding: '6px 10px', color: '#64748b' }}>{item.billId}</td>
+                <td style={{ padding: '6px 10px', color: '#64748b', fontSize: 11 }}>
+                  {new Date(item.billDate).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

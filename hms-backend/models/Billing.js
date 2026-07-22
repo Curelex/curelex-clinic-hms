@@ -9,7 +9,7 @@ const BillingSchema = new mongoose.Schema({
  
   items: [{
     description: String,
-    category:    { type: String, enum: ['Medicine', 'Lab', 'Procedure', 'Consultation', 'ICU', 'Other'], default: 'Other' },
+    category:    { type: String, enum: ['Medicine', 'Lab', 'Procedure', 'Consultation', 'ICU', 'OT', 'Other'], default: 'Other' },
     addedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     addedByName: String,
     quantity:    { type: Number, default: 1 },

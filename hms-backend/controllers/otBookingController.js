@@ -5,6 +5,7 @@ import SurgeryRequest from '../models/ot/SurgeryRequest.js';
 import PreOpAssessment from '../models/ot/PreOpAssessment.js';
 import SafetyChecklist from '../models/ot/SafetyChecklist.js';
 import { logOTAction } from '../utils/otAuditLogger.js';
+import otBillingService from '../services/otBillingService.js';
 
 // Conflict Engine
 export const checkConflicts = async (clinicId, otRoomId, scheduledStart, scheduledEnd, bookingId = null, staffAssignments = []) => {
@@ -143,10 +144,10 @@ export const createBooking = async (req, res) => {
     }
 
     await logOTAction({
-      entity: 'OTBooking',
+      entityType: 'OTBooking',
       entityId: booking._id,
       action: 'CREATED',
-      performedBy: userId,
+      actor: userId,
       details: { otRoomId, scheduledStart, scheduledEnd, staffAssignments }
     });
 
@@ -170,7 +171,9 @@ export const updateBookingStatus = async (req, res) => {
   try {
     const { clinicId, id: userId } = req.user;
     const { id } = req.params;
-    const { status, override } = req.body; // 'confirmed', 'in_progress', 'completed', 'cancelled', 'postponed'
+    const { status, override } = req.body;
+
+    // console.log(`🔄 Updating booking ${id} status to: ${status}`);
 
     const booking = await OTBooking.findOne({ _id: id, clinicId });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
@@ -209,35 +212,66 @@ export const updateBookingStatus = async (req, res) => {
     }
 
     if (status === 'in_progress' && override) {
-      const { role } = req.user;
-      if (role !== 'super_admin' && role !== 'admin') {
+      
+      const role = req.user.role;
+      
+      if (role !== 'super_admin' || role !== 'admin') {
         return res.status(403).json({ message: 'Only administrators can override mandatory safety protocols.' });
       }
 
       await logOTAction({
-        entity: 'OTBooking',
+        entityType: 'OTBooking',
         entityId: booking._id,
         action: 'OVERRIDE_PREOP',
-        performedBy: userId,
+        actor: userId,
         details: { reason: 'Transition to in_progress forced without complete pre-op.' }
       });
     }
 
+    const oldStatus = booking.status;
     booking.status = status;
     await booking.save();
 
+    // ── PHASE 6: Auto-billing on completion ──
     if (status === 'completed') {
       await SurgeryRequest.findByIdAndUpdate(booking.requestId, { status: 'completed' });
+      
+      // ── ADD OT CHARGES TO BILL ──
+      try {
+        // console.log(`💰 Attempting to add OT charges for booking: ${id}`);
+        const { bill, charges } = await otBillingService.addOTToBill(id);
+        // console.log(`✅ OT charges added to bill: ₹${charges.total}, Bill ID: ${bill.billId}`);
+        
+        // Send notification via socket
+        if (req.io) {
+          req.io.to(`clinic_${clinicId}_staff`).emit('ot:billing-completed', {
+            bookingId: id,
+            total: charges.total,
+            billId: bill.billId
+          });
+        }
+      } catch (billingErr) {
+        console.error('❌ Failed to add OT billing:', billingErr);
+        // Don't fail the status update, just log error
+      }
     } else if (status === 'cancelled') {
       await SurgeryRequest.findByIdAndUpdate(booking.requestId, { status: 'approved' });
+      
+      // ── Remove OT charges from bill if cancelled ──
+      try {
+        await otBillingService.removeOTFromBill(id);
+        // console.log(`✅ OT charges removed from bill for cancelled booking`);
+      } catch (billingErr) {
+        console.error('❌ Failed to remove OT billing:', billingErr);
+      }
     }
 
     await logOTAction({
-      entity: 'OTBooking',
+      entityType: 'OTBooking',
       entityId: booking._id,
       action: 'STATUS_CHANGED',
-      performedBy: userId,
-      details: { status }
+      actor: userId,
+      details: { status, oldStatus }
     });
 
     if (req.io) {
@@ -246,6 +280,7 @@ export const updateBookingStatus = async (req, res) => {
 
     res.json(booking);
   } catch (err) {
+    console.error('Update booking status error:', err);
     res.status(500).json({ message: 'Error updating booking status' });
   }
 };
@@ -297,10 +332,10 @@ export const updateAssignments = async (req, res) => {
     }
 
     await logOTAction({
-      entity: 'StaffAssignment',
+      entityType: 'StaffAssignment',
       entityId: booking._id,
       action: 'REASSIGNED',
-      performedBy: userId,
+      actor: userId,
       details: {
         oldAssignments: oldAssignments.map(o => ({ staffId: o.staffId, role: o.role })),
         newAssignments: assignments

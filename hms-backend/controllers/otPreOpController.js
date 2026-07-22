@@ -30,10 +30,10 @@ export const updatePreOp = async (req, res) => {
     );
 
     await logOTAction({
-      entity: 'PreOpAssessment',
+      entityType: 'PreOpAssessment',
       entityId: preop._id,
       action: 'UPDATED',
-      performedBy: userId,
+      actor: userId,
       details: req.body
     });
 
@@ -83,10 +83,10 @@ export const uploadConsent = async (req, res) => {
     });
 
     await logOTAction({
-      entity: 'ConsentForm',
+      entityType: 'ConsentForm',
       entityId: consent._id,
       action: 'UPLOADED',
-      performedBy: userId,
+      actor: userId,
       details: { templateId, language, patientSignatureUrl }
     });
 
@@ -120,10 +120,10 @@ export const updateSafetyChecklist = async (req, res) => {
     );
 
     await logOTAction({
-      entity: 'SafetyChecklist',
+      entityType: 'SafetyChecklist',
       entityId: checklist._id,
       action: 'UPDATED',
-      performedBy: userId,
+      actor: userId,
       details: { stage, items }
     });
 

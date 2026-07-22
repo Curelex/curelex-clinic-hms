@@ -1,13 +1,14 @@
 import AuditLog from '../models/ot/AuditLog.js';
 
-export const logOTAction = async ({ entity, entityId, action, performedBy, details = {} }) => {
+export const logOTAction = async ({ entityType, entityId, action, actor, details = {} }) => {
   try {
     await AuditLog.create({
-      entity,
+      entityType,
       entityId,
       action,
-      performedBy,
-      details
+      actor,
+      details,
+      timestamp: new Date()
     });
   } catch (err) {
     console.error('Failed to write OT AuditLog:', err);

@@ -13,7 +13,6 @@ export const createProduct = async (payload) => {
   const { data } = await api.post("/products", payload, {
     headers: isFormData ? { "Content-Type": "multipart/form-data" } : {}
   });
-  console.log(data);
   return data;
 };
 

@@ -18,6 +18,15 @@ export default function DoctorPrescriptions() {
   const [stats, setStats] = useState({});
   const [showPatientSelector, setShowPatientSelector] = useState(false);
 
+  // Add Medicine Modal States
+  const [showAddMedicineModal, setShowAddMedicineModal] = useState(false);
+  const [addMedicineData, setAddMedicineData] = useState({ name: '' });
+  const [medicineSearchQuery, setMedicineSearchQuery] = useState('');
+  const [medicineSearchResults, setMedicineSearchResults] = useState([]);
+  const [isSearchingMedicines, setIsSearchingMedicines] = useState(false);
+  const [isAddingMedicine, setIsAddingMedicine] = useState(false);
+  const [addMedicineError, setAddMedicineError] = useState('');
+
   // ✅ Get doctor ID - if user.id is undefined, try _id
   const doctorId = user?.id || user?._id;
 
@@ -102,6 +111,81 @@ export default function DoctorPrescriptions() {
       return;
     }
     setShowPatientSelector(true);
+  };
+
+  // ── Medicine Search Handler ──
+  const searchMedicines = async (query) => {
+    if (!query || query.length < 2) {
+      setMedicineSearchResults([]);
+      return;
+    }
+
+    setIsSearchingMedicines(true);
+    try {
+      const { data } = await API.get(`/medicines/search?query=${query}`);
+      if (data.success) {
+        setMedicineSearchResults(data.medicines || []);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setMedicineSearchResults([]);
+    } finally {
+      setIsSearchingMedicines(false);
+    }
+  };
+
+  // ── Handle Add New Medicine ──
+  const handleAddNewMedicine = async (e) => {
+    e.preventDefault();
+    
+    if (!addMedicineData.name.trim()) {
+      setAddMedicineError('Medicine name is required');
+      return;
+    }
+
+    setIsAddingMedicine(true);
+    setAddMedicineError('');
+
+    try {
+      const { data } = await API.post('/medicines/doctor/add', {
+        name: addMedicineData.name,
+        composition: addMedicineData.composition || '',
+        dosageForm: addMedicineData.dosageForm || 'Tablet',
+        strength: addMedicineData.strength || '',
+        unitPrice: parseFloat(addMedicineData.unitPrice) || 0
+      });
+
+      if (data.success) {
+        // Close the add medicine modal
+        setShowAddMedicineModal(false);
+        setAddMedicineData({ name: '' });
+        setAddMedicineError('');
+        
+        // Show success message
+        alert('Medicine added successfully!');
+        
+        // Refresh the search results
+        if (medicineSearchQuery) {
+          await searchMedicines(medicineSearchQuery);
+        }
+        
+        // If Write Prescription modal is open, we need to pass this medicine to it
+        // For now, we'll just refresh the search
+      }
+    } catch (error) {
+      console.error('Error adding medicine:', error);
+      setAddMedicineError(error.response?.data?.message || 'Failed to add medicine');
+    } finally {
+      setIsAddingMedicine(false);
+    }
+  };
+
+  // ── Handle Medicine Selection for Prescription ──
+  const handleMedicineSelect = (medicine) => {
+    // This will be used when integrating with WritePrescription
+    // For now, just log it
+    console.log('Selected medicine:', medicine);
+    // You can store selected medicine in state and pass to WritePrescription
   };
 
   const statusColors = {
@@ -366,6 +450,186 @@ export default function DoctorPrescriptions() {
           }}
         />
       )}
+
+      {/* ── Add Medicine Modal ── */}
+      {showAddMedicineModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 2000, padding: 16,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            width: '100%', maxWidth: 500, maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '18px 24px', borderBottom: '1px solid #e2e8f0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add New Medicine</h3>
+              <button 
+                onClick={() => {
+                  setShowAddMedicineModal(false);
+                  setAddMedicineError('');
+                  setAddMedicineData({ name: '' });
+                }} 
+                style={{
+                  background: 'none', border: 'none', fontSize: 24, cursor: 'pointer',
+                  color: '#94a3b8', padding: '0 8px',
+                }}
+              >×</button>
+            </div>
+
+            <form onSubmit={handleAddNewMedicine} style={{ padding: '24px', overflowY: 'auto' }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Medicine Name *
+                </label>
+                <input
+                  type="text"
+                  value={addMedicineData.name}
+                  onChange={(e) => setAddMedicineData({...addMedicineData, name: e.target.value})}
+                  placeholder="Enter medicine name"
+                  required
+                  style={{
+                    width: '100%', padding: '8px 12px', border: '1px solid #d1d5db',
+                    borderRadius: 8, fontSize: 14, fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Composition
+                </label>
+                <input
+                  type="text"
+                  value={addMedicineData.composition || ''}
+                  onChange={(e) => setAddMedicineData({...addMedicineData, composition: e.target.value})}
+                  placeholder="e.g., Paracetamol 500mg + Caffeine 65mg"
+                  style={{
+                    width: '100%', padding: '8px 12px', border: '1px solid #d1d5db',
+                    borderRadius: 8, fontSize: 14, fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                    Dosage Form
+                  </label>
+                  <select
+                    value={addMedicineData.dosageForm || 'Tablet'}
+                    onChange={(e) => setAddMedicineData({...addMedicineData, dosageForm: e.target.value})}
+                    style={{
+                      width: '100%', padding: '8px 12px', border: '1px solid #d1d5db',
+                      borderRadius: 8, fontSize: 14, fontFamily: 'inherit',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {['Tablet', 'Capsule', 'Syrup', 'Injection', 'Cream', 'Drops', 'Inhaler', 'Powder', 'Suspension', 'Ointment'].map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                    Strength
+                  </label>
+                  <input
+                    type="text"
+                    value={addMedicineData.strength || ''}
+                    onChange={(e) => setAddMedicineData({...addMedicineData, strength: e.target.value})}
+                    placeholder="e.g., 500mg"
+                    style={{
+                      width: '100%', padding: '8px 12px', border: '1px solid #d1d5db',
+                      borderRadius: 8, fontSize: 14, fontFamily: 'inherit',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Unit Price (₹)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={addMedicineData.unitPrice || 0}
+                  onChange={(e) => setAddMedicineData({...addMedicineData, unitPrice: parseFloat(e.target.value) || 0})}
+                  placeholder="0.00"
+                  style={{
+                    width: '100%', padding: '8px 12px', border: '1px solid #d1d5db',
+                    borderRadius: 8, fontSize: 14, fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {addMedicineError && (
+                <div style={{
+                  color: '#ef4444', fontSize: 14, margin: '8px 0',
+                  padding: '8px 12px', background: '#fef2f2', borderRadius: 6,
+                }}>
+                  {addMedicineError}
+                </div>
+              )}
+
+              <div style={{
+                display: 'flex', justifyContent: 'flex-end', gap: 12,
+                marginTop: 20, paddingTop: 16, borderTop: '1px solid #e2e8f0',
+              }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddMedicineModal(false);
+                    setAddMedicineError('');
+                    setAddMedicineData({ name: '' });
+                  }}
+                  style={{
+                    padding: '8px 20px', borderRadius: 8, border: '1px solid #d1d5db',
+                    background: 'transparent', cursor: 'pointer', fontSize: 14,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingMedicine}
+                  style={{
+                    padding: '8px 20px', borderRadius: 8, border: 'none',
+                    background: isAddingMedicine ? '#94a3b8' : '#2d6be4',
+                    color: '#fff', cursor: isAddingMedicine ? 'not-allowed' : 'pointer',
+                    fontSize: 14, fontFamily: 'inherit',
+                  }}
+                >
+                  {isAddingMedicine ? 'Adding...' : 'Add Medicine'}
+                </button>
+              </div>
+            </form>
+
+            <div style={{
+              padding: '12px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0',
+              color: '#64748b', fontSize: 13,
+            }}>
+              <i className="fas fa-info-circle" style={{ marginRight: 8 }}></i>
+              This medicine will be added to your personal list for future use.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Inline Medicine Search Component (for WritePrescription integration) ── */}
+      {/* You can integrate this directly in WritePrescription or add here */}
     </div>
   );
 }

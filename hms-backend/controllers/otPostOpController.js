@@ -30,10 +30,10 @@ export const addVital = async (req, res) => {
     );
 
     await logOTAction({
-      entity: 'PostOpRecord',
+      entityType: 'PostOpRecord',
       entityId: postop._id,
       action: 'VITAL_ADDED',
-      performedBy: userId,
+      actor: userId,
       details: { bp, pulse, spo2, consciousness }
     });
 
@@ -78,10 +78,10 @@ export const updateStatus = async (req, res) => {
     );
 
     await logOTAction({
-      entity: 'PostOpRecord',
+      entityType: 'PostOpRecord',
       entityId: postop._id,
       action: 'STATUS_CHANGED',
-      performedBy: userId,
+      actor: userId,
       details: { status, notes }
     });
 

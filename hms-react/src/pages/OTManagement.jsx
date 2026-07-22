@@ -488,17 +488,55 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
   const [assignments, setAssignments] = useState([]);
   const [allStaff, setAllStaff] = useState([]);
   const [savingAssignments, setSavingAssignments] = useState(false);
+  
+  // ── Billing state ──
+  const [billingInfo, setBillingInfo] = useState(null);
+  const [loadingBilling, setLoadingBilling] = useState(false);
 
+  // ── Fetch assignments on mount ──
   useEffect(() => {
-    API.get(`/ot/bookings/${booking._id}/assignments`).then(res => setAssignments(res.data));
-    API.get('/staff').then(res => setAllStaff(res.data.staff || res.data));
+    API.get(`/ot/bookings/${booking._id}/assignments`)
+      .then(res => setAssignments(res.data))
+      .catch(console.error);
+    
+    API.get('/staff')
+      .then(res => setAllStaff(res.data.staff || res.data))
+      .catch(console.error);
   }, [booking._id]);
 
+  // ── Fetch billing info when billing tab is active ──
+  useEffect(() => {
+    if (activeTab === 'billing') {
+      fetchBillingInfo();
+    }
+  }, [activeTab, booking._id]);
+
+  const fetchBillingInfo = async () => {
+    if (!booking._id) return;
+    setLoadingBilling(true);
+    try {
+      const res = await API.get(`/ot/bookings/${booking._id}/billing`);
+      setBillingInfo(res.data);
+    } catch (err) {
+      console.error('Failed to fetch billing info:', err);
+    } finally {
+      setLoadingBilling(false);
+    }
+  };
+
+  // ── Status update handler ──
   const handleStatus = async (newStatus, override = false) => {
     try {
-      const res = await API.put(`/ot/bookings/${booking._id}/status`, { status: newStatus, override });
+      const res = await API.put(`/ot/bookings/${booking._id}/status`, { 
+        status: newStatus, 
+        override 
+      });
       toast.success('Status updated');
       onUpdate(res.data);
+      // Refresh billing info if completed
+      if (newStatus === 'completed') {
+        setTimeout(fetchBillingInfo, 1000);
+      }
     } catch (err) {
       if (err.response?.status === 403 && err.response?.data?.requiresOverride) {
         if (!isAdmin) {
@@ -513,6 +551,7 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
     }
   };
 
+  // ── Assignment handlers ──
   const handleAssignmentChange = (idx, field, value) => {
     const newAssig = [...assignments];
     newAssig[idx][field] = value;
@@ -526,13 +565,17 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
   const saveAssignments = async () => {
     setSavingAssignments(true);
     try {
-      // Map to expected format
-      const payload = assignments.filter(a => a.staffId).map(a => ({
-        staffId: typeof a.staffId === 'object' ? a.staffId._id : a.staffId,
-        role: a.role
-      }));
+      const payload = assignments
+        .filter(a => a.staffId)
+        .map(a => ({
+          staffId: typeof a.staffId === 'object' ? a.staffId._id : a.staffId,
+          role: a.role
+        }));
       await API.put(`/ot/bookings/${booking._id}/assignments`, { assignments: payload });
       toast.success('Assignments updated');
+      // Refresh assignments
+      const res = await API.get(`/ot/bookings/${booking._id}/assignments`);
+      setAssignments(res.data);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update assignments (Conflict?)');
     } finally {
@@ -540,59 +583,158 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
     }
   };
 
+  // ── Remove assignment row ──
+  const removeAssignmentRow = (idx) => {
+    setAssignments(assignments.filter((_, i) => i !== idx));
+  };
+
+  // ── Tabs definition ──
+  const tabs = ['details', 'assignments', 'preop', 'consent', 'safety', 'postop', 'billing'];
+
   return (
     <Modal title="Booking Details" onClose={onClose} width={700}>
-      <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 15, flexWrap: 'wrap' }}>
-        {['details', 'assignments', 'preop', 'consent', 'safety', 'postop'].map(tab => (
+      <div style={{ 
+        display: 'flex', 
+        gap: 8, 
+        borderBottom: '1px solid var(--border)', 
+        paddingBottom: 10, 
+        marginBottom: 15, 
+        flexWrap: 'wrap' 
+      }}>
+        {tabs.map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{ padding: '6px 12px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : 'var(--text)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', textTransform: 'capitalize' }}
+            style={{ 
+              padding: '6px 14px', 
+              border: 'none', 
+              background: activeTab === tab ? 'var(--primary)' : 'transparent', 
+              color: activeTab === tab ? '#fff' : 'var(--text)', 
+              borderRadius: 'var(--radius-sm)', 
+              cursor: 'pointer', 
+              textTransform: 'capitalize',
+              fontWeight: activeTab === tab ? 600 : 400,
+              fontSize: 13,
+            }}
           >
             {tab.replace('_', ' ')}
           </button>
         ))}
       </div>
 
+      {/* ── DETAILS TAB ── */}
       {activeTab === 'details' && (
         <div>
-          <p><strong>Patient:</strong> {booking.requestId?.patientId?.name}</p>
-          <p><strong>Status:</strong> {booking.status}</p>
+          <p><strong>Patient:</strong> {booking.requestId?.patientId?.name || 'N/A'}</p>
+          <p><strong>Procedure:</strong> {booking.requestId?.proposedProcedure || 'N/A'}</p>
+          <p><strong>Status:</strong> 
+            <Badge color={
+              booking.status === 'completed' ? 'green' :
+              booking.status === 'in_progress' ? 'yellow' :
+              booking.status === 'cancelled' ? 'red' :
+              booking.status === 'confirmed' ? 'blue' :
+              'gray'
+            }>
+              {booking.status}
+            </Badge>
+          </p>
           <p><strong>Time:</strong> {new Date(booking.scheduledStart).toLocaleString()} - {new Date(booking.scheduledEnd).toLocaleTimeString()}</p>
+          <p><strong>Duration:</strong> 
+            {((new Date(booking.scheduledEnd) - new Date(booking.scheduledStart)) / (1000 * 60 * 60)).toFixed(1)} hours
+          </p>
+          {booking.notes && <p><strong>Notes:</strong> {booking.notes}</p>}
 
           <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 15 }}>
-            <h4>Update Status</h4>
+            <h4 style={{ margin: '0 0 10px 0' }}>Update Status</h4>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Btn variant="primary" onClick={() => handleStatus('confirmed')} disabled={booking.status !== 'scheduled'}>Confirm</Btn>
-              <Btn variant="warning" onClick={() => handleStatus('in_progress')} disabled={booking.status !== 'confirmed'}>In Progress</Btn>
-              <Btn variant="success" onClick={() => handleStatus('completed')} disabled={booking.status !== 'in_progress'}>Complete</Btn>
-              <Btn variant="danger" onClick={() => handleStatus('cancelled')} disabled={!isAdmin}>Cancel</Btn>
-              <Btn variant="ghost" onClick={() => handleStatus('postponed')} disabled={!isAdmin}>Postpone</Btn>
+              <Btn 
+                variant="primary" 
+                onClick={() => handleStatus('confirmed')} 
+                disabled={booking.status !== 'scheduled'}
+                size="sm"
+              >
+                Confirm
+              </Btn>
+              <Btn 
+                variant="warning" 
+                onClick={() => handleStatus('in_progress')} 
+                disabled={booking.status !== 'confirmed'}
+                size="sm"
+              >
+                In Progress
+              </Btn>
+              <Btn 
+                variant="success" 
+                onClick={() => handleStatus('completed')} 
+                disabled={booking.status !== 'in_progress'}
+                size="sm"
+              >
+                Complete
+              </Btn>
+              <Btn 
+                variant="danger" 
+                onClick={() => handleStatus('cancelled')} 
+                disabled={!isAdmin}
+                size="sm"
+              >
+                Cancel
+              </Btn>
+              <Btn 
+                variant="ghost" 
+                onClick={() => handleStatus('postponed')} 
+                disabled={!isAdmin}
+                size="sm"
+              >
+                Postpone
+              </Btn>
             </div>
           </div>
         </div>
       )}
 
+      {/* ── ASSIGNMENTS TAB ── */}
       {activeTab === 'assignments' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+          {assignments.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8', fontSize: 13 }}>
+              No staff assigned yet
+            </div>
+          )}
           {assignments.map((assig, idx) => {
             const currentStaffId = typeof assig.staffId === 'object' ? assig.staffId?._id : assig.staffId;
+            const currentStaffName = typeof assig.staffId === 'object' ? assig.staffId?.name : '';
             return (
               <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <Select label="Role" value={assig.role} onChange={e => handleAssignmentChange(idx, 'role', e.target.value)} style={{ flex: 1 }}>
+                <Select 
+                  label="Role" 
+                  value={assig.role} 
+                  onChange={e => handleAssignmentChange(idx, 'role', e.target.value)} 
+                  style={{ flex: 1 }}
+                >
                   <option value="surgeon">Surgeon</option>
                   <option value="assistant_surgeon">Assistant Surgeon</option>
                   <option value="anesthetist">Anesthetist</option>
                   <option value="nurse">Nurse</option>
                 </Select>
-                <Select label="Staff Member" value={currentStaffId || ''} onChange={e => handleAssignmentChange(idx, 'staffId', e.target.value)} style={{ flex: 2 }}>
+                <Select 
+                  label="Staff Member" 
+                  value={currentStaffId || ''} 
+                  onChange={e => handleAssignmentChange(idx, 'staffId', e.target.value)} 
+                  style={{ flex: 2 }}
+                >
                   <option value="">Select Staff</option>
                   {allStaff.filter(s => {
                     if (assig.role === 'nurse') return s.role === 'nurse';
                     return s.role === 'doctor' || s.role === 'separate_doctor';
-                  }).map(s => <option key={s._id} value={s._id}>{s.name} ({s.role})</option>)}
+                  }).map(s => (
+                    <option key={s._id} value={s._id}>{s.name} ({s.role})</option>
+                  ))}
                 </Select>
-                <Btn variant="danger" onClick={() => setAssignments(assignments.filter((_, i) => i !== idx))} type="button">Remove</Btn>
+                {isAdmin && (
+                  <Btn variant="danger" onClick={() => removeAssignmentRow(idx)} type="button" size="sm">
+                    Remove
+                  </Btn>
+                )}
               </div>
             );
           })}
@@ -600,21 +742,187 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
           {isAdmin && (
             <>
               <div>
-                <Btn variant="ghost" onClick={addAssignmentRow}>+ Add Staff</Btn>
+                <Btn variant="ghost" onClick={addAssignmentRow} size="sm">+ Add Staff</Btn>
               </div>
-
               <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 15 }}>
-                <Btn onClick={saveAssignments} disabled={savingAssignments}>{savingAssignments ? 'Saving...' : 'Save Assignments'}</Btn>
+                <Btn onClick={saveAssignments} disabled={savingAssignments}>
+                  {savingAssignments ? 'Saving...' : 'Save Assignments'}
+                </Btn>
               </div>
             </>
           )}
         </div>
       )}
 
+      {/* ── PRE-OP TAB ── */}
       {activeTab === 'preop' && <PreOpTab bookingId={booking._id} />}
+
+      {/* ── CONSENT TAB ── */}
       {activeTab === 'consent' && <ConsentTab bookingId={booking._id} />}
+
+      {/* ── SAFETY TAB ── */}
       {activeTab === 'safety' && <SafetyTab bookingId={booking._id} />}
+
+      {/* ── POST-OP TAB ── */}
       {activeTab === 'postop' && <PostOpTab bookingId={booking._id} />}
+
+      {/* ── BILLING TAB ── */}
+      {activeTab === 'billing' && (
+        <div>
+          {loadingBilling ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', color: '#64748b' }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+              <div>Loading billing information...</div>
+            </div>
+          ) : billingInfo ? (
+            <div>
+              {/* Summary Cards */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr 1fr', 
+                gap: 12,
+                marginBottom: 16,
+              }}>
+                <div style={{ 
+                  padding: '14px 16px', 
+                  background: '#f0fdf4', 
+                  borderRadius: 10, 
+                  textAlign: 'center',
+                  border: '1px solid #bbf7d0',
+                }}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Total OT Charges</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#0f4c81' }}>
+                    ₹{billingInfo.total?.toLocaleString() || 0}
+                  </div>
+                </div>
+                <div style={{ 
+                  padding: '14px 16px', 
+                  background: '#f8fafc', 
+                  borderRadius: 10, 
+                  textAlign: 'center',
+                  border: '1px solid #e2e8f0',
+                }}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Duration</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#1e293b' }}>
+                    {billingInfo.durationHours?.toFixed(1)} hrs
+                  </div>
+                </div>
+                <div style={{ 
+                  padding: '14px 16px', 
+                  background: booking.status === 'completed' ? '#f0fdf4' : '#fef3c7', 
+                  borderRadius: 10, 
+                  textAlign: 'center',
+                  border: booking.status === 'completed' ? '1px solid #bbf7d0' : '1px solid #fde68a',
+                }}>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>Billing Status</div>
+                  <div style={{ 
+                    fontSize: 16, 
+                    fontWeight: 700, 
+                    color: booking.status === 'completed' ? '#16a34a' : '#f59e0b' 
+                  }}>
+                    {booking.status === 'completed' ? '✅ Billed' : '⏳ Pending'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Breakdown */}
+              {billingInfo.breakdown && (
+                <div style={{ 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: 10, 
+                  overflow: 'hidden',
+                  marginBottom: 16,
+                }}>
+                  <div style={{ 
+                    padding: '10px 16px', 
+                    background: '#f8fafc', 
+                    borderBottom: '1px solid #e2e8f0',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: '#1e293b',
+                  }}>
+                    Charge Breakdown
+                  </div>
+                  <div style={{ padding: '8px 0' }}>
+                    {Object.entries(billingInfo.breakdown).map(([key, value], idx) => (
+                      <div key={key} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        padding: '6px 16px',
+                        borderBottom: idx < Object.entries(billingInfo.breakdown).length - 1 ? '1px solid #f1f5f9' : 'none',
+                      }}>
+                        <span style={{ color: '#64748b', fontSize: 13 }}>
+                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </span>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>
+                          ₹{value.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      padding: '8px 16px',
+                      borderTop: '2px solid #0f4c81',
+                      marginTop: '4px',
+                      background: '#f8fafc',
+                    }}>
+                      <span style={{ fontWeight: 700, color: '#0f4c81' }}>Total</span>
+                      <span style={{ fontWeight: 700, fontSize: 16, color: '#0f4c81' }}>
+                        ₹{billingInfo.total?.toLocaleString() || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bill ID if available */}
+              {billingInfo.billId && (
+                <div style={{ 
+                  padding: '10px 16px', 
+                  background: '#eff6ff', 
+                  borderRadius: 8,
+                  border: '1px solid #bfdbfe',
+                  fontSize: 13,
+                  color: '#1e40af',
+                }}>
+                  📄 Bill ID: <strong>{billingInfo.billId}</strong>
+                  {billingInfo.paymentStatus && (
+                    <span style={{ marginLeft: 12 }}>
+                      Status: <Badge color={billingInfo.paymentStatus === 'Paid' ? 'green' : 'yellow'}>
+                        {billingInfo.paymentStatus}
+                      </Badge>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {!billingInfo.billId && booking.status === 'completed' && (
+                <div style={{ 
+                  padding: '10px 16px', 
+                  background: '#fef3c7', 
+                  borderRadius: 8,
+                  border: '1px solid #fde68a',
+                  fontSize: 13,
+                  color: '#92400e',
+                }}>
+                  ⏳ Bill is being generated. Please refresh in a moment.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '30px 0', 
+              color: '#94a3b8',
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🧾</div>
+              <div style={{ fontSize: 14 }}>No billing information available</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>Charges will appear after surgery is completed</div>
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }

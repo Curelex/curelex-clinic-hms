@@ -22,10 +22,10 @@ export const createOTRoom = async (req, res) => {
     const room = await OTRoom.create({ clinicId, name, location, equipmentTags });
     
     await logOTAction({
-      entity: 'OTRoom',
+      entityType: 'OTRoom',
       entityId: room._id,
       action: 'CREATED',
-      performedBy: userId,
+      actor: userId,
       details: { name, location, equipmentTags }
     });
 
@@ -54,10 +54,10 @@ export const updateOTRoom = async (req, res) => {
     if (!room) return res.status(404).json({ message: 'Room not found' });
 
     await logOTAction({
-      entity: 'OTRoom',
+      entityType: 'OTRoom',
       entityId: room._id,
       action: 'UPDATED',
-      performedBy: userId,
+      actor: userId,
       details: req.body
     });
 
