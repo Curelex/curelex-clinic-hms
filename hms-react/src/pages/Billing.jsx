@@ -335,6 +335,9 @@ export default function Billing() {
       }
     } catch (err) {
       const errData = err.response?.data;
+      console.log("ERROR:", err);
+      console.log("RESPONSE:", err.response);
+      console.log("DATA:", err.response?.data);
       if (errData?.duplicate) {
         loadExistingBill(errData.bill);
         alert(
@@ -439,7 +442,43 @@ export default function Billing() {
                     <td><strong>₹{(b.totalAmount || 0).toLocaleString()}</strong></td>
                     <td>₹{(b.paidAmount || 0).toLocaleString()}</td>
                     <td>{b.paymentMethod}</td>
-                    <td>{statusBadge(b.paymentStatus)}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          className={`btn btn-sm ${b.paymentStatus === "Pending" ? "btn-warning" : "btn-outline"}`}
+                          onClick={async () => {
+                            try {
+                              await API.put(`/billing/${b._id}`, {
+                                ...b,
+                                paymentStatus: "Pending",
+                              });
+                              fetchBills();
+                            } catch (err) {
+                              alert("Failed to update status");
+                            }
+                          }}
+                        >
+                          Pending
+                        </button>
+
+                        <button
+                          className={`btn btn-sm ${b.paymentStatus === "Paid" ? "btn-success" : "btn-outline"}`}
+                          onClick={async () => {
+                            try {
+                              await API.put(`/billing/${b._id}`, {
+                                ...b,
+                                paymentStatus: "Paid",
+                              });
+                              fetchBills();
+                            } catch (err) {
+                              alert("Failed to update status");
+                            }
+                          }}
+                        >
+                          Paid
+                        </button>
+                      </div>
+                    </td>
                     <td>{new Date(b.createdAt).toLocaleDateString()}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>

@@ -46,7 +46,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import PlanSelection from './pages/PlanSelection';
 import HospitalPlanSelection from './pages/HospitalPlanSelection';
 import ICUManagement from './pages/ICUManagement';
-import OTManagement from './pages/OTManagement';
 // import ResetPassword from './pages/ResetPassword';
 
 
