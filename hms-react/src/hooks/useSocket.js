@@ -8,7 +8,7 @@ let socketInstance = null;
 
 function getSocket() {
   if (!socketInstance) {
-    socketInstance = io('http://localhost:5000', {
+    socketInstance = io({
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       reconnection: true,

@@ -36,7 +36,7 @@ const PatientSchema = new mongoose.Schema({
   emergencyName: { type: String, default: '' },
   emergencyRelation: { type: String, default: '' },
 
-  allergies: { type: String, default: '' },
+  allergies: { type: [String], default: [] },
   chronicConditions: { type: String, default: '' },
   currentMedications: { type: String, default: '' },
   medicalHistory: { type: String, default: '' },

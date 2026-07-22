@@ -9,7 +9,7 @@ import iiit from "../../assets/download (1).jpg";
 import uu from "../../assets/UU.jpg";
 import ait from "../../assets/download (3).jpg";
 
-const API = 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /* ─────────────────────────────────────────────────────────────────
    Inline styles for the consultation form.

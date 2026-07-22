@@ -17,6 +17,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 // Models (USED IN CRON + SEED)
 import Task from './models/Task.js';
+import Clinic from './models/Clinic.js';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
 // import clinicApp from './clinic/clinic/app.js';
@@ -56,13 +57,14 @@ import {notFound, errorHandler} from './ims/src/middleware/errorHandler.js';
 import consultationRoutes from './routes/consultations.js';
 import otRoutes from './routes/otRoutes.js';
 import icuRoutes from './routes/icu.js';
-import icuEquipmentRoutes from './routes/icuEquipment.js';
+import icuEquipmentRoutes from './routes/ICUEquipment.js';
 // __dirname fix (ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // App setup
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // Socket.IO
@@ -114,9 +116,7 @@ app.use((req, res, next) => {
 
 // MongoDB
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import Clinic from './models/Clinic.js';
 // import { clinicConnection } from './clinic/clinic/config/db.js';
-
 // ── Seed Demo Accounts and Super Admin on boot ───────────────────────────
 async function seedSuperAdmin() {
   try {
@@ -169,20 +169,13 @@ async function seedSuperAdmin() {
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
-    console.log('MongoDB Connected');
+    console.log('✅ MongoDB Connected');
     await seedSuperAdmin();
   })
-  .catch(async err => {
-    console.log('⚠️ MongoDB connection failed or URI missing. Starting in-memory database as fallback for testing...');
-    try {
-      const mongoServer = await MongoMemoryServer.create();
-      const mongoUri = mongoServer.getUri();
-      await mongoose.connect(mongoUri);
-      console.log('✅ MongoDB Connected to in-memory database successfully');
-      await seedSuperAdmin();
-    } catch (memErr) {
-      console.error('❌ Failed to start in-memory database:', memErr);
-    }
+  .catch(async (err) => {
+    console.error('❌ MongoDB Connection Error:');
+    console.error(err);
+    process.exit(1);
   });
 
 // ---------------- SOCKET EVENTS ----------------

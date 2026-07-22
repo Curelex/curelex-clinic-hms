@@ -975,8 +975,25 @@ function PostOpTab({ bookingId }) {
       </div>
 
       <div>
-        <Input label="PACU/Recovery Notes" value={data.notes} onChange={e => setData({...data, notes: e.target.value})} placeholder="Notes to attach upon transfer..." />
+<Input label="PACU/Recovery Notes" value={data.notes} onChange={e => setData({...data, notes: e.target.value})} placeholder="Notes to attach upon transfer..." />
         <Btn size="sm" variant="ghost" onClick={() => updateStatus(data.status)} style={{ marginTop: 5 }}>Save Notes</Btn>
+
+        <h4 style={{ margin: '15px 0 10px 0' }}>Uploaded Forms</h4>
+        {surgery.consentForms && surgery.consentForms.length > 0 ? (
+          <ul style={{ paddingLeft: 20, margin: 0 }}>
+            {surgery.consentForms.map((form, idx) => (
+              <li key={idx} style={{ marginBottom: 5 }}>
+                <a href={`${import.meta.env.VITE_API_BASE_URL || ''}${form.fileUrl}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
+                  {form.documentName}
+                </a>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>
+                  ({new Date(form.uploadedAt).toLocaleDateString()})
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No forms uploaded yet.</p> )}
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 15 }}>
