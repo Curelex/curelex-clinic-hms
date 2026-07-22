@@ -98,8 +98,8 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const clinicId  = req.user.clinicId || 'default';
     const admission = await Admission.findOne({ _id: req.params.id, clinicId })
-      .populate('patient',    'name patientId phone age gender bloodGroup allergies assignedDoctor')
-      .populate('doctor',     'name department')
+      .populate('patient')
+      .populate('doctor',     'name department email phone')
       .populate('admittedBy', 'name')
       .populate('bill');
     if (!admission) return res.status(404).json({ message: 'Admission not found' });
@@ -122,7 +122,30 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const clinicId = req.user.clinicId || 'default';
-    const { patientId, doctorId, roomType, roomNumber, notes } = req.body;
+    const {
+      patientId,
+      doctorId,
+      roomType,
+      roomNumber,
+      notes,
+      // Extended fields
+      admissionType,
+      department,
+      referringDoctor,
+      bedNumber,
+      expectedStay,
+      chiefComplaint,
+      contactDetails,
+      emergencyContact,
+      medicalHistory,
+      vitals,
+      clinicalAssessment,
+      paymentMode,
+      documentChecklist,
+      consent,
+      isQuickAdmit,
+      patientUpdates,
+    } = req.body;
 
     if (!patientId) return res.status(400).json({ message: 'patientId is required' });
 
@@ -137,8 +160,6 @@ router.post('/', auth, async (req, res) => {
     const finalRoomType = roomType || 'General Ward';
 
     // Get (or create) room config for this clinic + roomType.
-    // upsert ensures a real DB document exists from this point on, so the
-    // later $inc decrement always has a document to apply to.
     let roomConfig = await ClinicRoomConfig.findOne({ clinicId, roomType: finalRoomType });
     if (!roomConfig) {
       const def = ROOM_DEFAULTS[finalRoomType] || { dailyRate: 800, totalRooms: 5 };
@@ -147,7 +168,7 @@ router.post('/', auth, async (req, res) => {
         roomType:       finalRoomType,
         dailyRate:      def.dailyRate,
         totalRooms:     def.totalRooms,
-        availableRooms: def.totalRooms, // starts full, about to be decremented below
+        availableRooms: def.totalRooms,
       });
     }
 
@@ -155,35 +176,101 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: `No ${finalRoomType} rooms available` });
     }
 
-    const admission = await Admission.create({
+    const validDoctorId = doctorId && typeof doctorId === 'string' && doctorId.trim() ? doctorId.trim() : undefined;
+
+    const admissionData = {
       clinicId,
       patient:        patientId,
-      doctor:         doctorId || undefined,
+      doctor:         validDoctorId,
       admittedBy:     req.user.id,
       admittedByName: req.user.name,
       roomType:       finalRoomType,
       roomNumber:     roomNumber || '',
       roomRatePerDay: roomConfig.dailyRate,
       notes:          notes || '',
-    });
+      admissionType:  admissionType || 'Direct Admission',
+      department:     department || 'General Medicine',
+      referringDoctor:referringDoctor || '',
+      bedNumber:      bedNumber || '',
+      expectedStay:   expectedStay || '',
+      chiefComplaint: chiefComplaint || '',
+      contactDetails: contactDetails || {},
+      emergencyContact: emergencyContact || {},
+      medicalHistory: medicalHistory || {},
+      vitals:         vitals || {},
+      clinicalAssessment: clinicalAssessment || {},
+      paymentMode:    paymentMode || 'Cash',
+      documentChecklist: documentChecklist || {},
+      consent:        consent || {},
+      isQuickAdmit:   !!isQuickAdmit,
+    };
 
-    // Decrease available rooms (document is guaranteed to exist now)
+    const admission = await Admission.create(admissionData);
+
+    // Decrease available rooms
     await ClinicRoomConfig.updateOne(
       { clinicId, roomType: finalRoomType },
       { $inc: { availableRooms: -1 } }
     );
 
-    // Update patient status
-    await Patient.findOneAndUpdate({ _id: patientId, clinicIds: clinicId }, { status: 'Active' });
+    // Build patient update payload if updates provided
+    const updatePatientObj = { status: 'Active' };
+    if (patientUpdates && typeof patientUpdates === 'object') {
+      if (patientUpdates.firstName !== undefined) updatePatientObj.firstName = patientUpdates.firstName;
+      if (patientUpdates.middleName !== undefined) updatePatientObj.middleName = patientUpdates.middleName;
+      if (patientUpdates.lastName !== undefined) updatePatientObj.lastName = patientUpdates.lastName;
+
+      if (patientUpdates.dob !== undefined) {
+        updatePatientObj.dob = patientUpdates.dob && !isNaN(new Date(patientUpdates.dob).getTime()) ? patientUpdates.dob : null;
+      }
+
+      if (patientUpdates.age !== undefined) {
+        const numAge = Number(patientUpdates.age);
+        updatePatientObj.age = patientUpdates.age !== '' && !isNaN(numAge) ? numAge : null;
+      }
+
+      const validGenders = ['Male', 'Female', 'Other'];
+      if (patientUpdates.gender !== undefined) {
+        updatePatientObj.gender = validGenders.includes(patientUpdates.gender) ? patientUpdates.gender : null;
+      }
+
+      const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      if (patientUpdates.bloodGroup !== undefined) {
+        updatePatientObj.bloodGroup = validBloodGroups.includes(patientUpdates.bloodGroup) ? patientUpdates.bloodGroup : null;
+      }
+
+      if (patientUpdates.maritalStatus !== undefined) updatePatientObj.maritalStatus = patientUpdates.maritalStatus;
+      if (patientUpdates.nationality !== undefined) updatePatientObj.nationality = patientUpdates.nationality || 'Indian';
+      if (patientUpdates.occupation !== undefined) updatePatientObj.occupation = patientUpdates.occupation;
+      if (patientUpdates.govtIdType !== undefined) updatePatientObj.govtIdType = patientUpdates.govtIdType;
+      if (patientUpdates.govtIdNumber !== undefined) updatePatientObj.govtIdNumber = patientUpdates.govtIdNumber;
+      if (patientUpdates.alternatePhone !== undefined) updatePatientObj.alternatePhone = patientUpdates.alternatePhone;
+      if (patientUpdates.houseNo !== undefined) updatePatientObj.houseNo = patientUpdates.houseNo;
+      if (patientUpdates.street !== undefined) updatePatientObj.street = patientUpdates.street;
+      if (patientUpdates.landmark !== undefined) updatePatientObj.landmark = patientUpdates.landmark;
+      if (patientUpdates.city !== undefined) updatePatientObj.city = patientUpdates.city;
+      if (patientUpdates.district !== undefined) updatePatientObj.district = patientUpdates.district;
+      if (patientUpdates.state !== undefined) updatePatientObj.state = patientUpdates.state;
+      if (patientUpdates.pincode !== undefined) updatePatientObj.pincode = patientUpdates.pincode;
+      if (patientUpdates.country !== undefined) updatePatientObj.country = patientUpdates.country;
+      if (patientUpdates.emergencyName !== undefined) updatePatientObj.emergencyName = patientUpdates.emergencyName;
+      if (patientUpdates.emergencyRelation !== undefined) updatePatientObj.emergencyRelation = patientUpdates.emergencyRelation;
+      if (patientUpdates.emergencyContact !== undefined) updatePatientObj.emergencyContact = patientUpdates.emergencyContact;
+      if (patientUpdates.emergencyAltContact !== undefined) updatePatientObj.emergencyAltContact = patientUpdates.emergencyAltContact;
+      if (patientUpdates.emergencyAddress !== undefined) updatePatientObj.emergencyAddress = patientUpdates.emergencyAddress;
+    }
+
+    // Update patient record
+    await Patient.findOneAndUpdate({ _id: patientId, clinicIds: clinicId }, updatePatientObj);
 
     const populated = await Admission.findById(admission._id)
-      .populate('patient', 'name patientId phone')
-      .populate('doctor',  'name department');
+      .populate('patient')
+      .populate('doctor', 'name department email phone');
 
     res.status(201).json(populated);
   } catch (err) {
     console.error('Admission create error:', err);
-    res.status(500).json({ message: err.message });
+    res.status(400).json({ message: err.message || 'Failed to create patient admission' });
   }
 });
 

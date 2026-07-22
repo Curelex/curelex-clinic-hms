@@ -14,6 +14,10 @@ const PatientSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String, required: true },
 
+  firstName: { type: String, default: '' },
+  middleName: { type: String, default: '' },
+  lastName: { type: String, default: '' },
+
   dob: { type: Date, default: null },
   age: { type: Number, default: null },
   gender: {
@@ -27,14 +31,28 @@ const PatientSchema = new mongoose.Schema({
     default: null
   },
 
+  maritalStatus: { type: String, default: '' },
+  nationality: { type: String, default: 'Indian' },
+  occupation: { type: String, default: '' },
+  govtIdType: { type: String, default: '' },
+  govtIdNumber: { type: String, default: '' },
+
+  alternatePhone: { type: String, default: '' },
+  houseNo: { type: String, default: '' },
+  street: { type: String, default: '' },
+  landmark: { type: String, default: '' },
   address: { type: String, default: '' },
   city: { type: String, default: '' },
+  district: { type: String, default: '' },
   state: { type: String, default: '' },
+  country: { type: String, default: 'India' },
   pincode: { type: String, default: '' },
 
   emergencyContact: { type: String, default: '' },
   emergencyName: { type: String, default: '' },
   emergencyRelation: { type: String, default: '' },
+  emergencyAltContact: { type: String, default: '' },
+  emergencyAddress: { type: String, default: '' },
 
   allergies: { type: String, default: '' },
   chronicConditions: { type: String, default: '' },
