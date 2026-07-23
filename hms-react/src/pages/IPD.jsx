@@ -5,6 +5,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import PatientAdmitModal from '../components/PatientAdmitModal';
+import PrintAdmissionForm from '../components/PrintAdmissionForm';
 
 // ── Resolve clinicId from stored JWT / user object ───────────────────────────
 // Adjust the localStorage key / shape to match your app's auth storage.
@@ -72,13 +74,8 @@ export default function IPD() {
 
   // admit modal
   const [admitModal,     setAdmitModal]     = useState(false);
-  const [admitForm,      setAdmitForm]      = useState({ roomType: 'General Ward', roomNumber: '', notes: '' });
-  const [patientSearch,  setPatientSearch]  = useState('');
-  const [patientResults, setPatientResults] = useState([]);
-  const [chosenPatient,  setChosenPatient]  = useState(null);
   const [doctors,        setDoctors]        = useState([]);
-  const [chosenDoctor,   setChosenDoctor]   = useState('');
-  const [admitSaving,    setAdmitSaving]    = useState(false);
+  const [printAdmission, setPrintAdmission] = useState(null);
 
   // add medicine modal
   const [medModal,  setMedModal]  = useState(false);
@@ -497,6 +494,11 @@ export default function IPD() {
                   }}>
                     {selected.status}
                   </span>
+                  <button className="btn btn-sm btn-outline"
+                    style={{ borderColor: '#2563eb', color: '#2563eb' }}
+                    onClick={() => setPrintAdmission(selected)}>
+                    🖨️ Print Admission Form
+                  </button>
                   {selected.status === 'Admitted' && isReceptionist && (
                     <button className="btn btn-sm btn-outline"
                       style={{ borderColor: '#ef4444', color: '#ef4444' }}
@@ -648,120 +650,27 @@ export default function IPD() {
       </div>
 
       {/* ── ADMIT MODAL ──────────────────────────────────────────── */}
-      {admitModal && (
-        <div className="modal-overlay" onClick={() => setAdmitModal(false)}>
-          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">🏥 Admit Patient</h3>
-              <button className="modal-close" onClick={() => setAdmitModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
+      <PatientAdmitModal
+        isOpen={admitModal}
+        onClose={() => setAdmitModal(false)}
+        onSuccess={(newAdmission) => {
+          fetchList();
+          fetchRoomConfigs();
+          if (newAdmission?._id) {
+            setPrintAdmission(newAdmission);
+          }
+        }}
+        clinicId={clinicId}
+        roomConfigs={roomConfigs}
+        doctors={doctors}
+      />
 
-              {/* Patient search */}
-              <div className="form-group" style={{ position: 'relative' }}>
-                <label className="form-label">Search Patient *</label>
-                <input
-                  className="form-control"
-                  placeholder="Type patient name..."
-                  value={patientSearch}
-                  onChange={e => { handlePatientSearch(e.target.value); setChosenPatient(null); }}
-                  autoComplete="off"
-                  readOnly={!!chosenPatient}
-                  style={chosenPatient ? { background: '#f8fafc', color: '#475569' } : {}}
-                />
-                {patientResults.length > 0 && !chosenPatient && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)', maxHeight: 200, overflowY: 'auto',
-                  }}>
-                    {patientResults.map(p => (
-                      <div key={p._id}
-                        style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        onClick={() => {
-                          setChosenPatient(p);
-                          setPatientSearch(p.name);
-                          setPatientResults([]);
-                          setChosenDoctor(p.assignedDoctor?._id || p.assignedDoctor || '');
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>{p.patientId} · {p.phone}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {chosenPatient && (
-                <div style={{
-                  background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8,
-                  padding: '10px 14px', marginBottom: 14, fontSize: 12,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}>
-                  <span>✓ <strong>{chosenPatient.name}</strong> — {chosenPatient.patientId} · {chosenPatient.phone}</span>
-                  <button onClick={() => { setChosenPatient(null); setPatientSearch(''); }}
-                    style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16 }}>
-                    ×
-                  </button>
-                </div>
-              )}
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Room Type</label>
-                  {roomConfigsLoading ? (
-                    <div className="spinner" style={{ height: 36 }} />
-                  ) : (
-                    <select className="form-control" value={admitForm.roomType}
-                      onChange={e => setAdmitForm(f => ({ ...f, roomType: e.target.value }))}>
-                      {roomConfigs.map(config => {
-                        const isAvailable = config.availableRooms > 0;
-                        return (
-                          <option key={config.roomType} value={config.roomType} disabled={!isAvailable}>
-                            {config.roomType} — ₹{config.dailyRate}/day
-                            ({config.availableRooms} of {config.totalRooms} available)
-                            {!isAvailable ? ' ❌ FULL' : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Room Number</label>
-                  <input className="form-control" placeholder="e.g. 204" value={admitForm.roomNumber}
-                    onChange={e => setAdmitForm(f => ({ ...f, roomNumber: e.target.value }))} />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Treating Doctor</label>
-                <select className="form-control" value={chosenDoctor} onChange={e => setChosenDoctor(e.target.value)}>
-                  <option value="">— None / TBD —</option>
-                  {doctors.map(d => (
-                    <option key={d._id} value={d._id}>{d.name} ({d.department || 'General'})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Admission Notes</label>
-                <textarea className="form-control" rows={2} value={admitForm.notes}
-                  onChange={e => setAdmitForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Reason for admission, initial observations…" />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setAdmitModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAdmit} disabled={admitSaving || !chosenPatient}>
-                {admitSaving ? 'Admitting…' : '🏥 Confirm Admit'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ── PRINT ADMISSION FORM MODAL ──────────────────────────── */}
+      {printAdmission && (
+        <PrintAdmissionForm
+          admission={printAdmission}
+          onClose={() => setPrintAdmission(null)}
+        />
       )}
 
       {/* ── ADD MEDICINE MODAL ───────────────────────────────────── */}
