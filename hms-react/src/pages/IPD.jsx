@@ -1,18 +1,16 @@
-// hms-react/src/pages/IPD.jsx
-// Inpatient Department — Receptionist manages admissions, adds medicines.
-// Doctor/Nurse can add follow-up notes.
+
 
 import React, { useEffect, useState, useCallback } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import PatientAdmitModal from '../components/PatientAdmitModal';
 import PrintAdmissionForm from '../components/PrintAdmissionForm';
+import DischargeForm from './DischargeForm';
 
-// ── Resolve clinicId from stored JWT / user object ───────────────────────────
-// Adjust the localStorage key / shape to match your app's auth storage.
+
 function getClinicId() {
   try {
-    const raw = localStorage.getItem('user');        // change key if needed
+    const raw = localStorage.getItem('user');        
     if (!raw) return 'default';
     const parsed = JSON.parse(raw);
     return (
@@ -77,6 +75,13 @@ export default function IPD() {
   const [doctors,        setDoctors]        = useState([]);
   const [printAdmission, setPrintAdmission] = useState(null);
 
+  const [admitForm,      setAdmitForm]      = useState({ roomType: '', roomNumber: '', notes: '' });
+  const [chosenPatient,  setChosenPatient]  = useState(null);
+  const [patientSearch,  setPatientSearch]  = useState('');
+  const [patientResults, setPatientResults] = useState([]);
+  const [chosenDoctor,   setChosenDoctor]   = useState('');
+  const [admitSaving,    setAdmitSaving]    = useState(false);
+
   // add medicine modal
   const [medModal,  setMedModal]  = useState(false);
   const [medForm,   setMedForm]   = useState({ medicineName: '', dosage: '', quantity: 1, unitPrice: 0, notes: '' });
@@ -92,6 +97,10 @@ export default function IPD() {
 
   // patient search debounce
   const [searchTimer, setSearchTimer] = useState(null);
+
+  // discharge form modal (full workflow: bills + discharge details)
+  const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [selectedAdmission, setSelectedAdmission] = useState(null);
 
   // ── fetch room configs ─────────────────────────────────────────
   const fetchRoomConfigs = useCallback(async () => {
@@ -500,9 +509,14 @@ export default function IPD() {
                     🖨️ Print Admission Form
                   </button>
                   {selected.status === 'Admitted' && isReceptionist && (
-                    <button className="btn btn-sm btn-outline"
+                    <button
+                      className="btn btn-sm btn-outline"
                       style={{ borderColor: '#ef4444', color: '#ef4444' }}
-                      onClick={() => setDischargeId(selected._id)}>
+                      onClick={() => {
+                        setSelectedAdmission(selected);
+                        setShowDischargeModal(true);
+                      }}
+                    >
                       🚪 Discharge
                     </button>
                   )}
@@ -513,6 +527,31 @@ export default function IPD() {
                   )}
                 </div>
               </div>
+
+              {selected.status === 'Discharged' && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: '#f1f5f9',
+                  borderRadius: 8,
+                  marginTop: 12,
+                  fontSize: 13,
+                }}>
+                  <div style={{ fontWeight: 600 }}>📤 Discharged</div>
+                  <div style={{ color: '#64748b', marginTop: 4 }}>
+                    Date: {fmt(selected.dischargeDate)}
+                    {selected.satisfied !== undefined && (
+                      <span style={{ marginLeft: 12 }}>
+                        Patient Satisfaction: {selected.satisfied ? '✅ Satisfied' : '⚠️ Not Satisfied'}
+                      </span>
+                    )}
+                  </div>
+                  {selected.feedback && (
+                    <div style={{ color: '#64748b', marginTop: 4, fontStyle: 'italic' }}>
+                      Feedback: {selected.feedback}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Cost summary strip */}
               <div style={{
@@ -663,6 +702,8 @@ export default function IPD() {
         clinicId={clinicId}
         roomConfigs={roomConfigs}
         doctors={doctors}
+        initialPatient={chosenPatient}
+        initialDoctor={chosenDoctor}
       />
 
       {/* ── PRINT ADMISSION FORM MODAL ──────────────────────────── */}
@@ -787,7 +828,7 @@ export default function IPD() {
         </div>
       )}
 
-      {/* ── DISCHARGE CONFIRM ────────────────────────────────────── */}
+      {/* ── DISCHARGE CONFIRM (simple quick-discharge) ───────────── */}
       {dischargeId && (
         <div className="modal-overlay" onClick={() => setDischargeId(null)}>
           <div className="modal" style={{ maxWidth: 380, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
@@ -810,6 +851,21 @@ export default function IPD() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── FULL DISCHARGE FORM (bills + discharge details) ──────── */}
+      {showDischargeModal && selectedAdmission && (
+        <DischargeForm
+          admission={selectedAdmission}
+          onClose={() => { setShowDischargeModal(false); setSelectedAdmission(null); }}
+          onSuccess={() => {
+            setShowDischargeModal(false);
+            setSelectedAdmission(null);
+            fetchList();
+            fetchRoomConfigs();
+            setSelected(null);
+          }}
+        />
       )}
     </div>
   );

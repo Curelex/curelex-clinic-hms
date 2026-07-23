@@ -97,7 +97,11 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
         patientEmail: patient.email,
         patientMobile: patient.mobile || patient.phone,
         isAdmitted: !!activeAdmission,
-        hasICUAdmission: activeAdmission?.isICU || false,
+        // "Currently in ICU" requires the ICU flag AND that the ICU portion
+        // of the stay hasn't already ended — isICU stays true as a historical
+        // marker even after a patient is discharged from ICU back to a
+        // general ward, so icuDischargeDate is what tells us it's over.
+        hasICUAdmission: !!(activeAdmission?.isICU && !activeAdmission?.icuDischargeDate),
         pendingBills: pendingBills.length,          // ← NEW
         totalPendingAmount,                          // ← NEW
       },
@@ -351,10 +355,14 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    // ── Find the most recent ICU admission ──
+    // ── Find the patient's CURRENT hospital admission ──
+    // FIX: this used to filter `isICU: true`, so a patient admitted to a
+    // regular ward (never ICU) would get "not currently admitted" here even
+    // though they're actively in the hospital. This is the general "Hospital
+    // Admission" page, so it should find any active admission — ICU or not.
     const admission = await Admission.findOne({ 
       patient: patient._id,
-      isICU: true
+      status: 'Admitted'
     })
       .populate('doctor', 'name department')
       .populate('admittedBy', 'name')
@@ -366,18 +374,27 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
         success: true, 
         admitted: false, 
         admission: null,
-        message: 'No ICU admission found'
+        message: 'No active admission found'
       });
     }
 
     const isCurrentlyAdmitted = admission.status === 'Admitted';
 
-    // ── Get vitals ──
+    // ── Is the patient CURRENTLY in the ICU? ──
+    // FIX: `isICU` stays true forever as a historical marker once a patient
+    // has ever been in the ICU during this admission — it does NOT flip back
+    // to false when they're moved to a general ward (see icu.js discharge
+    // route). So "currently in ICU" also requires icuDischargeDate to be
+    // unset; otherwise a patient long since moved out of ICU would keep
+    // seeing the ICU badge, vitals monitor, and ventilator log sections.
+    const isCurrentlyInICU = !!admission.isICU && !admission.icuDischargeDate;
+
+    // ── Get vitals (only while genuinely in the ICU) ──
     let latestVitals = null;
     let vitalsHistory = [];
     let ventilatorLogs = [];
     
-    if (admission.isICU) {
+    if (isCurrentlyInICU) {
       vitalsHistory = await VitalLog.find({ 
         patientId: patient._id,
         admissionId: admission._id
@@ -408,7 +425,7 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
         latestVitals,
         vitalsHistory,
         ventilatorLogs,
-        isICU: admission.isICU || false,
+        isICU: isCurrentlyInICU,
         isDischarged: admission.status === 'Discharged',
       },
     });

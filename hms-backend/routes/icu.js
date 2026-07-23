@@ -351,12 +351,12 @@ router.post('/admit', auth, async (req, res) => {
       });
     }
 
-    // ── Check if patient already has an active ICU admission ──
     const existingICU = await Admission.findOne({ 
       patient: patientId, 
       clinicId,
       isICU: true,
-      status: 'Admitted' 
+      status: 'Admitted',
+      icuDischargeDate: null,
     });
     if (existingICU) {
       return res.status(400).json({ 
@@ -421,6 +421,7 @@ router.post('/admit', auth, async (req, res) => {
         isICU: true,
         icuBedId: bedId,
         icuAdmissionDate: new Date(),
+        icuDischargeDate: null,
         reasonForICU: reasonForICU || '',
         diagnosis: diagnosis || '',
         severity: severity || 'Moderate',
@@ -442,12 +443,16 @@ router.post('/admit', auth, async (req, res) => {
       });
     } else {
       // ── UPDATE existing admission to ICU ──
+      // (Also covers re-admitting to ICU a patient who is still admitted to
+      // the hospital but was previously discharged from ICU — so we must
+      // clear icuDischargeDate here or they'd look "already discharged".)
       admission.isICU = true;
       admission.roomType = 'ICU';
       admission.roomNumber = bed.roomNumber || '';
       admission.roomRatePerDay = bed.baseDailyRate || 4000;
       admission.icuBedId = bedId;
       admission.icuAdmissionDate = new Date();
+      admission.icuDischargeDate = null;
       admission.reasonForICU = reasonForICU || admission.reasonForICU || '';
       admission.diagnosis = diagnosis || admission.diagnosis || '';
       admission.severity = severity || admission.severity || 'Moderate';
@@ -518,7 +523,6 @@ router.post('/admit', auth, async (req, res) => {
   }
 });
 
-// hms-backend/routes/icu.js - DISCHARGE endpoint
 
 router.post('/discharge/:id', auth, async (req, res) => {
   try {
@@ -529,7 +533,8 @@ router.post('/discharge/:id', auth, async (req, res) => {
       _id: req.params.id, 
       clinicId, 
       isICU: true,
-      status: 'Admitted' 
+      status: 'Admitted',
+      icuDischargeDate: null,
     });
 
     if (!admission) {
@@ -540,15 +545,16 @@ router.post('/discharge/:id', auth, async (req, res) => {
     }
 
     // ── Calculate charges ──
-    const charges = await calculateICUCharges(admission);
+    const charges = await calculateICUCharges(admission._id);
 
-    // ── Update admission ──
-    admission.status = 'Discharged';
-    admission.dischargeDate = new Date();
+    
     admission.icuDischargeDate = new Date();
     admission.icuTotalCharges = charges.total;
     admission.ventilatorUsed = false;
     admission.ventilatorEndDate = new Date();
+    
+    admission.roomType = 'General Ward';
+    admission.roomNumber = '';
     await admission.save();
 
     // ── Update bed ──
@@ -572,7 +578,7 @@ router.post('/discharge/:id', auth, async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'Patient discharged from ICU',
+      message: 'Patient discharged from ICU (still admitted to the hospital)',
       charges,
       admission,
     });
@@ -587,7 +593,7 @@ router.post('/discharge/:id', auth, async (req, res) => {
 router.get('/admissions/active', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    const admissions = await Admission.find({ clinicId, isICU: true, status: 'Admitted' })
+    const admissions = await Admission.find({ clinicId, isICU: true, status: 'Admitted', icuDischargeDate: null })
       .populate('patient', 'name patientId phone age gender')
       .populate('icuBedId', 'bedNumber bedType')
       .populate('doctor', 'name department')
@@ -994,7 +1000,7 @@ router.get('/stats', auth, async (req, res) => {
       ICUBed.countDocuments({ clinicId, status: 'Available' }),
       ICUBed.countDocuments({ clinicId, status: 'Occupied' }),
       ICUBed.countDocuments({ clinicId, status: 'Maintenance' }),
-      Admission.countDocuments({ clinicId, isICU: true, status: 'Admitted' }),
+      Admission.countDocuments({ clinicId, isICU: true, status: 'Admitted', icuDischargeDate: null }),
     ]);
     
     const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
