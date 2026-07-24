@@ -52,6 +52,9 @@ export default function PatientAdmission() {
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [paying, setPaying] = useState(false);
 
+  // ── State for active token error ──
+  const [activeTokenError, setActiveTokenError] = useState(null);
+
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth <= 768);
@@ -81,6 +84,13 @@ export default function PatientAdmission() {
       }
     } catch (err) {
       console.error('Failed to load admission:', err);
+      // Check if it's an active token error
+      if (err.response?.data?.activeToken) {
+        setActiveTokenError({
+          message: err.response.data.message,
+          activeToken: err.response.data.activeToken
+        });
+      }
     }
   }, [patientId]);
 
@@ -131,11 +141,14 @@ export default function PatientAdmission() {
     }
 
     setPaying(true);
+    setActiveTokenError(null);
+    
     try {
       const { data } = await API.post(`/patient-portal/${patientId}/bills/${billId}/pay`, {
         amount: Number(paymentAmount),
         paymentMethod,
       });
+      
       if (data.success) {
         toast.success(`Payment of ₹${Number(paymentAmount).toLocaleString()} successful!`);
         setShowBillModal(false);
@@ -144,7 +157,18 @@ export default function PatientAdmission() {
         await loadAdmission();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Payment failed');
+      const errorMsg = err.response?.data?.message || 'Payment failed';
+      
+      // Check if it's an active token error
+      if (err.response?.data?.activeToken) {
+        setActiveTokenError({
+          message: errorMsg,
+          activeToken: err.response.data.activeToken
+        });
+        toast.error('Cannot process payment: Patient has an active token');
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setPaying(false);
     }
@@ -257,6 +281,64 @@ export default function PatientAdmission() {
                 )}
               </div>
             </div>
+
+            {/* ── Active Token Error Banner ── */}
+            {activeTokenError && (
+              <div style={{ 
+                marginBottom: 16, 
+                padding: 16, 
+                background: '#fef2f2', 
+                borderRadius: 12, 
+                border: '1px solid #fca5a5',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <span style={{ fontSize: 24 }}>⚠️</span>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#dc2626', fontSize: 14 }}>
+                      Active Token Found
+                    </div>
+                    <div style={{ fontSize: 13, color: '#991b1b', marginTop: 4 }}>
+                      {activeTokenError.message}
+                    </div>
+                    {activeTokenError.activeToken && (
+                      <div style={{ 
+                        marginTop: 8, 
+                        padding: 12, 
+                        background: '#fff', 
+                        borderRadius: 8,
+                        fontSize: 13,
+                      }}>
+                        <div>
+                          <strong>Token #:</strong> {activeTokenError.activeToken.tokenNumber}
+                        </div>
+                        <div>
+                          <strong>Doctor:</strong> {activeTokenError.activeToken.doctorName || 'Unknown'}
+                        </div>
+                        <div>
+                          <strong>Status:</strong> {activeTokenError.activeToken.status}
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setActiveTokenError(null)}
+                      style={{
+                        marginTop: 8,
+                        padding: '4px 16px',
+                        background: '#dc2626',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Not currently admitted ── */}
             {!admitted && (
@@ -608,14 +690,14 @@ export default function PatientAdmission() {
             </div>
 
             {/* ── OT Charges Section ── */}
-{patientId && (
-  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 22, marginBottom: 20 }}>
-    <h3 style={{ fontSize: 15, margin: '0 0 14px', color: '#1e293b' }}>
-      🏥 Operation Theatre Charges
-    </h3>
-    <OTChargesSection patientId={patientId} />
-  </div>
-)}
+            {patientId && (
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 22, marginBottom: 20 }}>
+                <h3 style={{ fontSize: 15, margin: '0 0 14px', color: '#1e293b' }}>
+                  🏥 Operation Theatre Charges
+                </h3>
+                <OTChargesSection patientId={patientId} />
+              </div>
+            )}
 
             {/* ── Past Admissions History ── */}
             {history.filter(a => a.status === 'Discharged' || a.status === 'Transferred').length > 0 && (

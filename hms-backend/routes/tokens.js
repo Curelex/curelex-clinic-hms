@@ -39,6 +39,27 @@ function resolveClinicId(req) {
   return id;
 }
 
+// ── Helper: Check if patient has active token ──
+async function hasActiveToken(clinicId, patientId, excludeTokenId = null) {
+  const activeStatuses = ['Waiting', 'Called', 'Pending', 'Active'];
+  
+  const query = {
+    clinicId,
+    patient: patientId,
+    status: { $in: activeStatuses },
+  };
+  
+  if (excludeTokenId) {
+    query._id = { $ne: excludeTokenId };
+  }
+  
+  const activeToken = await Token.findOne(query)
+    .populate('doctor', 'name')
+    .sort({ createdAt: -1 });
+  
+  return activeToken;
+}
+
 /**
  * Creates a real Patient document from token-booking data.
  */
@@ -174,6 +195,56 @@ router.post('/generate', auth, async (req, res) => {
       }
     }
 
+    // ── CHECK FOR ACTIVE TOKEN ──
+    // A patient can only have one active token at a time
+    // Active statuses: 'Waiting', 'Called', 'Pending', 'Active' (if you use it)
+    // Also check for tokens that are not 'Done' or 'Skipped' or 'Cancelled'
+    const activeStatuses = ['Waiting', 'Called', 'Pending', 'Active'];
+    
+    // Check for ANY active token regardless of doctor
+    const activeToken = await Token.findOne({
+      clinicId: effectiveClinicId,
+      patient: patientDoc._id,
+      status: { $in: activeStatuses },
+    }).populate('doctor', 'name');
+
+    if (activeToken) {
+      return res.status(400).json({
+        success: false,
+        message: `Patient already has an active token (#${activeToken.tokenNumber}) with Dr. ${activeToken.doctor?.name || 'Unknown'}. Please complete the current consultation before generating a new token.`,
+        activeToken: {
+          tokenNumber: activeToken.tokenNumber,
+          doctorName: activeToken.doctor?.name || 'Unknown',
+          status: activeToken.status,
+          tokenId: activeToken._id,
+          createdAt: activeToken.createdAt,
+        }
+      });
+    }
+
+    // Also check if patient has any token from today that is not completed
+    // This is an additional safety check
+    const todayToken = await Token.findOne({
+      clinicId: effectiveClinicId,
+      patient: patientDoc._id,
+      date: date,
+      status: { $nin: ['Done', 'Skipped', 'Cancelled'] },
+    }).populate('doctor', 'name');
+
+    if (todayToken) {
+      return res.status(400).json({
+        success: false,
+        message: `Patient has an active token (#${todayToken.tokenNumber}) from today with Dr. ${todayToken.doctor?.name || 'Unknown'}. Please complete this consultation first.`,
+        activeToken: {
+          tokenNumber: todayToken.tokenNumber,
+          doctorName: todayToken.doctor?.name || 'Unknown',
+          status: todayToken.status,
+          tokenId: todayToken._id,
+          createdAt: todayToken.createdAt,
+        }
+      });
+    }
+
     // Get today's tokens for this clinic and doctor
     const last = await Token.findOne({
       clinicId: effectiveClinicId,
@@ -216,9 +287,105 @@ router.post('/generate', auth, async (req, res) => {
       { path: 'patient', select: 'name patientId' },
     ]);
 
-    res.status(201).json(token);
+    res.status(201).json({
+      success: true,
+      token,
+      message: 'Token generated successfully'
+    });
   } catch (err) {
     console.error('Token generate error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET /api/tokens/patient/:patientId/active ──────────────────────────────
+router.get('/patient/:patientId/active', auth, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const clinicId = resolveClinicId(req);
+
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+
+    if (!effectiveClinicId) {
+      return res.json({ success: true, hasActiveToken: false, activeToken: null });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(400).json({ success: false, message: 'Invalid patient ID' });
+    }
+
+    const activeToken = await hasActiveToken(effectiveClinicId, patientId);
+    
+    res.json({ 
+      success: true, 
+      hasActiveToken: !!activeToken,
+      activeToken: activeToken || null 
+    });
+  } catch (err) {
+    console.error('Error checking active token:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── PATCH /api/tokens/:id/status ────────────────────────────────────────────
+router.patch('/:id/status', auth, async (req, res) => {
+  try {
+    const clinicId = resolveClinicId(req);
+
+    let effectiveClinicId = clinicId;
+    if (req.user.role !== 'super_admin') {
+      effectiveClinicId = req.user.clinicId;
+    }
+
+    if (!effectiveClinicId) {
+      return res.status(400).json({ message: 'No clinic selected' });
+    }
+
+    const { status } = req.body;
+    // Include 'Active' as a valid status
+    const valid = ['Waiting', 'Called', 'Done', 'Skipped', 'Pending', 'Active'];
+    if (!valid.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    // Find token and verify it belongs to the clinic
+    const token = await Token.findOne({ _id: req.params.id, clinicId: effectiveClinicId });
+    if (!token) {
+      return res.status(404).json({ message: 'Token not found in this clinic' });
+    }
+
+    // Check permissions
+    const isDoctor = req.user.role === 'doctor' && String(token.doctor) === req.user.id;
+    const isGenerator = String(token.generatedBy) === req.user.id;
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+
+    if (!isAdmin && !isDoctor && !isGenerator) {
+      return res.status(403).json({ message: 'Not authorized to update this token' });
+    }
+
+    const update = { status };
+    if (status === 'Called' || status === 'Active') {
+      update.calledAt = new Date();
+    }
+    if (status === 'Done') {
+      update.completedAt = new Date();
+    }
+
+    const updatedToken = await Token.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true }
+    )
+      .populate('doctor', 'name department')
+      .populate('patient', 'name patientId')
+      .populate('generatedBy', 'name role');
+
+    res.json({ message: 'Token status updated', token: updatedToken });
+  } catch (err) {
+    console.error('Error updating token status:', err);
     res.status(500).json({ message: err.message });
   }
 });

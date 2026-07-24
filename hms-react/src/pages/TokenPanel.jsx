@@ -15,17 +15,17 @@ function daysUntil(dateStr) {
 }
 
 function followUpBadgeStyle(days) {
-  if (days < 0)  return { bg: 'rgba(231,76,60,0.10)', border: 'rgba(231,76,60,0.3)',   color: '#c0392b', label: 'Overdue' };
-  if (days === 0) return { bg: 'rgba(231,76,60,0.10)', border: 'rgba(231,76,60,0.3)',   color: '#c0392b', label: 'Today!' };
-  if (days <= 3)  return { bg: 'rgba(243,156,18,0.10)', border: 'rgba(243,156,18,0.3)', color: '#d68910', label: `${days}d left` };
-  return           { bg: 'rgba(0,184,148,0.08)',  border: 'rgba(0,184,148,0.25)',  color: '#00a878', label: `${days}d left` };
+  if (days < 0) return { bg: 'rgba(231,76,60,0.10)', border: 'rgba(231,76,60,0.3)', color: '#c0392b', label: 'Overdue' };
+  if (days === 0) return { bg: 'rgba(231,76,60,0.10)', border: 'rgba(231,76,60,0.3)', color: '#c0392b', label: 'Today!' };
+  if (days <= 3) return { bg: 'rgba(243,156,18,0.10)', border: 'rgba(243,156,18,0.3)', color: '#d68910', label: `${days}d left` };
+  return { bg: 'rgba(0,184,148,0.08)', border: 'rgba(0,184,148,0.25)', color: '#00a878', label: `${days}d left` };
 }
 
 const STATUS_COLORS = {
   Pending: { bg: '#f3f4f6', color: '#6b7280' },
   Waiting: { bg: '#fef3c7', color: '#92400e' },
-  Called:  { bg: '#dbeafe', color: '#1e40af' },
-  Done:    { bg: '#d1fae5', color: '#065f46' },
+  Called: { bg: '#dbeafe', color: '#1e40af' },
+  Done: { bg: '#d1fae5', color: '#065f46' },
   Skipped: { bg: '#fee2e2', color: '#b91c1c' },
 };
 
@@ -174,8 +174,8 @@ function TokenRowActions({ token, onUpdate }) {
       <TokenActionButtons
         token={{
           ...token,
-          patientId:   token.patient,
-          doctorId:    token.doctor,
+          patientId: token.patient,
+          doctorId: token.doctor,
           patientCode: token.patient?.patientId || '',
         }}
         clinicId={token.clinicId}
@@ -205,25 +205,26 @@ export default function TokenPanel() {
   const { user, getEffectiveClinicId } = useAuth();
   const [activeTab, setActiveTab] = useState('queue');
 
-  const [doctors,  setDoctors]  = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
-  const [tokens,   setTokens]   = useState([]);
-  const [summary,  setSummary]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
+  const [tokens, setTokens] = useState([]);
+  const [summary, setSummary] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [historyPatient, setHistoryPatient] = useState(null);
   const [docsToken, setDocsToken] = useState(null); // ── NEW: token whose documents are being viewed ──
 
-  const [filterDoc,    setFilterDoc]    = useState('');
+  const [filterDoc, setFilterDoc] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  const [showTokenReceipt,         setShowTokenReceipt]         = useState(null);
-  const [registerBusy,             setRegisterBusy]             = useState(false);
-  const [registerError,            setRegisterError]            = useState('');
-  const [searchPhone,              setSearchPhone]              = useState('');
-  const [searchResults,            setSearchResults]            = useState([]);
-  const [showReturningForm,        setShowReturningForm]        = useState(false);
+  const [showTokenReceipt, setShowTokenReceipt] = useState(null);
+  const [registerBusy, setRegisterBusy] = useState(false);
+  const [registerError, setRegisterError] = useState('');
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showReturningForm, setShowReturningForm] = useState(false);
   const [selectedReturningPatient, setSelectedReturningPatient] = useState(null);
-  const [selectedReturningVisits,  setSelectedReturningVisits]  = useState([]);
+  const [selectedReturningVisits, setSelectedReturningVisits] = useState([]);
+  const [activeTokenError, setActiveTokenError] = useState(null);
 
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
@@ -288,37 +289,55 @@ export default function TokenPanel() {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const handleRegisterPatient = async (formData) => {
-    
-    setRegisterBusy(true); setRegisterError('');
+    setRegisterBusy(true);
+    setRegisterError('');
+    setActiveTokenError(null);
+
     try {
       const clinicId = getEffectiveClinicId();
-    if (!clinicId) {
-      setRegisterError('No clinic selected. Please select a clinic first.');
-      setRegisterBusy(false);
-      return;
-    }
+      if (!clinicId) {
+        setRegisterError('No clinic selected. Please select a clinic first.');
+        setRegisterBusy(false);
+        return;
+      }
+
       const { data: registerResponse } = await API.post('/patients', {
-        name: formData.name, age: parseInt(formData.age) || 0,
-        gender: formData.gender, phone: formData.phone,
-        email: formData.email || '', address: formData.address || '',
+        name: formData.name,
+        age: parseInt(formData.age) || 0,
+        gender: formData.gender,
+        phone: formData.phone,
+        email: formData.email || '',
+        address: formData.address || '',
         assignedDoctor: formData.doctorId,
         clinicId: clinicId,
       });
-      // ✅ POST /patients returns { success, message, patient, user } —
-      // the actual patient record is nested under `.patient`, not at
-      // the top level.
+
       const patient = registerResponse.patient;
+
+      // Generate token
       const { data: token } = await API.post('/tokens/generate', {
         doctorId: formData.doctorId,
         patientId: patient._id,
         patientName: patient.name,
         clinicId: clinicId
       });
+
       setShowTokenReceipt({ patient, token });
-      await fetchPatients(); await fetchTokens();
+      await fetchPatients();
+      await fetchTokens();
       setActiveTab('queue');
     } catch (err) {
-      setRegisterError(err.response?.data?.message || 'Registration failed');
+      const errorMsg = err.response?.data?.message || 'Registration failed';
+
+      // Check if it's an active token error
+      if (err.response?.data?.activeToken) {
+        setActiveTokenError({
+          message: errorMsg,
+          activeToken: err.response.data.activeToken
+        });
+      } else {
+        setRegisterError(errorMsg);
+      }
     } finally {
       setRegisterBusy(false);
     }
@@ -328,11 +347,11 @@ export default function TokenPanel() {
     setRegisterBusy(true); setRegisterError('');
     try {
       const clinicId = getEffectiveClinicId();
-    if (!clinicId) {
-      setRegisterError('No clinic selected. Please select a clinic first.');
-      setRegisterBusy(false);
-      return;
-    }
+      if (!clinicId) {
+        setRegisterError('No clinic selected. Please select a clinic first.');
+        setRegisterBusy(false);
+        return;
+      }
       const { data: token } = await API.post('/tokens/generate', {
         doctorId: formData.doctorId, patientId: patient._id, patientName: patient.name, clinicId: clinicId
       });
@@ -347,7 +366,7 @@ export default function TokenPanel() {
   };
 
   const displayed = tokens.filter(t => {
-    const docMatch    = !filterDoc    || t.doctor?._id === filterDoc;
+    const docMatch = !filterDoc || t.doctor?._id === filterDoc;
     const statusMatch = !filterStatus || t.status === filterStatus;
     return docMatch && statusMatch;
   });
@@ -490,6 +509,7 @@ export default function TokenPanel() {
               }}
               busy={registerBusy}
               error={registerError}
+              activeTokenError={activeTokenError}
             />
           )}
         </div>
@@ -536,9 +556,9 @@ export default function TokenPanel() {
                   <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>{s.department || 'General'}</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {[
-                      { label: 'Wait',   value: s.waiting, bg: '#fef3c7', color: '#92400e' },
-                      { label: 'Called', value: s.called,  bg: '#dbeafe', color: '#1e40af' },
-                      { label: 'Done',   value: s.done,    bg: '#d1fae5', color: '#065f46' },
+                      { label: 'Wait', value: s.waiting, bg: '#fef3c7', color: '#92400e' },
+                      { label: 'Called', value: s.called, bg: '#dbeafe', color: '#1e40af' },
+                      { label: 'Done', value: s.done, bg: '#d1fae5', color: '#065f46' },
                     ].map(st => (
                       <span key={st.label} style={{
                         flex: 1, textAlign: 'center', padding: '4px 0', borderRadius: 8,
@@ -743,20 +763,20 @@ export default function TokenPanel() {
 }
 
 // ── Patient Registration Form ─────────────────────────────────────
-function PatientRegistrationForm({ doctors, initialPatient, visits, onRegister, onBack, busy, error }) {
+function PatientRegistrationForm({ doctors, initialPatient, visits, onRegister, onBack, busy, error, activeTokenError }) {
   const [form, setForm] = useState({
-    name:          initialPatient?.name    || '',
-    age:           initialPatient?.age     || '',
-    gender:        initialPatient?.gender  || 'Male',
-    phone:         initialPatient?.phone   || '',
-    email:         initialPatient?.email   || '',
-    address:       initialPatient?.address || '',
-    doctorId:      '',
-    symptoms:      '',
-    notes:         '',
+    name: initialPatient?.name || '',
+    age: initialPatient?.age || '',
+    gender: initialPatient?.gender || 'Male',
+    phone: initialPatient?.phone || '',
+    email: initialPatient?.email || '',
+    address: initialPatient?.address || '',
+    doctorId: '',
+    symptoms: '',
+    notes: '',
     paymentMethod: 'cash',
-    totalFee:      '',
-    paid:          '',
+    totalFee: '',
+    paid: '',
   });
   const [localError, setLocalError] = useState('');
 
@@ -771,8 +791,8 @@ function PatientRegistrationForm({ doctors, initialPatient, visits, onRegister, 
   const dues = Math.max(0, (parseFloat(form.totalFee) || 0) - (parseFloat(form.paid) || 0));
 
   const handleSubmit = async () => {
-    if (!form.name.trim())    { setLocalError('Patient name is required'); return; }
-    if (!form.doctorId)       { setLocalError('Please select a doctor');   return; }
+    if (!form.name.trim()) { setLocalError('Patient name is required'); return; }
+    if (!form.doctorId) { setLocalError('Please select a doctor'); return; }
     if (form.phone && form.phone.length !== 10) { setLocalError('Phone number must be 10 digits'); return; }
     setLocalError('');
     await onRegister(initialPatient || form, form);
@@ -839,7 +859,7 @@ function PatientRegistrationForm({ doctors, initialPatient, visits, onRegister, 
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => updateForm('paymentMethod', 'cash')} className={`btn ${form.paymentMethod === 'cash' ? 'btn-success' : 'btn-outline'}`} style={{ flex: 1 }}>💵 Cash</button>
-              <button onClick={() => updateForm('paymentMethod', 'upi')}  className={`btn ${form.paymentMethod === 'upi'  ? 'btn-primary' : 'btn-outline'}`} style={{ flex: 1 }}>📲 UPI</button>
+              <button onClick={() => updateForm('paymentMethod', 'upi')} className={`btn ${form.paymentMethod === 'upi' ? 'btn-primary' : 'btn-outline'}`} style={{ flex: 1 }}>📲 UPI</button>
             </div>
 
             <div style={{ position: 'relative' }}>
@@ -867,6 +887,81 @@ function PatientRegistrationForm({ doctors, initialPatient, visits, onRegister, 
           ⚠️ {error || localError}
         </div>
       )}
+
+      {activeTokenError && (
+  <div style={{ 
+    marginTop: 16, 
+    padding: 16, 
+    background: '#fef2f2', 
+    borderRadius: 12, 
+    border: '1px solid #fca5a5',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+      <span style={{ fontSize: 24 }}>⚠️</span>
+      <div>
+        <div style={{ fontWeight: 700, color: '#dc2626', fontSize: 14 }}>
+          Active Token Found
+        </div>
+        <div style={{ fontSize: 13, color: '#991b1b', marginTop: 4 }}>
+          {activeTokenError.message}
+        </div>
+        {activeTokenError.activeToken && (
+          <div style={{ 
+            marginTop: 8, 
+            padding: 12, 
+            background: '#fff', 
+            borderRadius: 8,
+            fontSize: 13,
+          }}>
+            <div>
+              <strong>Token #:</strong> {activeTokenError.activeToken.tokenNumber}
+            </div>
+            <div>
+              <strong>Doctor:</strong> {activeTokenError.activeToken.doctorName}
+            </div>
+            <div>
+              <strong>Status:</strong> {activeTokenError.activeToken.status}
+            </div>
+            <button
+              onClick={() => {
+                setActiveTab('queue');
+                setFilterStatus(activeTokenError.activeToken.status);
+              }}
+              style={{
+                marginTop: 8,
+                padding: '4px 12px',
+                background: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              View in Queue
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setActiveTokenError(null)}
+          style={{
+            marginTop: 8,
+            padding: '4px 12px',
+            background: 'transparent',
+            border: '1px solid #dc2626',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 12,
+            color: '#dc2626',
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
         <button onClick={onBack} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>

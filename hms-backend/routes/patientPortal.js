@@ -56,6 +56,17 @@ async function getLinkedPatientIds(patient) {
   return linked.map((p) => p._id);
 }
 
+async function hasActiveToken(clinicId, patientId) {
+  const activeStatuses = ['Waiting', 'Called', 'Pending', 'Active'];
+  
+  const activeToken = await Token.findOne({
+    clinicId,
+    patient: patientId,
+    status: { $in: activeStatuses },
+  }).populate('doctor', 'name');
+  
+  return activeToken;
+}
 
 router.get('/:id/dashboard', patientAuth, async (req, res) => {
   try {
@@ -245,11 +256,51 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Doctor not found for this clinic' });
     }
 
+    // ── CHECK FOR ACTIVE TOKEN ──
+    // A patient can only have one active token at a time
+    // Active statuses: 'Waiting', 'Called', 'Pending', 'Active'
+    // Also check for any token from today that's not completed
     const date = todayStr();
+    
+    // Check for active token
+    const activeToken = await hasActiveToken(clinicId, patient._id);
+    
+    if (activeToken) {
+      return res.status(400).json({
+        success: false,
+        message: `You already have an active token (#${activeToken.tokenNumber}) with Dr. ${activeToken.doctor?.name || 'Unknown'}. Please complete your current consultation before booking another appointment.`,
+        activeToken: {
+          tokenNumber: activeToken.tokenNumber,
+          doctorName: activeToken.doctor?.name || 'Unknown',
+          status: activeToken.status,
+          tokenId: activeToken._id,
+        }
+      });
+    }
+
+    // Additional safety check: any token from today that's not completed
+    const todayToken = await Token.findOne({
+      clinicId,
+      patient: patient._id,
+      date: date,
+      status: { $nin: ['Done', 'Skipped', 'Cancelled'] },
+    }).populate('doctor', 'name');
+
+    if (todayToken) {
+      return res.status(400).json({
+        success: false,
+        message: `You have an appointment (#${todayToken.tokenNumber}) from today with Dr. ${todayToken.doctor?.name || 'Unknown'}. Please complete this appointment first.`,
+        activeToken: {
+          tokenNumber: todayToken.tokenNumber,
+          doctorName: todayToken.doctor?.name || 'Unknown',
+          status: todayToken.status,
+          tokenId: todayToken._id,
+        }
+      });
+    }
 
     // ✅ FIX: scope tokenNumber per clinic + doctor + date
     // This matches the unique index: { clinicId, doctor, date, tokenNumber }
-    // Previously was scoped to source:'patient' only which caused collisions
     const last = await Token.findOne({ clinicId, doctor: doctorId, date })
       .sort({ tokenNumber: -1 })
       .select('tokenNumber');
@@ -356,10 +407,6 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
     }
 
     // ── Find the patient's CURRENT hospital admission ──
-    // FIX: this used to filter `isICU: true`, so a patient admitted to a
-    // regular ward (never ICU) would get "not currently admitted" here even
-    // though they're actively in the hospital. This is the general "Hospital
-    // Admission" page, so it should find any active admission — ICU or not.
     const admission = await Admission.findOne({ 
       patient: patient._id,
       status: 'Admitted'
@@ -381,12 +428,6 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
     const isCurrentlyAdmitted = admission.status === 'Admitted';
 
     // ── Is the patient CURRENTLY in the ICU? ──
-    // FIX: `isICU` stays true forever as a historical marker once a patient
-    // has ever been in the ICU during this admission — it does NOT flip back
-    // to false when they're moved to a general ward (see icu.js discharge
-    // route). So "currently in ICU" also requires icuDischargeDate to be
-    // unset; otherwise a patient long since moved out of ICU would keep
-    // seeing the ICU badge, vitals monitor, and ventilator log sections.
     const isCurrentlyInICU = !!admission.isICU && !admission.icuDischargeDate;
 
     // ── Get vitals (only while genuinely in the ICU) ──
@@ -542,6 +583,23 @@ router.post('/:id/bills/:billId/pay', patientAuth, async (req, res) => {
     }
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    // ── CHECK FOR ACTIVE TOKEN ──
+    // Block payment if patient has active token
+    const activeToken = await hasActiveToken(patient.clinicIds?.[0] || req.body.clinicId, patient._id);
+    
+    if (activeToken) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot process payment: You have an active token (#${activeToken.tokenNumber}) with Dr. ${activeToken.doctor?.name || 'Unknown'}. Please complete your consultation first.`,
+        activeToken: {
+          tokenNumber: activeToken.tokenNumber,
+          doctorName: activeToken.doctor?.name || 'Unknown',
+          status: activeToken.status,
+          tokenId: activeToken._id,
+        }
+      });
     }
 
     const bill = await Billing.findOne({ _id: billId, patient: patient._id });
