@@ -56,6 +56,17 @@ async function getLinkedPatientIds(patient) {
   return linked.map((p) => p._id);
 }
 
+async function hasActiveToken(clinicId, patientId) {
+  const activeStatuses = ['Waiting', 'Called', 'Pending', 'Active'];
+  
+  const activeToken = await Token.findOne({
+    clinicId,
+    patient: patientId,
+    status: { $in: activeStatuses },
+  }).populate('doctor', 'name');
+  
+  return activeToken;
+}
 
 router.get('/:id/dashboard', patientAuth, async (req, res) => {
   try {
@@ -97,7 +108,11 @@ router.get('/:id/dashboard', patientAuth, async (req, res) => {
         patientEmail: patient.email,
         patientMobile: patient.mobile || patient.phone,
         isAdmitted: !!activeAdmission,
-        hasICUAdmission: activeAdmission?.isICU || false,
+        // "Currently in ICU" requires the ICU flag AND that the ICU portion
+        // of the stay hasn't already ended — isICU stays true as a historical
+        // marker even after a patient is discharged from ICU back to a
+        // general ward, so icuDischargeDate is what tells us it's over.
+        hasICUAdmission: !!(activeAdmission?.isICU && !activeAdmission?.icuDischargeDate),
         pendingBills: pendingBills.length,          // ← NEW
         totalPendingAmount,                          // ← NEW
       },
@@ -241,11 +256,51 @@ router.post('/:id/appointments', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Doctor not found for this clinic' });
     }
 
+    // ── CHECK FOR ACTIVE TOKEN ──
+    // A patient can only have one active token at a time
+    // Active statuses: 'Waiting', 'Called', 'Pending', 'Active'
+    // Also check for any token from today that's not completed
     const date = todayStr();
+    
+    // Check for active token
+    const activeToken = await hasActiveToken(clinicId, patient._id);
+    
+    if (activeToken) {
+      return res.status(400).json({
+        success: false,
+        message: `You already have an active token (#${activeToken.tokenNumber}) with Dr. ${activeToken.doctor?.name || 'Unknown'}. Please complete your current consultation before booking another appointment.`,
+        activeToken: {
+          tokenNumber: activeToken.tokenNumber,
+          doctorName: activeToken.doctor?.name || 'Unknown',
+          status: activeToken.status,
+          tokenId: activeToken._id,
+        }
+      });
+    }
+
+    // Additional safety check: any token from today that's not completed
+    const todayToken = await Token.findOne({
+      clinicId,
+      patient: patient._id,
+      date: date,
+      status: { $nin: ['Done', 'Skipped', 'Cancelled'] },
+    }).populate('doctor', 'name');
+
+    if (todayToken) {
+      return res.status(400).json({
+        success: false,
+        message: `You have an appointment (#${todayToken.tokenNumber}) from today with Dr. ${todayToken.doctor?.name || 'Unknown'}. Please complete this appointment first.`,
+        activeToken: {
+          tokenNumber: todayToken.tokenNumber,
+          doctorName: todayToken.doctor?.name || 'Unknown',
+          status: todayToken.status,
+          tokenId: todayToken._id,
+        }
+      });
+    }
 
     // ✅ FIX: scope tokenNumber per clinic + doctor + date
     // This matches the unique index: { clinicId, doctor, date, tokenNumber }
-    // Previously was scoped to source:'patient' only which caused collisions
     const last = await Token.findOne({ clinicId, doctor: doctorId, date })
       .sort({ tokenNumber: -1 })
       .select('tokenNumber');
@@ -351,10 +406,10 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    // ── Find the most recent ICU admission ──
+    // ── Find the patient's CURRENT hospital admission ──
     const admission = await Admission.findOne({ 
       patient: patient._id,
-      isICU: true
+      status: 'Admitted'
     })
       .populate('doctor', 'name department')
       .populate('admittedBy', 'name')
@@ -366,18 +421,21 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
         success: true, 
         admitted: false, 
         admission: null,
-        message: 'No ICU admission found'
+        message: 'No active admission found'
       });
     }
 
     const isCurrentlyAdmitted = admission.status === 'Admitted';
 
-    // ── Get vitals ──
+    // ── Is the patient CURRENTLY in the ICU? ──
+    const isCurrentlyInICU = !!admission.isICU && !admission.icuDischargeDate;
+
+    // ── Get vitals (only while genuinely in the ICU) ──
     let latestVitals = null;
     let vitalsHistory = [];
     let ventilatorLogs = [];
     
-    if (admission.isICU) {
+    if (isCurrentlyInICU) {
       vitalsHistory = await VitalLog.find({ 
         patientId: patient._id,
         admissionId: admission._id
@@ -408,7 +466,7 @@ router.get('/:id/admission', patientAuth, async (req, res) => {
         latestVitals,
         vitalsHistory,
         ventilatorLogs,
-        isICU: admission.isICU || false,
+        isICU: isCurrentlyInICU,
         isDischarged: admission.status === 'Discharged',
       },
     });
@@ -525,6 +583,23 @@ router.post('/:id/bills/:billId/pay', patientAuth, async (req, res) => {
     }
     if (!patient) {
       return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    // ── CHECK FOR ACTIVE TOKEN ──
+    // Block payment if patient has active token
+    const activeToken = await hasActiveToken(patient.clinicIds?.[0] || req.body.clinicId, patient._id);
+    
+    if (activeToken) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot process payment: You have an active token (#${activeToken.tokenNumber}) with Dr. ${activeToken.doctor?.name || 'Unknown'}. Please complete your consultation first.`,
+        activeToken: {
+          tokenNumber: activeToken.tokenNumber,
+          doctorName: activeToken.doctor?.name || 'Unknown',
+          status: activeToken.status,
+          tokenId: activeToken._id,
+        }
+      });
     }
 
     const bill = await Billing.findOne({ _id: billId, patient: patient._id });

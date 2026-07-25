@@ -81,7 +81,7 @@ const TokenSchema = new mongoose.Schema({
   // ── Consultation details ──
   consultationType: {
     type: String,
-    enum: ['in-person', 'telemedicine', 'follow-up'],
+    enum: ['in-person', 'telemedicine', 'follow-up', 'online'],
     default: 'in-person',
   },
   consultationFee: {

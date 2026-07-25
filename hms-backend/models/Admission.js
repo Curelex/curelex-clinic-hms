@@ -95,6 +95,98 @@ const AdmissionSchema = new mongoose.Schema({
   icuAssignedReceptionist: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   icuAssignedReceptionistName: { type: String },
 
+  // ── Extended Patient Admission Form Fields ──
+  admissionType: {
+    type: String,
+    enum: ['Emergency', 'OPD to IPD', 'Direct Admission', 'Day Care', 'ICU'],
+    default: 'Direct Admission',
+  },
+  department: { type: String, default: 'General Medicine' },
+  referringDoctor: { type: String, default: '' },
+  bedNumber: { type: String, default: '' },
+  expectedStay: { type: String, default: '' },
+  chiefComplaint: { type: String, default: '' },
+
+  contactDetails: {
+    alternatePhone: { type: String, default: '' },
+    email:          { type: String, default: '' },
+    houseNo:        { type: String, default: '' },
+    street:         { type: String, default: '' },
+    landmark:       { type: String, default: '' },
+    city:           { type: String, default: '' },
+    district:       { type: String, default: '' },
+    state:          { type: String, default: '' },
+    country:        { type: String, default: 'India' },
+    pincode:        { type: String, default: '' },
+  },
+
+  emergencyContact: {
+    name:         { type: String, default: '' },
+    relationship: { type: String, default: '' },
+    phone:        { type: String, default: '' },
+    alternatePhone: { type: String, default: '' },
+    address:      { type: String, default: '' },
+  },
+
+  medicalHistory: {
+    conditions:        [{ type: String }],
+    otherConditions:   { type: String, default: '' },
+    previousSurgeries: { type: String, default: '' },
+    allergies:         [{ type: String }],
+    allergyDetails:    { type: String, default: '' },
+    currentMedications: [{
+      medicine: { type: String },
+      dose:     { type: String },
+      frequency:{ type: String },
+    }],
+  },
+
+  vitals: {
+    height:     { type: String, default: '' },
+    weight:     { type: String, default: '' },
+    bmi:        { type: String, default: '' },
+    bp:         { type: String, default: '' },
+    pulse:      { type: String, default: '' },
+    temp:       { type: String, default: '' },
+    respRate:   { type: String, default: '' },
+    spo2:       { type: String, default: '' },
+    bloodSugar: { type: String, default: '' },
+    painScore:  { type: String, default: '' },
+  },
+
+  clinicalAssessment: {
+    presentIllness:       { type: String, default: '' },
+    provisionalDiagnosis: { type: String, default: '' },
+    doctorNotes:          { type: String, default: '' },
+  },
+
+  paymentMode: {
+    type: String,
+    enum: ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Bank Transfer', 'Insurance', 'Other'],
+    default: 'Cash',
+  },
+
+  documentChecklist: {
+    aadhaar:        { type: Boolean, default: false },
+    prescriptions:  { type: Boolean, default: false },
+    medicalReports: { type: Boolean, default: false },
+    labReports:     { type: Boolean, default: false },
+    xray:           { type: Boolean, default: false },
+    ctScan:         { type: Boolean, default: false },
+    mri:            { type: Boolean, default: false },
+    ecg:            { type: Boolean, default: false },
+    otherDetails:   { type: String, default: '' },
+  },
+
+  consent: {
+    agreed:       { type: Boolean, default: false },
+    signedBy:     { type: String, default: '' },
+    relationship: { type: String, default: '' },
+    timestamp:    { type: Date, default: null },
+  },
+
+  isQuickAdmit: { type: Boolean, default: false },
+
 }, { timestamps: true });
  
 AdmissionSchema.index({ clinicId: 1, admissionId: 1 }, { unique: true });
@@ -106,18 +198,24 @@ AdmissionSchema.pre('save', async function (next) {
 
   try {
     const AdmissionModel = mongoose.model('Admission');
-    const last = await AdmissionModel
-      .findOne({ clinicId: this.clinicId, admissionId: /^ADM\d+$/ })
-      .sort({ admissionId: -1 })
+    const allAdmissions = await AdmissionModel
+      .find({ admissionId: /^ADM\d+$/ })
       .select('admissionId')
       .lean();
 
-    let nextNumber = 1;
-    if (last?.admissionId) {
-      const parsed = parseInt(last.admissionId.slice(3), 10);
-      if (!isNaN(parsed)) nextNumber = parsed + 1;
+    let maxNum = 0;
+    if (allAdmissions && allAdmissions.length > 0) {
+      for (const adm of allAdmissions) {
+        if (adm.admissionId) {
+          const parsed = parseInt(adm.admissionId.replace('ADM', ''), 10);
+          if (!isNaN(parsed) && parsed > maxNum) {
+            maxNum = parsed;
+          }
+        }
+      }
     }
 
+    const nextNumber = maxNum + 1;
     this.admissionId = 'ADM' + String(nextNumber).padStart(5, '0');
     return next();
   } catch (err) {

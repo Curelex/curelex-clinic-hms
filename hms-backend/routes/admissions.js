@@ -7,6 +7,10 @@ import { auth } from '../middleware/auth.js';
 import Admission from '../models/Admission.js';
 import Patient from '../models/Patient.js';
 import ClinicRoomConfig from '../models/ClinicRoomConfig.js';
+import Billing from '../models/Billing.js';
+import mongoose from 'mongoose';
+import Discharge from '../models/Discharge.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,12 +73,7 @@ router.get('/active', auth, async (req, res) => {
 });
 
 // ── GET /api/admissions/config/room-types  — dynamic room config ──────────
-// FIX: previously this only used defaults when configs.length === 0. Once a
-// single ClinicRoomConfig doc exists for the clinic (e.g. only "Semi-Private"
-// after an admit), the other room types would silently disappear from the
-// response. Now we merge: for each known room type, use the DB doc if it
-// exists, otherwise fall back to that type's default — so all 4 types
-// always appear, and any type that already has real DB data shows correctly.
+
 router.get('/config/room-types', auth, async (req, res) => {
   try {
     const clinicId  = req.user.clinicId || 'default';
@@ -98,8 +97,8 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const clinicId  = req.user.clinicId || 'default';
     const admission = await Admission.findOne({ _id: req.params.id, clinicId })
-      .populate('patient',    'name patientId phone age gender bloodGroup allergies assignedDoctor')
-      .populate('doctor',     'name department')
+      .populate('patient')
+      .populate('doctor',     'name department email phone')
       .populate('admittedBy', 'name')
       .populate('bill');
     if (!admission) return res.status(404).json({ message: 'Admission not found' });
@@ -122,7 +121,30 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const clinicId = req.user.clinicId || 'default';
-    const { patientId, doctorId, roomType, roomNumber, notes } = req.body;
+    const {
+      patientId,
+      doctorId,
+      roomType,
+      roomNumber,
+      notes,
+      // Extended fields
+      admissionType,
+      department,
+      referringDoctor,
+      bedNumber,
+      expectedStay,
+      chiefComplaint,
+      contactDetails,
+      emergencyContact,
+      medicalHistory,
+      vitals,
+      clinicalAssessment,
+      paymentMode,
+      documentChecklist,
+      consent,
+      isQuickAdmit,
+      patientUpdates,
+    } = req.body;
 
     if (!patientId) return res.status(400).json({ message: 'patientId is required' });
 
@@ -137,8 +159,6 @@ router.post('/', auth, async (req, res) => {
     const finalRoomType = roomType || 'General Ward';
 
     // Get (or create) room config for this clinic + roomType.
-    // upsert ensures a real DB document exists from this point on, so the
-    // later $inc decrement always has a document to apply to.
     let roomConfig = await ClinicRoomConfig.findOne({ clinicId, roomType: finalRoomType });
     if (!roomConfig) {
       const def = ROOM_DEFAULTS[finalRoomType] || { dailyRate: 800, totalRooms: 5 };
@@ -147,7 +167,7 @@ router.post('/', auth, async (req, res) => {
         roomType:       finalRoomType,
         dailyRate:      def.dailyRate,
         totalRooms:     def.totalRooms,
-        availableRooms: def.totalRooms, // starts full, about to be decremented below
+        availableRooms: def.totalRooms,
       });
     }
 
@@ -155,67 +175,229 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: `No ${finalRoomType} rooms available` });
     }
 
-    const admission = await Admission.create({
+    const validDoctorId = doctorId && typeof doctorId === 'string' && doctorId.trim() ? doctorId.trim() : undefined;
+
+    const admissionData = {
       clinicId,
       patient:        patientId,
-      doctor:         doctorId || undefined,
+      doctor:         validDoctorId,
       admittedBy:     req.user.id,
       admittedByName: req.user.name,
       roomType:       finalRoomType,
       roomNumber:     roomNumber || '',
       roomRatePerDay: roomConfig.dailyRate,
       notes:          notes || '',
-    });
+      admissionType:  admissionType || 'Direct Admission',
+      department:     department || 'General Medicine',
+      referringDoctor:referringDoctor || '',
+      bedNumber:      bedNumber || '',
+      expectedStay:   expectedStay || '',
+      chiefComplaint: chiefComplaint || '',
+      contactDetails: contactDetails || {},
+      emergencyContact: emergencyContact || {},
+      medicalHistory: medicalHistory || {},
+      vitals:         vitals || {},
+      clinicalAssessment: clinicalAssessment || {},
+      paymentMode:    paymentMode || 'Cash',
+      documentChecklist: documentChecklist || {},
+      consent:        consent || {},
+      isQuickAdmit:   !!isQuickAdmit,
+    };
 
-    // Decrease available rooms (document is guaranteed to exist now)
+    const admission = await Admission.create(admissionData);
+
+    // Decrease available rooms
     await ClinicRoomConfig.updateOne(
       { clinicId, roomType: finalRoomType },
       { $inc: { availableRooms: -1 } }
     );
 
-    // Update patient status
-    await Patient.findOneAndUpdate({ _id: patientId, clinicIds: clinicId }, { status: 'Active' });
+    // Build patient update payload if updates provided
+    const updatePatientObj = { status: 'Active' };
+    if (patientUpdates && typeof patientUpdates === 'object') {
+      if (patientUpdates.firstName !== undefined) updatePatientObj.firstName = patientUpdates.firstName;
+      if (patientUpdates.middleName !== undefined) updatePatientObj.middleName = patientUpdates.middleName;
+      if (patientUpdates.lastName !== undefined) updatePatientObj.lastName = patientUpdates.lastName;
+
+      if (patientUpdates.dob !== undefined) {
+        updatePatientObj.dob = patientUpdates.dob && !isNaN(new Date(patientUpdates.dob).getTime()) ? patientUpdates.dob : null;
+      }
+
+      if (patientUpdates.age !== undefined) {
+        const numAge = Number(patientUpdates.age);
+        updatePatientObj.age = patientUpdates.age !== '' && !isNaN(numAge) ? numAge : null;
+      }
+
+      const validGenders = ['Male', 'Female', 'Other'];
+      if (patientUpdates.gender !== undefined) {
+        updatePatientObj.gender = validGenders.includes(patientUpdates.gender) ? patientUpdates.gender : null;
+      }
+
+      const validBloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      if (patientUpdates.bloodGroup !== undefined) {
+        updatePatientObj.bloodGroup = validBloodGroups.includes(patientUpdates.bloodGroup) ? patientUpdates.bloodGroup : null;
+      }
+
+      if (patientUpdates.maritalStatus !== undefined) updatePatientObj.maritalStatus = patientUpdates.maritalStatus;
+      if (patientUpdates.nationality !== undefined) updatePatientObj.nationality = patientUpdates.nationality || 'Indian';
+      if (patientUpdates.occupation !== undefined) updatePatientObj.occupation = patientUpdates.occupation;
+      if (patientUpdates.govtIdType !== undefined) updatePatientObj.govtIdType = patientUpdates.govtIdType;
+      if (patientUpdates.govtIdNumber !== undefined) updatePatientObj.govtIdNumber = patientUpdates.govtIdNumber;
+      if (patientUpdates.alternatePhone !== undefined) updatePatientObj.alternatePhone = patientUpdates.alternatePhone;
+      if (patientUpdates.houseNo !== undefined) updatePatientObj.houseNo = patientUpdates.houseNo;
+      if (patientUpdates.street !== undefined) updatePatientObj.street = patientUpdates.street;
+      if (patientUpdates.landmark !== undefined) updatePatientObj.landmark = patientUpdates.landmark;
+      if (patientUpdates.city !== undefined) updatePatientObj.city = patientUpdates.city;
+      if (patientUpdates.district !== undefined) updatePatientObj.district = patientUpdates.district;
+      if (patientUpdates.state !== undefined) updatePatientObj.state = patientUpdates.state;
+      if (patientUpdates.pincode !== undefined) updatePatientObj.pincode = patientUpdates.pincode;
+      if (patientUpdates.country !== undefined) updatePatientObj.country = patientUpdates.country;
+      if (patientUpdates.emergencyName !== undefined) updatePatientObj.emergencyName = patientUpdates.emergencyName;
+      if (patientUpdates.emergencyRelation !== undefined) updatePatientObj.emergencyRelation = patientUpdates.emergencyRelation;
+      if (patientUpdates.emergencyContact !== undefined) updatePatientObj.emergencyContact = patientUpdates.emergencyContact;
+      if (patientUpdates.emergencyAltContact !== undefined) updatePatientObj.emergencyAltContact = patientUpdates.emergencyAltContact;
+      if (patientUpdates.emergencyAddress !== undefined) updatePatientObj.emergencyAddress = patientUpdates.emergencyAddress;
+    }
+
+    // Update patient record
+    await Patient.findOneAndUpdate({ _id: patientId, clinicIds: clinicId }, updatePatientObj);
 
     const populated = await Admission.findById(admission._id)
-      .populate('patient', 'name patientId phone')
-      .populate('doctor',  'name department');
+      .populate('patient')
+      .populate('doctor', 'name department email phone');
 
     res.status(201).json(populated);
   } catch (err) {
     console.error('Admission create error:', err);
-    res.status(500).json({ message: err.message });
+    res.status(400).json({ message: err.message || 'Failed to create patient admission' });
   }
 });
 
-// ── PATCH /api/admissions/:id/discharge ───────────────────────────────────
-router.patch('/:id/discharge', auth, async (req, res) => {
+
+
+// ── POST /api/admissions/:id/discharge ───────────────────────────────────
+router.post('/:id/discharge', auth, async (req, res) => {
   try {
-    const clinicId  = req.user.clinicId || 'default';
-    const admission = await Admission.findOne({ _id: req.params.id, clinicId });
-    if (!admission) return res.status(404).json({ message: 'Not found' });
+    const clinicId = req.user.clinicId || 'default';
+    const {
+      dischargeDate,
+      dischargeTime,
+      dischargeType,
+      reason,
+      followUpInstructions,
+      patientCondition,
+      satisfied,
+      feedback,
+      notes,
+      bills,
+      billSettlement,
+    } = req.body;
 
-    const dischargeDate = new Date();
-    const daysAdmitted  = computeDays(admission.admissionDate, dischargeDate);
-    const roomRent      = daysAdmitted * admission.roomRatePerDay;
+    // ── Find the admission ──
+    const admission = await Admission.findOne({ 
+      _id: req.params.id, 
+      clinicId, 
+      status: 'Admitted' 
+    });
+    if (!admission) {
+      return res.status(404).json({ message: 'Admission not found or already discharged' });
+    }
 
-    admission.status        = 'Discharged';
+    // ── Check pending bills ──
+    const pendingBills = await Billing.find({
+      patient: admission.patient,
+      clinicId,
+      paymentStatus: { $in: ['Pending', 'Partial'] }
+    });
+
+    if (pendingBills.length > 0) {
+      // If bills exist, check if they were all settled
+      const settledBills = bills || [];
+      const allSettled = pendingBills.every(b => settledBills.includes(String(b._id)));
+      
+      if (!allSettled) {
+        return res.status(400).json({ 
+          message: `${pendingBills.length} bill(s) pending. Please settle all bills before discharge.` 
+        });
+      }
+    }
+
+    // ── Calculate final charges ──
+    const daysAdmitted = computeDays(admission.admissionDate, dischargeDate);
+    const roomRent = daysAdmitted * admission.roomRatePerDay;
+    
+    // ── Update admission ──
+    admission.status = 'Discharged';
     admission.dischargeDate = dischargeDate;
-    admission.daysAdmitted  = daysAdmitted;
-    admission.roomRent      = roomRent;
+    admission.daysAdmitted = daysAdmitted;
+    admission.roomRent = roomRent;
+    admission.dischargeType = dischargeType || 'Regular';
+    admission.dischargeReason = reason || '';
+    admission.followUpInstructions = followUpInstructions || '';
+    admission.patientCondition = patientCondition || 'Stable';
+    admission.satisfied = satisfied !== undefined ? satisfied : true;
+    admission.feedback = feedback || '';
+    admission.dischargeNotes = notes || '';
+    admission.billSettlement = billSettlement || 'Pending';
+    admission.billSettlementDate = new Date();
     await admission.save();
 
+    // ── Update room availability ──
     await ClinicRoomConfig.updateOne(
       { clinicId, roomType: admission.roomType },
       { $inc: { availableRooms: +1 } }
     );
 
+    // ── Update patient status ──
     await Patient.findOneAndUpdate(
       { _id: admission.patient, clinicIds: clinicId },
       { status: 'Discharged' }
     );
 
-    res.json(admission);
+    // ── Update bills status ──
+    if (bills && bills.length > 0) {
+      await Billing.updateMany(
+        { _id: { $in: bills }, clinicId },
+        { 
+          paymentStatus: 'Paid',
+          paymentDate: new Date(),
+        }
+      );
+    }
+
+    // ── Create discharge record ──
+    
+    await Discharge.create({
+      clinicId,
+      admissionId: admission._id,
+      patientId: admission.patient,
+      dischargeDate,
+      dischargeType,
+      reason,
+      followUpInstructions,
+      patientCondition,
+      satisfied,
+      feedback,
+      notes,
+      billSettlement,
+      dischargedBy: req.user.id,
+      dischargedByName: req.user.name,
+    });
+
+    const populatedAdmission = await Admission.findById(admission._id)
+      .populate('patient', 'name patientId phone')
+      .populate('doctor', 'name department');
+
+    res.json({
+      success: true,
+      message: 'Patient discharged successfully',
+      admission: populatedAdmission,
+      roomRent,
+      daysAdmitted,
+      billSettlement,
+    });
   } catch (err) {
+    console.error('Discharge error:', err);
     res.status(500).json({ message: err.message });
   }
 });
