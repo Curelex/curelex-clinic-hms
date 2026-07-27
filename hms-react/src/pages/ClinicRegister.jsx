@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import curelexLogo from "../../assets/logo.png";
 
 // ── Mobile detection hook ─────────────────────────────────────────────────────
 function useIsMobile() {
@@ -71,7 +72,7 @@ const C = {
 const makeStyles = (mob) => ({
   page: {
     minHeight: '100vh',
-    background: 'linear-gradient(150deg, #e8f4fd 0%, #f0f8ff 35%, #e8f9f5 70%, #f5fffc 100%)',
+    background: "linear-gradient(135deg,#163f73 0%,#0ea5a8 100%)",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: mob ? '12px 16px 20px' : '16px 20px',
     position: 'relative', overflowX: 'hidden', overflowY: 'auto',
@@ -90,7 +91,7 @@ const makeStyles = (mob) => ({
   card: {
     background: C.white, borderRadius: mob ? 14 : 18,
     padding: mob ? '20px 18px 18px' : '28px 32px',
-    boxShadow: '0 20px 60px rgba(10,61,98,0.12)',
+    boxShadow: '0 20px 40px rgba(0,0,0,.18)',
     border: '1px solid rgba(10,61,98,0.08)',
     position: 'relative', overflow: 'hidden',
   },
@@ -451,6 +452,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [apiCities, setApiCities] = useState([]);
 
   const [form, setForm] = useState({
@@ -562,20 +564,90 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
     <div style={S.page}>
       <div style={S.wrap}>
         <div ref={formRef} onKeyDown={handleEnter} style={{ ...S.card, borderRadius: 24 }}>
-          <div style={S.cardAccentBar} />
+
 
           {onClose && (
             <div style={S.secHeader}>
               <button style={S.btnGhost} onClick={onClose} disabled={loading}>
                 <IcoArrowLeft /> Back
               </button>
-              <div style={S.secTitle}>Register Clinic</div>
+              <div
+                style={{
+                  textAlign: "center",
+                  width: "100%",
+                }}
+              >
+                <img
+                  src={curelexLogo}
+                  alt="Curelex"
+                  style={{
+                    height: 55,
+                    marginBottom: 10,
+                  }}
+                />
+
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: "#0f4c81",
+                  }}
+                >
+                  Clinic Registration
+                </div>
+
+                <div
+                  style={{
+                    color: "#64748b",
+                    marginTop: 6,
+                    fontSize: 14,
+                  }}
+                >
+                  Create your Curelex clinic account
+                </div>
+              </div>
             </div>
           )}
 
           {!onClose && (
-            <div style={{ ...S.secHeader, justifyContent: 'center' }}>
-              <div style={S.secTitle}>Register Clinic</div>
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: 20,
+                paddingBottom: 18,
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <img
+                src={curelexLogo}
+                alt="Curelex"
+                style={{
+                  height: 60,
+                  objectFit: "contain",
+                  marginBottom: 10,
+                }}
+              />
+
+              <h1
+                style={{
+                  margin: 0,
+                  color: "#0f4c81",
+                  fontSize: 24,
+                  fontWeight: 700,
+                }}
+              >
+                Clinic Registration
+              </h1>
+
+              <p
+                style={{
+                  marginTop: 8,
+                  color: "#64748b",
+                  fontSize: 15,
+                }}
+              >
+                Create your Curelex clinic account
+              </p>
             </div>
           )}
 
@@ -710,21 +782,46 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
             />
           )}
 
-          <FieldInput
-            S={S}
-            label="Password *"
-            type="password"
-            value={form.password}
-            onChange={e => f('password', e.target.value)}
-            placeholder="Min 6 chars, 1 uppercase, 1 lowercase, 1 special"
-            disabled={loading}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleRegister();
-              }
-            }}
-          />
+          <div style={S.field}>
+            <label style={S.fieldLabel}>Password *</label>
+
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={e => f("password", e.target.value)}
+                placeholder="Min 6 chars, 1 uppercase, 1 lowercase, 1 special"
+                disabled={loading}
+                autoComplete="new-password"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleRegister();
+                  }
+                }}
+                style={{
+                  ...S.fieldInput,
+                  paddingRight: "50px",
+                  opacity: loading ? 0.6 : 1,
+                }}
+              />
+
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "16px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  cursor: "pointer",
+                  fontSize: "20px",
+                  userSelect: "none",
+                }}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </span>
+            </div>
+          </div>
 
           <div
             style={{
@@ -745,7 +842,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
           )}
 
           <button
-            style={{ ...S.btnBase, ...S.btnAccent }}
+            style={{ ...S.btnBase, ...S.btnPrimary }}
             onClick={handleRegister}
             disabled={loading}
           >

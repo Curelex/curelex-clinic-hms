@@ -63,7 +63,7 @@ export default function PatientHistoryModal({ patient, onClose }) {
     doctor:      mostRecentRecord.doctorId,
   } : {
     // No records yet — still allow adding
-    _id:         null,
+    _id:         undefined,
     status:      "Done",
     patientId:   patient._id,
     patient:     { _id: patient._id, patientId: patient.patientId, name: patient.name },

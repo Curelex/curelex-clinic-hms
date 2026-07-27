@@ -36,11 +36,22 @@ export default function UploadFileModal({ token, clinicId, onClose, onSuccess })
       const formData = new FormData();
       formData.append("file", file);
       formData.append("label", label);
-      formData.append("tokenId",     token._id);
+
+      const tokenId = token._id || token.tokenId;
+    if (tokenId && tokenId !== 'undefined' && tokenId !== 'null') {
+      formData.append("tokenId", tokenId);
+    }
+
       formData.append("patientId", token.patientId?._id || token.patient?._id || token.patientId);
-      formData.append("patientCode", token.patientCode || token.patientId?.patientId || "");
-      formData.append("doctorId",    token.doctorId?._id || token.doctor?._id || token.doctorId);
-      formData.append("clinicId",    clinicId);
+    formData.append("patientCode", token.patientCode || token.patientId?.patientId || "");
+    
+    const doctorId = token.doctorId?._id || token.doctor?._id || token.doctorId;
+    if (doctorId && doctorId !== 'undefined' && doctorId !== 'null') {
+      formData.append("doctorId", doctorId);
+    }
+    
+    formData.append("clinicId", clinicId);
+      
 
       await api.post("/patient-records/upload-file", formData, {
         headers: { "Content-Type": "multipart/form-data" },

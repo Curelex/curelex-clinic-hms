@@ -6,6 +6,7 @@ import curelexLogo from "../../assets/logo.png";
 
 export default function PatientLogin() {
   const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
@@ -75,10 +76,32 @@ export default function PatientLogin() {
           </div>
           <div className="form-group">
             <label className="form-label">Password</label>
-            <input
-              className="form-control" type="password" placeholder="Enter your password"
-              value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                className="form-control"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                value={form.password}
+                onChange={e => setForm({ ...form, password: e.target.value })}
+                required
+                style={{ paddingRight: "48px" }}
+              />
+
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "15px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  cursor: "pointer",
+                  fontSize: "20px",
+                  userSelect: "none",
+                }}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </span>
+            </div>
             <small
               style={{
                 color: '#94a3b8',
