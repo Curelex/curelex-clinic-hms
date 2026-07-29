@@ -6,6 +6,7 @@ import roleCheck from '../middleware/roleCheck.js';
 import planService from '../services/planService.js';
 import Clinic from '../models/Clinic.js';
 import Subscription from '../models/Subscription.js';
+import { createPlanOrder, verifyPayment } from '../controllers/paymentController.js';
 
 const router = express.Router();
 
@@ -286,5 +287,8 @@ router.get('/stripe-plans', auth, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+router.post('/create-order', auth, createPlanOrder);
+router.post('/verify-payment', auth, verifyPayment);
 
 export default router;

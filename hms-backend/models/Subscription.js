@@ -10,16 +10,15 @@ const subscriptionSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Stripe IDs
-    stripeCustomerId: {
-      type: String,
-      required: true,
-    },
-    stripeSubscriptionId: {
+    razorpayCustomerId: {
       type: String,
       default: null,
     },
-    stripePaymentMethodId: {
+    razorpaySubscriptionId: {
+      type: String,
+      default: null,
+    },
+    razorpayPlanId: {
       type: String,
       default: null,
     },

@@ -20,7 +20,7 @@ import Task from './models/Task.js';
 import Notification from './models/Notification.js';
 import User from './models/User.js';
 // import clinicApp from './clinic/clinic/app.js';
-import stripeWebhookRouter from './webhooks/stripeWebhook.js';
+import razorpayWebhook from './webhooks/razorpayWebhook.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -98,7 +98,7 @@ app.use('/api/v1/ims/reports/download-pdf', helmet({ contentSecurityPolicy: fals
 app.use('/api/reports/download-pdf',        helmet({ contentSecurityPolicy: false }));
 app.use(helmet());
 
-app.use('/api/clinic/webhooks/stripe', stripeWebhookRouter);
+app.use('/api/webhooks', razorpayWebhook);
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));

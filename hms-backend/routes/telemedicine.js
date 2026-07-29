@@ -4,6 +4,7 @@ import express from 'express';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import * as telemedicineController from '../controllers/telemedicineController.js';
+import { createTelemedicineOrder, getPaymentStatus, verifyPayment } from '../controllers/paymentController.js';
 
 const router = express.Router();
 
@@ -37,5 +38,9 @@ router.patch('/:id/approve-payout', roleCheck('super_admin'), telemedicineContro
 router.get('/stats', telemedicineController.getTelemedicineStats);
 router.get('/:id', telemedicineController.getTelemedicineById);
 router.patch('/:id/cancel', telemedicineController.cancelTelemedicine);
+
+router.post('/:id/create-order', roleCheck('patient'), createTelemedicineOrder);
+router.post('/verify-payment', roleCheck('patient'), verifyPayment);
+router.get('/payment-status/:orderId', roleCheck('patient'), getPaymentStatus);
 
 export default router;

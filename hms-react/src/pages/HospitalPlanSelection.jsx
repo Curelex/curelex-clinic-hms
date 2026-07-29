@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import { useNavigate, useLocation } from 'react-router-dom';
+import PaymentButton from '../components/paymentButton';
 
 const C = {
   brand: '#0a3d62', 
@@ -409,31 +410,29 @@ setTimeout(() => {
                     )}
                   </div>
                   <div style={{padding:'0 22px'}}>
-                    <button 
-    onClick={() => choosePlan(p.key)} 
-    className="pay-btn"
-    disabled={isDisabled}
-    style={{
-      width:'100%',
-      padding:'13px 20px',
-      borderRadius:11,
-      border:'none',
-      background: isDisabled ? '#94a3b8' : `linear-gradient(135deg,${gradFrom},${gradTo})`,
-      color:'#fff',
-      fontSize:15,
-      fontWeight:700,
-      cursor: isDisabled ? 'not-allowed' : 'pointer',
-      boxShadow: isDisabled ? 'none' : `0 5px 18px ${shadow}`,
-      transition:'opacity 0.18s',
-      opacity: isDisabled ? 0.7 : 1,
-    }}
-  >
-    {isCurrentPlan
-      ? '✓ Already Have This Plan'
-      : isDowngrade
-        ? '🔒 Lower Tier Plan'
-        : `Choose ${p.name} →`}
-  </button>
+                    <PaymentButton
+  type="plan"
+  id={p.key}
+  amount={p.price * 100}
+  description={`${p.name} - Monthly Subscription`}
+  onSuccess={() => {
+    setStep('success');
+    if (onDone) {
+      setTimeout(() => onDone(), 2000);
+    }
+  }}
+  onError={(error) => {
+    setError(error.message || 'Payment failed');
+    setStep('plans');
+  }}
+  buttonText={isCurrentPlan
+    ? '✓ Already Have This Plan'
+    : isDowngrade
+      ? '🔒 Lower Tier Plan'
+      : `Choose ${p.name} →`}
+  variant="primary"
+  disabled={isDisabled}
+/>
                   </div>
                 </div>
               );
@@ -680,30 +679,25 @@ setTimeout(() => {
               </div>
             )}
 
-            <button 
-              onClick={handlePay} 
-              disabled={loading} 
-              className="pay-btn"
-              style={{
-                width:'100%',
-                padding:'16px 20px',
-                borderRadius:11,
-                border:'none',
-                background: loading ? '#94a3b8' : `linear-gradient(135deg,${C.accent},${C.accentLight})`,
-                color:'#fff',
-                fontSize:16,
-                fontWeight:700,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow:'0 5px 20px rgba(0,184,148,0.35)',
-                display:'flex',
-                alignItems:'center',
-                justifyContent:'center',
-                gap:10,
-                transition:'opacity 0.18s'
-              }}
-            >
-              {loading ? 'Processing...' : hasCurrentPlan ? '🚀 Upgrade Plan' : '🚀 Pay Now & Activate Plan'}
-            </button>
+            <PaymentButton
+  type="plan"
+  id={selected}
+  amount={plan.price * 100}
+  description={`${plan.name} - Monthly Subscription`}
+  onSuccess={() => {
+    setStep('success');
+    if (onDone) {
+      setTimeout(() => onDone(), 2000);
+    }
+  }}
+  onError={(error) => {
+    setError(error.message || 'Payment failed');
+    setStep('confirm');
+  }}
+  buttonText={hasCurrentPlan ? '🚀 Upgrade Plan' : '🚀 Pay Now & Activate Plan'}
+  variant="success"
+  disabled={loading}
+/>
             <div style={{textAlign:'center',marginTop:12,fontSize:12,color:C.textLight}}>
               Instant activation · Secure payment
             </div>

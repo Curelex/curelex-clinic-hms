@@ -7,6 +7,7 @@ import Billing from '../models/Billing.js';
 import Pharmacy from '../models/Pharmacy.js';
 import Lab from '../models/Lab.js';
 import { auth } from '../middleware/auth.js';
+import { createBillOrder, verifyPayment } from '../controllers/paymentController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -193,5 +194,8 @@ router.put('/:id', auth, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+router.post('/:billId/create-order', auth, createBillOrder);
+router.post('/verify-payment', auth, verifyPayment);
 
 export default router;

@@ -7,6 +7,7 @@ import API from '../utils/api';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
 import BottomNav from '../components/BottomNav';
+import PaymentButton from '../components/paymentButton';
 
 const STATUS_COLORS = {
   requested: { bg: '#fef3c7', color: '#92400e', label: '⏳ Requested' },
@@ -978,32 +979,30 @@ export default function PatientTelemedicine() {
                                     </a>
                                   )}
 
-                                  {isPaymentPending && (
-                                    <button
-                                      className="btn btn-sm btn-warning"
-                                      onClick={() => {
-                                        setPaymentRequest({
-                                          requestId: req._id,
-                                          doctorName: req.doctorName,
-                                          consultationFee: req.consultationFee,
-                                          scheduledTime: req.scheduledTime
-                                        });
-                                        setShowPaymentModal(true);
-                                      }}
-                                      style={{
-                                        padding: '4px 10px',
-                                        background: '#f59e0b',
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: 4,
-                                        cursor: 'pointer',
-                                        fontSize: 11,
-                                        fontWeight: 600
-                                      }}
-                                    >
-                                      💳 Pay Now
-                                    </button>
-                                  )}
+                                  {req.status === 'payment_pending' && (
+  <PaymentButton
+    type="telemedicine"
+    id={req._id}
+    amount={req.consultationFee * 100}
+    description={`Consultation with Dr. ${req.doctorName}`}
+    onSuccess={(result) => {
+      loadRequests();
+      setStatusUpdate({
+        type: 'payment_success',
+        message: '✅ Payment successful! Consultation confirmed.',
+        meetingLink: result.telemedicine?.meetingLink,
+      });
+    }}
+    onError={(error) => {
+      setStatusUpdate({
+        type: 'error',
+        message: `❌ Payment failed: ${error.message}`,
+      });
+    }}
+    buttonText={`Pay ₹${req.consultationFee}`}
+    variant="primary"
+  />
+)}
 
                                   {isPending && req.status !== 'payment_pending' && (
                                     <button className="btn btn-sm btn-danger" onClick={() => handleCancel(req._id)}>

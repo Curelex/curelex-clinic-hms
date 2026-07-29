@@ -1,7 +1,7 @@
-// hms-backend/config/planConfig.js
+// hms-backend/config/plans.js
 
 export const PLAN_CONFIGS = {
-  // ── CLINIC PLANS (unchanged) ──
+  // ── CLINIC PLANS ──
   clinic: {
     free: {
       label: 'Free Plan',
@@ -41,7 +41,6 @@ export const PLAN_CONFIGS = {
         doctors: 1,
         receptionists: 1,
       },
-      stripePriceId: null,
     },
     lite: {
       label: 'Clinic Lite',
@@ -81,7 +80,6 @@ export const PLAN_CONFIGS = {
         doctors: 3,
         receptionists: 2,
       },
-      stripePriceId: process.env.STRIPE_PRICE_LITE || null,
     },
     plus: {
       label: 'Clinic Plus',
@@ -121,7 +119,6 @@ export const PLAN_CONFIGS = {
         doctors: -1,
         receptionists: -1,
       },
-      stripePriceId: process.env.STRIPE_PRICE_PLUS || null,
     },
     pro: {
       label: 'Clinic Pro',
@@ -161,7 +158,6 @@ export const PLAN_CONFIGS = {
         doctors: -1,
         receptionists: -1,
       },
-      stripePriceId: process.env.STRIPE_PRICE_PRO || null,
     }
   },
 
@@ -196,7 +192,6 @@ export const PLAN_CONFIGS = {
         bloodBank: false,
         aiAnalytics: false,
         customReports: false,
-        // ── ICU & OT (Only in Enterprise) ──
         icu: false,
         ot: false,
       },
@@ -216,7 +211,6 @@ export const PLAN_CONFIGS = {
         bedManagement: false,
         billing: false,
         prescriptions: false,
-        // ── ICU & OT (Only in Enterprise) ──
         icu: false,
         ot: false,
       },
@@ -227,7 +221,6 @@ export const PLAN_CONFIGS = {
         receptionists: 2,
         beds: 10,
       },
-      stripePriceId: null,
     },
     standard: {
       label: 'Standard Hospital Plan',
@@ -258,7 +251,6 @@ export const PLAN_CONFIGS = {
         bloodBank: false,
         aiAnalytics: false,
         customReports: false,
-        // ── ICU & OT (Only in Enterprise) ──
         icu: false,
         ot: false,
       },
@@ -278,7 +270,6 @@ export const PLAN_CONFIGS = {
         bedManagement: true,
         billing: true,
         prescriptions: true,
-        // ── ICU & OT (Only in Enterprise) ──
         icu: false,
         ot: false,
       },
@@ -289,7 +280,6 @@ export const PLAN_CONFIGS = {
         receptionists: 10,
         beds: 50,
       },
-      stripePriceId: process.env.STRIPE_PRICE_HOSPITAL_STANDARD || null,
     },
     enterprise: {
       label: 'Enterprise Hospital Plan',
@@ -320,7 +310,6 @@ export const PLAN_CONFIGS = {
         bloodBank: true,
         aiAnalytics: true,
         customReports: true,
-        // ── ICU & OT (Only in Enterprise) ──
         icu: true,
         ot: true,
       },
@@ -343,7 +332,6 @@ export const PLAN_CONFIGS = {
         ambulance: true,
         bloodBank: true,
         aiAnalytics: true,
-        // ── ICU & OT ──
         icu: true,
         ot: true,
       },
@@ -354,21 +342,9 @@ export const PLAN_CONFIGS = {
         receptionists: -1,
         beds: -1,
       },
-      stripePriceId: process.env.STRIPE_PRICE_HOSPITAL_ENTERPRISE || null,
+      
     }
   }
-};
-
-// ── Stripe Plan Mapping ──
-export const STRIPE_PLANS = {
-  // Clinic plans
-  free: { name: 'Free Plan', priceId: null, amount: 0, currency: 'inr', interval: 'month' },
-  lite: { name: 'Clinic Lite', priceId: process.env.STRIPE_PRICE_LITE || null, amount: 99900, currency: 'inr', interval: 'month' },
-  plus: { name: 'Clinic Plus', priceId: process.env.STRIPE_PRICE_PLUS || null, amount: 149900, currency: 'inr', interval: 'month' },
-  pro: { name: 'Clinic Pro', priceId: process.env.STRIPE_PRICE_PRO || null, amount: 199900, currency: 'inr', interval: 'month' },
-  // Hospital plans
-  standard: { name: 'Standard Hospital', priceId: process.env.STRIPE_PRICE_HOSPITAL_STANDARD || null, amount: 499900, currency: 'inr', interval: 'month' },
-  enterprise: { name: 'Enterprise Hospital', priceId: process.env.STRIPE_PRICE_HOSPITAL_ENTERPRISE || null, amount: 699900, currency: 'inr', interval: 'month' },
 };
 
 // ── Helper Functions ──
@@ -399,17 +375,6 @@ export function getPaidPlans(clinicType) {
     }));
 }
 
-export function getPlanByPriceId(priceId) {
-  if (!priceId) return null;
-  return Object.values(STRIPE_PLANS).find((p) => p.priceId === priceId) ?? null;
-}
-
-export function getPlanKeyByPriceId(priceId) {
-  if (!priceId) return null;
-  return Object.keys(STRIPE_PLANS).find(
-    (key) => STRIPE_PLANS[key].priceId === priceId
-  ) ?? null;
-}
 
 export function canAddStaff(clinicType, planKey, roleType, currentCount) {
   const config = getPlanConfig(clinicType, planKey);
@@ -528,18 +493,12 @@ export function getNextPlan(clinicType, currentPlan) {
   return paths[currentPlan] || null;
 }
 
-export function getStripePlans() {
-  return STRIPE_PLANS;
-}
 
 export default {
   PLAN_CONFIGS,
-  STRIPE_PLANS,
   getPlanConfig,
   getAvailablePlans,
   getPaidPlans,
-  getPlanByPriceId,
-  getPlanKeyByPriceId,
   canAddStaff,
   isSectionVisible,
   isFeatureAvailable,
@@ -551,5 +510,5 @@ export default {
   isFreePlan,
   isPaidPlan,
   getNextPlan,
-  getStripePlans,
+  
 };
