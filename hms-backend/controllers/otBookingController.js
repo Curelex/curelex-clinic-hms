@@ -215,7 +215,7 @@ export const updateBookingStatus = async (req, res) => {
       
       const role = req.user.role;
       
-      if (role !== 'super_admin' || role !== 'admin') {
+      if (role !== 'super_admin' && role !== 'admin') {
         return res.status(403).json({ message: 'Only administrators can override mandatory safety protocols.' });
       }
 
