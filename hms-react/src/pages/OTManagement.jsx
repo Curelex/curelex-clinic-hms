@@ -979,9 +979,9 @@ function PostOpTab({ bookingId }) {
         <Btn size="sm" variant="ghost" onClick={() => updateStatus(data.status)} style={{ marginTop: 5 }}>Save Notes</Btn>
 
         <h4 style={{ margin: '15px 0 10px 0' }}>Uploaded Forms</h4>
-        {surgery.consentForms && surgery.consentForms.length > 0 ? (
+        {data.consentForms && data.consentForms.length > 0 ? (
           <ul style={{ paddingLeft: 20, margin: 0 }}>
-            {surgery.consentForms.map((form, idx) => (
+            {data.consentForms.map((form, idx) => (
               <li key={idx} style={{ marginBottom: 5 }}>
                 <a href={`${import.meta.env.VITE_API_BASE_URL || ''}${form.fileUrl}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
                   {form.documentName}
