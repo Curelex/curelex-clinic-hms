@@ -571,6 +571,7 @@ router.get('/:id/bills', patientAuth, async (req, res) => {
   }
 });
 
+
 // ── NEW: POST /:id/bills/:billId/pay ──
 router.post('/:id/bills/:billId/pay', patientAuth, async (req, res) => {
   try {
@@ -585,29 +586,15 @@ router.post('/:id/bills/:billId/pay', patientAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Patient not found' });
     }
 
-    // ── CHECK FOR ACTIVE TOKEN ──
-    // Block payment if patient has active token
-    const activeToken = await hasActiveToken(patient.clinicIds?.[0] || req.body.clinicId, patient._id);
-    
-    if (activeToken) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot process payment: You have an active token (#${activeToken.tokenNumber}) with Dr. ${activeToken.doctor?.name || 'Unknown'}. Please complete your consultation first.`,
-        activeToken: {
-          tokenNumber: activeToken.tokenNumber,
-          doctorName: activeToken.doctor?.name || 'Unknown',
-          status: activeToken.status,
-          tokenId: activeToken._id,
-        }
-      });
-    }
-
     const bill = await Billing.findOne({ _id: billId, patient: patient._id });
     if (!bill) {
       return res.status(404).json({ success: false, message: 'Bill not found' });
     }
 
-    const payAmount = Number(amount) || bill.totalAmount - bill.paidAmount;
+    // ── REMOVED: Active token check for bill payments ──
+    // Bill payments should not be blocked by active tokens
+
+    const payAmount = Number(amount) || (bill.totalAmount - bill.paidAmount);
     
     if (payAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Amount must be greater than 0' });
