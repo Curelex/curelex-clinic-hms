@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
-import PaymentButton from '../components/paymentButton';
+import PaymentButton from '../components/PaymentButton';
 
 const C = {
   brand: '#0a3d62', 

@@ -7,7 +7,7 @@ import API from '../utils/api';
 import '../css/PatientDashboard.css';
 import PatientSidebar from '../components/PatientSidebar';
 import BottomNav from '../components/BottomNav';
-import PaymentButton from '../components/paymentButton';
+import PaymentButton from '../components/PaymentButton';
 
 const STATUS_COLORS = {
   requested: { bg: '#fef3c7', color: '#92400e', label: '⏳ Requested' },
