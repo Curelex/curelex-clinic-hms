@@ -2,15 +2,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../utils/api';
 import { generateBillPDF } from '../utils/BillPDF';
+import PaymentButton from '../components/PaymentButton'; // ✅ ADD THIS IMPORT
 
 // ── Resolve clinicId from the stored JWT / user object ───────────────────────
-// Adjust the key name ("user", "clinic", etc.) to match what your app stores.
 function getClinicId() {
   try {
-    const raw = localStorage.getItem('user');          // change key if needed
+    const raw = localStorage.getItem('user');
     if (!raw) return 'default';
     const parsed = JSON.parse(raw);
-    // Support { clinicId } directly, or nested { clinic: { _id } }, or { clinic: "id" }
     return (
       parsed.clinicId ||
       parsed.clinic?._id ||
@@ -52,7 +51,7 @@ function recalcTotals(items, roomRent, discount, tax) {
 }
 
 export default function Billing() {
-  const clinicId = getClinicId();   // stable for the lifetime of this render tree
+  const clinicId = getClinicId();
 
   const [bills, setBills] = useState([]);
   const [total, setTotal] = useState(0);
@@ -95,7 +94,7 @@ export default function Billing() {
     }
   };
 
-  useEffect(() => { fetchBills(); }, [page, filterStatus]);   // eslint-disable-line
+  useEffect(() => { fetchBills(); }, [page, filterStatus]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -312,7 +311,6 @@ export default function Billing() {
     e.preventDefault();
     if (!form.patient) return alert('Please select a patient.');
 
-    // Always include clinicId in the request body
     const payload = { ...form, clinicId };
 
     let savedBill;
@@ -350,7 +348,6 @@ export default function Billing() {
       return;
     }
 
-    // Mark used lab billing requests as approved + link to this bill
     if (savedBill?._id && usedLabRequests.length > 0) {
       await Promise.allSettled(
         usedLabRequests.map(req =>
@@ -908,9 +905,24 @@ export default function Billing() {
                     {pdfLoading === editId ? '⏳ Generating…' : '🖨 Download PDF'}
                   </button>
                 )}
-                <button type="submit" className="btn btn-primary" disabled={!form.patient}>
-                  {editId ? 'Update Bill' : 'Create Bill'}
-                </button>
+
+                {/* ✅ REPLACED with PaymentButton */}
+                <PaymentButton
+                  type="billing"
+                  id={form.patient || editId}
+                  amount={form.totalAmount * 100 || 0}
+                  description={`Bill ${form.billId || 'New Bill'}`}
+                  onSuccess={() => {
+                    fetchBills();
+                    alert('✅ Payment successful! Bill settled.');
+                  }}
+                  onError={(error) => {
+                    alert(`❌ Payment failed: ${error.message}`);
+                  }}
+                  buttonText={editId ? 'Update & Pay Bill' : 'Create & Pay Bill'}
+                  variant="primary"
+                  disabled={!form.patient}
+                />
               </div>
             </form>
           </div>

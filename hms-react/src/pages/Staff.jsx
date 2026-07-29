@@ -15,12 +15,15 @@ const ALL_MODULES = [
   { key: 'inventory', label: 'Inventory', icon: '📦' },
   { key: 'room-settings', label: 'Room Settings', icon: '🏨' },
   { key: 'telemedicine', label: 'Telemedicine', icon: '📹' },
+  // ✅ ADDED ICU AND OT
+  { key: 'icu', label: 'ICU Management', icon: '🏥' },
+  { key: 'ot', label: 'OT Management', icon: '💉' },
 ];
 
 const ROLE_DEFAULTS = {
-  admin: ['dashboard', 'patients', 'ipd', 'billing', 'prescriptions', 'pharmacy', 'lab', 'inventory', 'room-settings', 'staff'],
-  doctor: ['dashboard', 'patients', 'ipd', 'prescriptions', 'lab', 'telemedicine'],
-  nurse: ['dashboard', 'patients', 'ipd', 'lab'],
+  admin: ['dashboard', 'patients', 'ipd', 'billing', 'prescriptions', 'pharmacy', 'lab', 'inventory', 'room-settings', 'staff', 'icu', 'ot'],
+  doctor: ['dashboard', 'patients', 'ipd', 'prescriptions', 'lab', 'telemedicine', 'icu', 'ot'],
+  nurse: ['dashboard', 'patients', 'ipd', 'icu', 'ot'],
   receptionist: ['dashboard', 'patients', 'ipd', 'billing', 'room-settings'],
   pharmacist: ['dashboard', 'prescriptions', 'pharmacy', 'inventory'],
   lab_technician: ['dashboard', 'patients', 'lab'],

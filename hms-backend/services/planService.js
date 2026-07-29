@@ -10,8 +10,6 @@ import {
   getPlanLimits,
   getPlanPrice,
   getPlanLabel,
-  STRIPE_PLANS,
-  getPlanKeyByPriceId,
   isFreePlan,
   isPaidPlan as isPaidPlanUtil
 } from '../config/plans.js';
@@ -470,20 +468,6 @@ export const planService = {
       maxNurses: config.maxNurses,
       maxLabTechnicians: config.maxLabTechnicians,
     };
-  },
-
-  /**
-   * Get Stripe plan mapping
-   */
-  getStripePlans() {
-    return STRIPE_PLANS;
-  },
-
-  /**
-   * Get plan key from Stripe price ID
-   */
-  getPlanKeyFromPriceId(priceId) {
-    return getPlanKeyByPriceId(priceId);
   },
 
   /**
