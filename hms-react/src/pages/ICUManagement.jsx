@@ -95,6 +95,19 @@ export default function ICUManagement() {
   const [receptionists, setReceptionists] = useState([]);
 
   const canManage = hasPerm('admin') || hasPerm('super_admin');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   // ── Fetch Functions ──
 
@@ -307,35 +320,35 @@ export default function ICUManagement() {
 
   const handleStopVentilator = async (admission) => {
     if (!window.confirm('Are you sure you want to stop the ventilator?')) return;
-    
+
     try {
       const patientId = admission.patient?._id || admission.patient;
-      
+
       console.log('🔍 Stopping ventilator for patient:', patientId);
-      
+
       const res = await API.get(`/icu/ventilator/patient/${patientId}?clinicId=${clinicId}`);
       console.log('📡 Ventilator logs response:', res.data);
-      
+
       const logs = res.data.logs || [];
       const activeLog = logs.find(log => log.isActive === true);
-      
+
       if (!activeLog) {
         toast.error('No active ventilator found for this patient');
         return;
       }
-      
+
       console.log('✅ Found active ventilator log:', activeLog._id);
-      
+
       await API.post(`/icu/ventilator/stop/${activeLog._id}?clinicId=${clinicId}`);
-      
+
       toast.success('Ventilator stopped successfully');
-      
+
       await Promise.all([
         fetchAdmissions(),
         fetchBeds(),
         fetchStats()
       ]);
-      
+
     } catch (err) {
       console.error('Failed to stop ventilator:', err);
       const errorMsg = err.response?.data?.message || 'Failed to stop ventilator';
@@ -442,22 +455,47 @@ export default function ICUManagement() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div
+      style={{
+        padding: window.innerWidth < 768 ? 12 : 24,
+      }}
+    >
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: window.innerWidth < 768 ? "column" : "row",
+          alignItems: window.innerWidth < 768 ? "stretch" : "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
         <div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>🏥 ICU Management</h1>
           <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>
             Manage ICU beds, patient admissions, vitals monitoring, and ventilator tracking
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              window.innerWidth < 768 ? "1fr 1fr" : "auto auto",
+            gap: 10,
+            width: window.innerWidth < 768 ? "100%" : "auto",
+          }}
+        >
           {canManage && (
-            <Btn onClick={openBedModal}>
+            <Btn style={{
+              width: "100%"
+            }} onClick={openBedModal}>
               ➕ Add Bed
             </Btn>
           )}
-          <Btn onClick={() => { resetAdmitForm(); setShowAdmitModal(true); }}>
+          <Btn style={{
+            width: "100%"
+          }} onClick={() => { resetAdmitForm(); setShowAdmitModal(true); }}>
             🏥 Admit Patient
           </Btn>
         </div>
@@ -465,7 +503,17 @@ export default function ICUManagement() {
 
       {/* ── Stats Cards ── */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              window.innerWidth < 768
+                ? "repeat(2, 1fr)"
+                : "repeat(auto-fit, minmax(150px, 1fr))",
+            gap: 12,
+            marginBottom: 24,
+          }}
+        >
           <StatCard label="Total Beds" value={stats.totalBeds || 0} icon="🛏️" color="#dbeafe" />
           <StatCard label="Available" value={stats.availableBeds || 0} icon="🟢" color="#d1fae5" />
           <StatCard label="Occupied" value={stats.occupiedBeds || 0} icon="🔴" color="#fee2e2" />
@@ -475,13 +523,24 @@ export default function ICUManagement() {
       )}
 
       {/* ── Tabs ── */}
-      <div style={{ display: 'flex', gap: 6, borderBottom: '2px solid #e2e8f0', marginBottom: 20 }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          borderBottom: "2px solid #e2e8f0",
+          marginBottom: 20,
+          overflowX: "auto",
+          whiteSpace: "nowrap",
+          WebkitOverflowScrolling: "touch",
+          paddingBottom: 4,
+        }}
+      >
         {[
           { key: 'beds', label: '🛏️ Beds' },
           { key: 'admissions', label: '🏥 Active Admissions' },
           { key: 'vitals', label: '📊 Vitals' },
           { key: 'ventilator', label: '💨 Ventilators' },
-          { key: 'equipment', label: '🔧 Equipment' }, 
+          { key: 'equipment', label: '🔧 Equipment' },
         ].map(tab => (
           <button
             key={tab.key}
@@ -496,6 +555,7 @@ export default function ICUManagement() {
               fontWeight: 600,
               fontSize: 14,
               transition: 'all 0.2s',
+              flexShrink: 0,
             }}
           >
             {tab.label}
@@ -519,7 +579,7 @@ export default function ICUManagement() {
           admissions={admissions}
           onDischarge={handleDischarge}
           onLogVitals={(admission) => { setSelectedPatient(admission); setShowVitalModal(true); }}
-          onStartVentilator={(admission) => { 
+          onStartVentilator={(admission) => {
             setVentilatorForm({ ...ventilatorForm, patientId: admission.patient?._id, bedId: admission.icuBedId?._id });
             setShowVentilatorModal(true);
           }}
@@ -548,19 +608,24 @@ export default function ICUManagement() {
       )}
 
       {activeTab === 'equipment' && (
-  <EquipmentTab
-    beds={beds}
-    onRefresh={fetchAll}
-    canManage={canManage}
-    clinicId={clinicId}
-  />
-)}
+        <EquipmentTab
+          beds={beds}
+          onRefresh={fetchAll}
+          canManage={canManage}
+          clinicId={clinicId}
+        />
+      )}
 
       {/* ── Bed Modal with Room Dropdown ── */}
       {showBedModal && (
         <Modal title={editingBed ? 'Edit ICU Bed' : 'Add ICU Bed'} onClose={() => { setShowBedModal(false); resetBedForm(); }} width={550}>
           <form onSubmit={(e) => { e.preventDefault(); editingBed ? handleUpdateBed() : handleCreateBed(); }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr", gap: 12
+            }}>
               <Input
                 label="Bed Number *"
                 value={bedForm.bedNumber}
@@ -568,7 +633,7 @@ export default function ICUManagement() {
                 required
                 placeholder="e.g., ICU-001"
               />
-              
+
               {/* ── Room Selection Dropdown ── */}
               <div className="form-group">
                 <label className="form-label" style={{ fontSize: 12, fontWeight: 600, color: '#4a6278', display: 'block', marginBottom: 4 }}>
@@ -598,10 +663,10 @@ export default function ICUManagement() {
                     <option value="" disabled>No rooms available</option>
                   )}
                   {availableRooms.map(room => (
-                    <option 
-                      key={room.roomNumber} 
+                    <option
+                      key={room.roomNumber}
                       value={room.roomNumber}
-                      style={{ 
+                      style={{
                         color: room.isAvailable ? '#0a3d62' : '#94a3b8',
                         fontStyle: room.isAvailable ? 'normal' : 'italic'
                       }}
@@ -639,7 +704,12 @@ export default function ICUManagement() {
               </Select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr 1fr", gap: 12, marginTop: 12
+            }}>
               <Input
                 label="Base Daily Rate (₹)"
                 type="number"
@@ -681,7 +751,7 @@ export default function ICUManagement() {
               <option value="">Select Patient</option>
               {patients.map(p => <option key={p._id} value={p._id}>{p.name} ({p.patientId})</option>)}
             </Select>
-            
+
             <Select
               label="ICU Bed *"
               value={admitForm.bedId}
@@ -695,7 +765,7 @@ export default function ICUManagement() {
                 </option>
               ))}
             </Select>
-            
+
             <Input
               label="Reason for ICU *"
               value={admitForm.reasonForICU}
@@ -750,24 +820,49 @@ export default function ICUManagement() {
       {showVitalModal && (
         <Modal title="Log Patient Vitals" onClose={() => { setShowVitalModal(false); resetVitalForm(); }} width={600}>
           <form onSubmit={(e) => { e.preventDefault(); handleLogVitals(); }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr", gap: 12
+            }}>
               <Input label="Heart Rate (bpm)" type="number" value={vitalForm.heartRate} onChange={e => setVitalForm({ ...vitalForm, heartRate: e.target.value })} />
               <Input label="SpO2 (%)" type="number" value={vitalForm.spo2} onChange={e => setVitalForm({ ...vitalForm, spo2: e.target.value })} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr", gap: 12
+            }}>
               <Input label="Systolic BP" type="number" value={vitalForm.systolicBP} onChange={e => setVitalForm({ ...vitalForm, systolicBP: e.target.value })} />
               <Input label="Diastolic BP" type="number" value={vitalForm.diastolicBP} onChange={e => setVitalForm({ ...vitalForm, diastolicBP: e.target.value })} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr", gap: 12
+            }}>
               <Input label="Temperature (°C)" type="number" step="0.1" value={vitalForm.temperature} onChange={e => setVitalForm({ ...vitalForm, temperature: e.target.value })} />
               <Input label="Respiratory Rate" type="number" value={vitalForm.respiratoryRate} onChange={e => setVitalForm({ ...vitalForm, respiratoryRate: e.target.value })} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr 1fr", gap: 12
+            }}>
               <Input label="GCS Eye (1-4)" type="number" min="1" max="4" value={vitalForm.gcsEye} onChange={e => setVitalForm({ ...vitalForm, gcsEye: e.target.value })} />
               <Input label="GCS Verbal (1-5)" type="number" min="1" max="5" value={vitalForm.gcsVerbal} onChange={e => setVitalForm({ ...vitalForm, gcsVerbal: e.target.value })} />
               <Input label="GCS Motor (1-6)" type="number" min="1" max="6" value={vitalForm.gcsMotor} onChange={e => setVitalForm({ ...vitalForm, gcsMotor: e.target.value })} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr", gap: 12
+            }}>
               <Input label="RASS Score (-5 to 4)" type="number" min="-5" max="4" value={vitalForm.rassScore} onChange={e => setVitalForm({ ...vitalForm, rassScore: e.target.value })} />
               <Input label="Pain Score (0-10)" type="number" min="0" max="10" value={vitalForm.painScore} onChange={e => setVitalForm({ ...vitalForm, painScore: e.target.value })} />
             </div>
@@ -785,13 +880,31 @@ export default function ICUManagement() {
       {showVentilatorModal && (
         <Modal title="Start Ventilator" onClose={() => { setShowVentilatorModal(false); resetVentilatorForm(); }} width={550}>
           <form onSubmit={(e) => { e.preventDefault(); handleStartVentilator(); }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  window.innerWidth < 768
+                    ? '1fr'
+                    : '1fr 1fr',
+                gap: 12,
+              }}
+            >
               <Select label="Mode *" value={ventilatorForm.mode} onChange={e => setVentilatorForm({ ...ventilatorForm, mode: e.target.value })} required>
                 {VENTILATOR_MODES.map(m => <option key={m} value={m}>{m}</option>)}
               </Select>
               <Input label="FiO2 (%)" type="number" min="21" max="100" value={ventilatorForm.fio2} onChange={e => setVentilatorForm({ ...ventilatorForm, fio2: Number(e.target.value) })} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  window.innerWidth < 768
+                    ? '1fr'
+                    : '1fr 1fr 1fr',
+                gap: 12,
+              }}
+            >
               <Input label="PEEP (cmH2O)" type="number" min="0" max="30" value={ventilatorForm.peep} onChange={e => setVentilatorForm({ ...ventilatorForm, peep: Number(e.target.value) })} />
               <Input label="Tidal Volume (ml)" type="number" value={ventilatorForm.tidalVolume} onChange={e => setVentilatorForm({ ...ventilatorForm, tidalVolume: Number(e.target.value) })} />
               <Input label="Rate (breaths/min)" type="number" value={ventilatorForm.rate} onChange={e => setVentilatorForm({ ...ventilatorForm, rate: Number(e.target.value) })} />
@@ -812,25 +925,25 @@ export default function ICUManagement() {
 // ── Stat Card Component ──
 function StatCard({ label, value, icon, color }) {
   return (
-    <div className="stat-card" style={{ 
-      background: '#fff', 
-      borderRadius: 12, 
-      padding: '16px 18px', 
+    <div className="stat-card" style={{
+      background: '#fff',
+      borderRadius: 12,
+      padding: '16px 18px',
       border: '1px solid #e8edf2',
       boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       display: 'flex',
       alignItems: 'center',
       gap: 12,
     }}>
-      <div className="stat-icon" style={{ 
-        background: color, 
-        borderRadius: 10, 
-        width: 40, 
-        height: 40, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        fontSize: 18 
+      <div className="stat-icon" style={{
+        background: color,
+        borderRadius: 10,
+        width: 40,
+        height: 40,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 18
       }}>
         <span>{icon}</span>
       </div>
@@ -877,23 +990,32 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
 
   if (beds.length === 0) {
     return (
-      <Empty 
-        icon="🛏️" 
-        title="No ICU Beds" 
-        desc="Create your first ICU bed to get started." 
+      <Empty
+        icon="🛏️"
+        title="No ICU Beds"
+        desc="Create your first ICU bed to get started."
       />
     );
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          window.innerWidth < 768
+            ? "1fr"
+            : "repeat(auto-fill, minmax(320px, 1fr))",
+        gap: 16,
+      }}
+    >
       {beds.map(bed => {
         const isExpanded = expandedBeds[bed._id];
         const hasEquipment = bed.equipment && bed.equipment.length > 0;
         const hasPatient = bed.patientId !== null;
 
         return (
-          <Card key={bed._id} style={{ 
+          <Card key={bed._id} style={{
             border: `2px solid ${getStatusColor(bed.status)}30`,
             position: 'relative',
             overflow: 'hidden',
@@ -909,9 +1031,9 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
             }} />
 
             {/* Header */}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'flex-start',
               paddingTop: 8,
             }}>
@@ -938,10 +1060,10 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
 
             {/* Patient Info (if occupied) */}
             {hasPatient && (
-              <div style={{ 
-                marginTop: 10, 
-                padding: '8px 12px', 
-                background: '#f1f5f9', 
+              <div style={{
+                marginTop: 10,
+                padding: '8px 12px',
+                background: '#f1f5f9',
                 borderRadius: 6,
                 border: '1px solid #e2e8f0',
               }}>
@@ -965,12 +1087,15 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
             )}
 
             {/* Rates */}
-            <div style={{ 
-              marginTop: 10, 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr 1fr', 
-              gap: 6, 
-              fontSize: 12, 
+            <div style={{
+              marginTop: 10,
+              display: 'grid',
+              gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "1fr 1fr 1fr",
+              gap: 6,
+              fontSize: 12,
               color: '#64748b',
               background: '#f8fafc',
               padding: '8px 10px',
@@ -982,11 +1107,11 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
             </div>
 
             {/* Quick Status */}
-            <div style={{ 
-              marginTop: 8, 
-              display: 'flex', 
-              gap: 12, 
-              fontSize: 11, 
+            <div style={{
+              marginTop: 8,
+              display: 'flex',
+              gap: 12,
+              fontSize: 11,
               color: '#94a3b8',
               flexWrap: 'wrap',
             }}>
@@ -998,11 +1123,11 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
 
             {/* Equipment Section */}
             <div style={{ marginTop: 10 }}>
-              <div 
+              <div
                 onClick={() => toggleExpand(bed._id)}
-                style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                   cursor: 'pointer',
                   padding: '4px 0',
@@ -1037,10 +1162,10 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
 
               {/* Expanded Equipment List */}
               {isExpanded && (
-                <div style={{ 
-                  marginTop: 8, 
-                  padding: '8px 10px', 
-                  background: '#f8fafc', 
+                <div style={{
+                  marginTop: 8,
+                  padding: '8px 10px',
+                  background: '#f8fafc',
                   borderRadius: 6,
                   border: '1px solid #e2e8f0',
                   maxHeight: 150,
@@ -1049,9 +1174,9 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
                   {hasEquipment ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {bed.equipment.map((equip, idx) => (
-                        <div key={idx} style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
+                        <div key={idx} style={{
+                          display: 'flex',
+                          alignItems: 'center',
                           gap: 8,
                           padding: '4px 8px',
                           background: '#fff',
@@ -1066,8 +1191,8 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
                               SN: {equip.serialNumber}
                             </span>
                           )}
-                          <span style={{ 
-                            fontSize: 10, 
+                          <span style={{
+                            fontSize: 10,
                             color: equip.isActive ? '#16a34a' : '#dc2626',
                             marginLeft: 'auto',
                           }}>
@@ -1094,11 +1219,11 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
                 <select
                   value={bed.status}
                   onChange={e => onStatusChange(bed._id, e.target.value)}
-                  style={{ 
-                    padding: '5px 10px', 
-                    borderRadius: 6, 
-                    border: '1px solid #d1d5db', 
-                    fontSize: 12, 
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #d1d5db',
+                    fontSize: 12,
                     flex: 1,
                     background: '#fff',
                     cursor: 'pointer',
@@ -1108,35 +1233,35 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <button 
-                  onClick={() => onEdit(bed)} 
-                  style={{ 
-                    padding: '5px 12px', 
-                    background: '#dbeafe', 
-                    color: '#1e40af', 
-                    border: 'none', 
-                    borderRadius: 6, 
-                    cursor: 'pointer', 
+                <button
+                  onClick={() => onEdit(bed)}
+                  style={{
+                    padding: '5px 12px',
+                    background: '#dbeafe',
+                    color: '#1e40af',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: 600,
                   }}
                 >
                   ✏️ Edit
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     if (bed.status === 'Occupied') {
                       if (!window.confirm('This bed is occupied. Are you sure you want to delete it?')) return;
                     }
                     onDelete(bed._id);
-                  }} 
-                  style={{ 
-                    padding: '5px 12px', 
-                    background: '#fee2e2', 
-                    color: '#dc2626', 
-                    border: 'none', 
-                    borderRadius: 6, 
-                    cursor: 'pointer', 
+                  }}
+                  style={{
+                    padding: '5px 12px',
+                    background: '#fee2e2',
+                    color: '#dc2626',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: 600,
                   }}
@@ -1148,12 +1273,12 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
 
             {/* Occupied Warning */}
             {bed.status === 'Occupied' && !hasPatient && (
-              <div style={{ 
-                marginTop: 8, 
-                padding: '6px 12px', 
-                background: '#fef3c7', 
-                borderRadius: 6, 
-                fontSize: 12, 
+              <div style={{
+                marginTop: 8,
+                padding: '6px 12px',
+                background: '#fef3c7',
+                borderRadius: 6,
+                fontSize: 12,
                 color: '#92400e',
               }}>
                 ⚠️ Bed is marked as Occupied but no patient assigned
@@ -1169,7 +1294,7 @@ function BedTab({ beds, onEdit, onDelete, onStatusChange, canManage }) {
 
 function AdmissionsTab({ admissions, onDischarge, onLogVitals, onStartVentilator, onStopVentilator, canManage }) {
   const [expandedVitals, setExpandedVitals] = useState({});
-  
+
   // ── Toggle vitals expansion ──
   const toggleVitals = (admissionId) => {
     setExpandedVitals(prev => ({ ...prev, [admissionId]: !prev[admissionId] }));
@@ -1222,7 +1347,7 @@ function AdmissionsTab({ admissions, onDischarge, onLogVitals, onStartVentilator
                       💨 Start Vent
                     </button>
                   ) : (
-                    <button 
+                    <button
                       onClick={() => onStopVentilator(admission)}
                       style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
                     >
@@ -1239,15 +1364,15 @@ function AdmissionsTab({ admissions, onDischarge, onLogVitals, onStartVentilator
               )}
             </div>
           </div>
-          
+
           {/* ── Vitals Section ── */}
           <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
-            <div 
+            <div
               onClick={() => toggleVitals(admission._id)}
-              style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
                 cursor: 'pointer',
                 padding: '4px 0',
               }}
@@ -1271,7 +1396,7 @@ function AdmissionsTab({ admissions, onDischarge, onLogVitals, onStartVentilator
                 </div>
               )}
             </div>
-            
+
             {expandedVitals[admission._id] && (
               <div style={{ marginTop: 10 }}>
                 <VitalsList patientId={admission.patient?._id} clinicId={admission.clinicId} />
@@ -1318,8 +1443,8 @@ function VitalsList({ patientId, clinicId }) {
   }
 
   return (
-    <div style={{ 
-      maxHeight: 300, 
+    <div style={{
+      maxHeight: 300,
       overflowY: 'auto',
       border: '1px solid #e2e8f0',
       borderRadius: 8,
@@ -1368,7 +1493,12 @@ function VitalsTab({ admissions, onSelectPatient }) {
           {admissions.length === 0 ? (
             <p style={{ color: '#64748b', textAlign: 'center' }}>No active ICU patients</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns:
+                window.innerWidth < 768
+                  ? "1fr"
+                  : "repeat(auto-fill, minmax(200px, 1fr))", gap: 10
+            }}>
               {admissions.map(admission => (
                 <button
                   key={admission._id}
@@ -1524,7 +1654,16 @@ function EquipmentTab({ beds, onRefresh, canManage, clinicId }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: window.innerWidth < 768 ? "column" : "row",
+          justifyContent: "space-between",
+          alignItems: window.innerWidth < 768 ? "stretch" : "center",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>🔧 ICU Equipment</h3>
           <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
@@ -1554,30 +1693,35 @@ function EquipmentTab({ beds, onRefresh, canManage, clinicId }) {
       </div>
 
       {/* Available Equipment Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div style={{
+        display: 'grid', gridTemplateColumns:
+          window.innerWidth < 768
+            ? "1fr"
+            : "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20
+      }}>
         {[
           { label: 'Available Equipment', value: availableEquipment.length, icon: '🔧', color: '#dbeafe' },
           { label: 'Assigned Equipment', value: bedsWithEquipment.reduce((sum, b) => sum + b.equipment.length, 0), icon: '📦', color: '#ede9fe' },
           { label: 'Beds with Equipment', value: bedsWithEquipment.length, icon: '🛏️', color: '#d1fae5' },
         ].map((stat) => (
-          <div key={stat.label} style={{ 
-            background: '#fff', 
-            borderRadius: 12, 
-            padding: '14px 16px', 
+          <div key={stat.label} style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '14px 16px',
             border: '1px solid #e8edf2',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}>
-            <div style={{ 
-              background: stat.color, 
-              borderRadius: 10, 
-              width: 40, 
-              height: 40, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              fontSize: 18 
+            <div style={{
+              background: stat.color,
+              borderRadius: 10,
+              width: 40,
+              height: 40,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18
             }}>
               {stat.icon}
             </div>
@@ -1694,8 +1838,8 @@ function EquipmentTab({ beds, onRefresh, canManage, clinicId }) {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <Btn variant="ghost" onClick={() => setShowAssignModal(false)}>Cancel</Btn>
-              <Btn 
-                onClick={handleAssignEquipment} 
+              <Btn
+                onClick={handleAssignEquipment}
                 disabled={loading || !selectedBed || !selectedEquipment || availableEquipment.length === 0}
               >
                 {loading ? 'Assigning...' : 'Assign Equipment'}
