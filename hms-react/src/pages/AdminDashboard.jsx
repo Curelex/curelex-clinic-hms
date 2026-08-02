@@ -2170,7 +2170,7 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
     name: '',
     email: '',
     phone: '',
-    password: ''
+    password: '',
   });
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -3121,7 +3121,7 @@ function ClinicSettings({ clinic, onSave }) {
             />
           </div>
           <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email} onChange={(e) => f('email', e.target.value)} onKeyDown={handleEnterKey} /></div>
-          <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} onKeyDown={handleEnterKey} /></div>
+          <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Street Address</label><input style={inputStyle} value={form.address} onChange={(e) => f('address', e.target.value)} onKeyDown={handleEnterKey} required /></div>
         </div>
       </Card>
 

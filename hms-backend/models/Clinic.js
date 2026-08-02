@@ -5,7 +5,7 @@ const ClinicSchema = new mongoose.Schema({
   name:    { type: String, required: true, unique: true },
   email:   { type: String, required: true, unique: true },
   phone:   { type: String },
-  address: { type: String },
+  address: { type: String, required: true },
   type: {
     type: String,
     enum: ['hospital', 'clinic'],

@@ -16,7 +16,7 @@ const DoctorProfileSchema = new mongoose.Schema({
   experience: { type: Number, default: 0 },
   licenseNumber: { type: String, default: '' },
   currentInstitute: { type: String, default: '' },
-  address: { type: String, default: '' },
+  address: { type: String, default: '', required: true },
   consultationFee: { type: Number, default: 0 },
   bio: { type: String, default: '' },
   photoUrl: { type: String, default: '' },

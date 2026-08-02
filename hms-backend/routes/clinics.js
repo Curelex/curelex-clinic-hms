@@ -185,6 +185,9 @@ router.put('/me', auth, roleCheck('admin'), async (req, res) => {
     for (const key of ALLOWED) {
       if (req.body[key] !== undefined) fields[key] = req.body[key];
     }
+    if (fields.address !== undefined && !fields.address.trim()) {
+      return res.status(400).json({ message: 'Address is required' });
+    }
     const clinic = await Clinic.findByIdAndUpdate(req.user.clinicId, fields, { new: true });
     if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
     res.json(clinic);

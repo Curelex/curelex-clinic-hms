@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API from '../utils/api';
 import { generateBillPDF } from '../utils/BillPDF';
 import PaymentButton from '../components/PaymentButton'; // ✅ ADD THIS IMPORT
+import { useAuth } from '../context/AuthContext'; 
 
 // ── Resolve clinicId from the stored JWT / user object ───────────────────────
 function getClinicId() {
@@ -51,6 +52,8 @@ function recalcTotals(items, roomRent, discount, tax) {
 }
 
 export default function Billing() {
+  const { getEffectiveClinicId } = useAuth(); // ✅ For fetching clinic data
+  
   const clinicId = getClinicId();
 
   const [bills, setBills] = useState([]);
@@ -110,7 +113,17 @@ export default function Billing() {
     setPdfLoading(billId);
     try {
       const { data } = await API.get(`/billing/${billId}?clinicId=${clinicId}`);
-      generateBillPDF(data);
+      
+      // ✅ Fetch clinic data for the bill PDF
+      let clinicData = null;
+      try {
+        const clinicRes = await API.get('/clinics/me');
+        clinicData = clinicRes.data;
+      } catch (err) {
+        console.error('Failed to fetch clinic data:', err);
+      }
+      
+      generateBillPDF(data, clinicData);
     } catch {
       alert('Could not load bill data for PDF.');
     } finally {

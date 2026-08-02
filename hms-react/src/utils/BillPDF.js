@@ -7,7 +7,7 @@
 
 const COMPANY = {
   name:     'Curelex Healthcare Private Limited',
-  address:  '123, Medical Hub, Health Nagar, Punjab – 160001',
+  address:  '',
   phone:    '+91 98765 43210',
   email:    'billing@curelexhealthcare.com',
   gstin:    'GSTIN: 03AABCC1234D1Z5',
@@ -53,8 +53,17 @@ const statusStyle = (s) => {
   return map[s] || map.Pending;
 };
 
-// ─────────────────────────────────────────────────────────────────
-export function generateBillPDF(bill) {
+export function generateBillPDF(bill, clinicData) {
+  // ── Use clinic data if provided, otherwise fallback ──
+  const company = {
+    name:     clinicData?.name || 'Curelex Healthcare Private Limited',
+    address:  clinicData?.address || '123, Medical Hub, Health Nagar, Punjab – 160001',
+    phone:    clinicData?.phone || '+91 98765 43210',
+    email:    clinicData?.email || 'billing@curelexhealthcare.com',
+    gstin:    clinicData?.gstin || 'GSTIN: 03AABCC1234D1Z5',
+    tagline:  clinicData?.tagline || 'Compassionate Care · Trusted Healthcare',
+  };
+
   const patient     = bill.patient     || {};
   const patientName = patient.name     || '—';
   const patientId   = patient.patientId || '—';
@@ -112,7 +121,7 @@ export function generateBillPDF(bill) {
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Invoice ${bill.billId || ''} · Curelex Healthcare</title>
+  <title>Invoice ${bill.billId || ''} · ${company.name}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#1e293b;background:#fff}
@@ -146,12 +155,12 @@ export function generateBillPDF(bill) {
                   display:flex;align-items:center;justify-content:center;
                   color:#fff;font-size:26px;font-weight:900;flex-shrink:0">C</div>
       <div>
-        <div style="font-size:17px;font-weight:800;color:#0f4c81;line-height:1.2">${COMPANY.name}</div>
-        <div style="font-size:11px;color:#64748b;font-style:italic;margin-top:2px">${COMPANY.tagline}</div>
+        <div style="font-size:17px;font-weight:800;color:#0f4c81;line-height:1.2">${company.name}</div>
+        <div style="font-size:11px;color:#64748b;font-style:italic;margin-top:2px">${company.tagline}</div>
         <div style="font-size:11px;color:#475569;margin-top:6px;line-height:1.7">
-          📍 ${COMPANY.address}<br/>
-          📞 ${COMPANY.phone} &nbsp;|&nbsp; ✉ ${COMPANY.email}<br/>
-          ${COMPANY.gstin}
+          📍 ${company.address}<br/>
+          📞 ${company.phone} &nbsp;|&nbsp; ✉ ${company.email}<br/>
+          ${company.gstin}
         </div>
       </div>
     </div>
@@ -252,19 +261,19 @@ export function generateBillPDF(bill) {
   <div style="border-top:2px solid #e2e8f0;padding-top:14px;
               display:flex;justify-content:space-between;align-items:flex-end">
     <div style="font-size:11px;color:#64748b;line-height:1.7">
-      <strong style="color:#0f4c81">${COMPANY.name}</strong><br/>
-      ${COMPANY.address}<br/>
-      ${COMPANY.gstin}
+      <strong style="color:#0f4c81">${company.name}</strong><br/>
+      ${company.address}<br/>
+      ${company.gstin}
     </div>
     <div style="text-align:right">
       <div style="font-size:13px;font-weight:700;color:#0f4c81">
-        Thank you for choosing Curelex Healthcare!
+        Thank you for choosing ${company.name}!
       </div>
       <div style="font-size:10px;color:#94a3b8;margin-top:3px">
         Computer-generated invoice · No signature required
       </div>
       <div style="font-size:10px;color:#94a3b8;margin-top:2px">
-        ${COMPANY.phone} | ${COMPANY.email}
+        ${company.phone} | ${company.email}
       </div>
     </div>
   </div>

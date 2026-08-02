@@ -719,11 +719,12 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
 
           <FieldInput
             S={S}
-            label="Address"
+            label="Address *"
             value={form.address}
             onChange={e => f('address', e.target.value)}
             placeholder="Street / Area / Sector"
             disabled={loading}
+            required
           />
 
           <PincodeField

@@ -256,7 +256,7 @@ export default function DoctorProfileForm() {
                   <div className="dp-grid-2">
                     <div className="dp-field dp-span2">
                       <label>Address <span>*</span></label>
-                      <input type="text" placeholder="Clinic / Home address" value={form.address} onChange={set('address')} />
+                      <input type="text" placeholder="Clinic / Home address" value={form.address} onChange={set('address')} required />
                     </div>
                     <div className="dp-field">
                       <label>Aadhaar Number <span>*</span></label>

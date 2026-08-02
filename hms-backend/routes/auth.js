@@ -88,7 +88,7 @@ router.post('/register-super-admin', async (req, res) => {
 // ── Register (Staff/Clinic Admin) ──────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, clinicName, clinicId, department, phone, type } = req.body;
+    const { name, email, password, role, clinicName, clinicId, department, phone, type, address } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
@@ -99,6 +99,11 @@ router.post('/register', async (req, res) => {
       if (!clinicName) {
         return res.status(400).json({ message: 'Clinic name is required for admin registration' });
       }
+
+      if (!address) {
+        return res.status(400).json({ message: 'Clinic address is required' });
+      }
+
 
       const existingClinic = await Clinic.findOne({ email });
       if (existingClinic) {
@@ -114,7 +119,8 @@ router.post('/register', async (req, res) => {
         name: clinicName, 
         email, 
         phone, 
-        type: type || 'hospital' 
+        type: type || 'hospital',
+        address: address.trim()
       });
 
       const user = await User.create({
@@ -179,6 +185,12 @@ router.post('/register', async (req, res) => {
     });
 
     if (role === 'separate_doctor') {
+      if (!address || !address.trim()) {
+        return res.status(400).json({ 
+          message: 'Practice address is required for doctor registration' 
+        });
+      }
+
       await DoctorProfile.create({
         userId: user._id,
         name: user.name,
