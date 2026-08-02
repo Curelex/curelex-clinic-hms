@@ -18,7 +18,7 @@ const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales
 export default function OTManagement() {
   const { hasPerm, user } = useAuth();
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
-  
+
   const [activeTab, setActiveTab] = useState('calendar'); // calendar, requests, rooms
   const [pendingRequestId, setPendingRequestId] = useState(null);
 
@@ -27,14 +27,25 @@ export default function OTManagement() {
 
   return (
     <div>
-      <SectionHeader 
-        title="Operation Theatre Management" 
+      <SectionHeader
+        title="Operation Theatre Management"
         subtitle="Manage OT schedules, surgery requests, and OT rooms."
       />
 
-      <div style={{ display: 'flex', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 20 }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          borderBottom: "1px solid var(--border)",
+          paddingBottom: 10,
+          marginBottom: 20,
+          overflowX: "auto",
+          whiteSpace: "nowrap",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         {tabs.map(tab => (
-          <button 
+          <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
@@ -45,7 +56,8 @@ export default function OTManagement() {
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
               fontWeight: 600,
-              textTransform: 'capitalize'
+              textTransform: 'capitalize',
+              flexShrink: 0,
             }}
           >
             {tab}
@@ -70,12 +82,22 @@ function CalendarTab({ pendingRequestId, setPendingRequestId }) {
   const [bookings, setBookings] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState('');
-  
+
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState('week');
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const fetchRooms = async () => {
     try {
@@ -128,7 +150,7 @@ function CalendarTab({ pendingRequestId, setPendingRequestId }) {
     let backgroundColor = 'var(--primary)'; // default elective
     if (event.priority === 'urgent') backgroundColor = 'var(--warning)';
     if (event.priority === 'emergency') backgroundColor = 'var(--danger)';
-    
+
     if (event.booking.status === 'completed') backgroundColor = 'var(--success)';
     if (event.booking.status === 'cancelled') backgroundColor = 'var(--surface2)';
 
@@ -146,11 +168,34 @@ function CalendarTab({ pendingRequestId, setPendingRequestId }) {
 
   return (
     <div>
-      <div style={{ marginBottom: 15, display: 'flex', gap: 15, alignItems: 'center' }}>
-        <Select label="Filter by OT Room" value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} style={{ width: 250 }}>
+      <div
+        style={{
+          marginBottom: 15,
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: 15,
+        }}
+      >
+        <Select
+          label="Filter by OT Room"
+          value={selectedRoom}
+          onChange={e => setSelectedRoom(e.target.value)}
+          style={{
+            width: isMobile ? '100%' : 250,
+          }}
+        >
           {rooms.map(r => <option key={r._id} value={r._id}>{r.name} ({r.location})</option>)}
         </Select>
-        <div style={{ display: 'flex', gap: 10, fontSize: 13, marginTop: 15 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 10,
+            fontSize: 13,
+            marginTop: 15,
+          }}
+        >
           <Badge color="blue">Elective</Badge>
           <Badge color="yellow">Urgent</Badge>
           <Badge color="red">Emergency</Badge>
@@ -161,7 +206,15 @@ function CalendarTab({ pendingRequestId, setPendingRequestId }) {
       {rooms.length === 0 ? (
         <Empty icon="🏥" title="No OT Rooms Found" description="An administrator must add at least one OT Room from the Rooms tab before surgeries can be scheduled." />
       ) : (
-        <div style={{ height: 650, background: 'var(--surface)', padding: 15, borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
+        <div
+          style={{
+            height: isMobile ? 500 : 650,
+            background: 'var(--surface)',
+            padding: 15,
+            borderRadius: 'var(--radius)',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
           <Calendar
             localizer={localizer}
             events={events}
@@ -183,17 +236,17 @@ function CalendarTab({ pendingRequestId, setPendingRequestId }) {
       )}
 
       {showBookingModal && (
-        <BookingModal 
+        <BookingModal
           slot={selectedSlot}
           preselectedRequestId={pendingRequestId}
           onClose={() => {
             setShowBookingModal(false);
             setPendingRequestId(null);
           }}
-          onSuccess={() => { 
-            setShowBookingModal(false); 
+          onSuccess={() => {
+            setShowBookingModal(false);
             setPendingRequestId(null);
-            fetchBookings(); 
+            fetchBookings();
           }}
         />
       )}
@@ -216,6 +269,15 @@ function CalendarTab({ pendingRequestId, setPendingRequestId }) {
 // 2. SURGERY REQUESTS TAB
 // ─────────────────────────────────────────────────────────────────────────────
 function RequestsTab({ setActiveTab, setPendingRequestId }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [requests, setRequests] = useState([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -241,8 +303,22 @@ function RequestsTab({ setActiveTab, setPendingRequestId }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 15 }}>
-        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width: 200 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          gap: 12,
+          marginBottom: 15,
+        }}
+      >
+        <Select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          style={{
+            width: isMobile ? '100%' : 200,
+          }}
+        >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
@@ -250,13 +326,27 @@ function RequestsTab({ setActiveTab, setPendingRequestId }) {
           <option value="rejected">Rejected</option>
           <option value="completed">Completed</option>
         </Select>
-        <Btn onClick={() => setShowRequestModal(true)}>+ Raise Request</Btn>
+        <Btn
+          onClick={() => setShowRequestModal(true)}
+          style={{
+            width: isMobile ? '100%' : 'auto',
+          }}
+        >
+          + Raise Request
+        </Btn>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         {requests.map(req => (
           <Card key={req._id}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}
+            >
               <div>
                 <h4 style={{ margin: '0 0 5px 0' }}>{req.proposedProcedure}</h4>
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
@@ -264,7 +354,14 @@ function RequestsTab({ setActiveTab, setPendingRequestId }) {
                 </p>
                 <p style={{ margin: '5px 0 0 0', fontSize: 13 }}>Diagnosis: {req.diagnosis}</p>
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                  alignItems: 'center',
+                }}
+              >
                 {req.status === 'pending' && (
                   <>
                     <Btn variant="success" size="sm" onClick={() => handleStatusChange(req._id, 'approved')}>Approve</Btn>
@@ -272,10 +369,10 @@ function RequestsTab({ setActiveTab, setPendingRequestId }) {
                   </>
                 )}
                 {req.status === 'approved' && (
-                  <Btn size="sm" onClick={() => { 
+                  <Btn size="sm" onClick={() => {
                     setPendingRequestId(req._id);
-                    setActiveTab('calendar'); 
-                    toast('Click a slot on the calendar to schedule this request', { icon: 'ℹ️' }); 
+                    setActiveTab('calendar');
+                    toast('Click a slot on the calendar to schedule this request', { icon: 'ℹ️' });
                   }}>Schedule Now</Btn>
                 )}
               </div>
@@ -296,6 +393,15 @@ function RequestsTab({ setActiveTab, setPendingRequestId }) {
 // 3. ROOMS TAB
 // ─────────────────────────────────────────────────────────────────────────────
 function RoomsTab() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [rooms, setRooms] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [formData, setFormData] = useState({ name: '', location: '', equipmentTags: '' });
@@ -327,11 +433,32 @@ function RoomsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
-        <Btn onClick={() => setShowAdd(true)}>+ Add OT Room</Btn>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: isMobile ? 'stretch' : 'flex-end',
+          marginBottom: 15,
+        }}
+      >
+        <Btn
+          onClick={() => setShowAdd(true)}
+          style={{
+            width: isMobile ? '100%' : 'auto',
+          }}
+        >
+          + Add OT Room
+        </Btn>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 15 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile
+            ? '1fr'
+            : 'repeat(auto-fill, minmax(300px, 1fr))',
+          gap: 15,
+        }}
+      >
         {rooms.map(room => (
           <Card key={room._id}>
             <h3 style={{ margin: '0 0 5px 0' }}>{room.name} {room.active ? <Badge color="green">Active</Badge> : <Badge color="red">Inactive</Badge>}</h3>
@@ -346,9 +473,9 @@ function RoomsTab() {
       {showAdd && (
         <Modal title="Add OT Room" onClose={() => setShowAdd(false)}>
           <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-            <Input label="Room Name (e.g. OT-1)" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-            <Input label="Location" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-            <Input label="Equipment Tags (comma separated)" placeholder="Ventilator, C-Arm" value={formData.equipmentTags} onChange={e => setFormData({...formData, equipmentTags: e.target.value})} />
+            <Input label="Room Name (e.g. OT-1)" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+            <Input label="Location" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+            <Input label="Equipment Tags (comma separated)" placeholder="Ventilator, C-Arm" value={formData.equipmentTags} onChange={e => setFormData({ ...formData, equipmentTags: e.target.value })} />
             <Btn type="submit">Save Room</Btn>
           </form>
         </Modal>
@@ -385,18 +512,18 @@ function RaiseRequestModal({ onClose, onSuccess }) {
   return (
     <Modal title="Raise Surgery Request" onClose={onClose}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-        <Select label="Patient" required value={formData.patientId} onChange={e => setFormData({...formData, patientId: e.target.value})}>
+        <Select label="Patient" required value={formData.patientId} onChange={e => setFormData({ ...formData, patientId: e.target.value })}>
           <option value="">Select Patient</option>
           {patients.map(p => <option key={p._id} value={p._id}>{p.name} ({p.patientId})</option>)}
         </Select>
-        <Input label="Proposed Procedure" required value={formData.proposedProcedure} onChange={e => setFormData({...formData, proposedProcedure: e.target.value})} />
-        <Input label="Diagnosis" required value={formData.diagnosis} onChange={e => setFormData({...formData, diagnosis: e.target.value})} />
-        <Select label="Priority" value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})}>
+        <Input label="Proposed Procedure" required value={formData.proposedProcedure} onChange={e => setFormData({ ...formData, proposedProcedure: e.target.value })} />
+        <Input label="Diagnosis" required value={formData.diagnosis} onChange={e => setFormData({ ...formData, diagnosis: e.target.value })} />
+        <Select label="Priority" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
           <option value="elective">Elective</option>
           <option value="urgent">Urgent</option>
           <option value="emergency">Emergency</option>
         </Select>
-        <Input label="Notes" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+        <Input label="Notes" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
         <Btn type="submit">Submit Request</Btn>
       </form>
     </Modal>
@@ -447,33 +574,33 @@ function BookingModal({ slot, preselectedRequestId, onClose, onSuccess }) {
   return (
     <Modal title="Schedule Booking" onClose={onClose} width={600}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-        <Select label="Approved Surgery Request" required value={formData.requestId} onChange={e => setFormData({...formData, requestId: e.target.value})}>
+        <Select label="Approved Surgery Request" required value={formData.requestId} onChange={e => setFormData({ ...formData, requestId: e.target.value })}>
           <option value="">Select Request</option>
           {approvedRequests.map(r => <option key={r._id} value={r._id}>{r.patientId?.name} - {r.proposedProcedure} ({r.priority})</option>)}
         </Select>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <Input type="datetime-local" label="Start Time" required value={formData.scheduledStart} onChange={e => setFormData({...formData, scheduledStart: e.target.value})} style={{ flex: 1 }}/>
-          <Input type="datetime-local" label="End Time" required value={formData.scheduledEnd} onChange={e => setFormData({...formData, scheduledEnd: e.target.value})} style={{ flex: 1 }}/>
+          <Input type="datetime-local" label="Start Time" required value={formData.scheduledStart} onChange={e => setFormData({ ...formData, scheduledStart: e.target.value })} style={{ flex: 1 }} />
+          <Input type="datetime-local" label="End Time" required value={formData.scheduledEnd} onChange={e => setFormData({ ...formData, scheduledEnd: e.target.value })} style={{ flex: 1 }} />
         </div>
 
-        <Select label="Surgeon (Optional for now, Phase 3 focus)" value={formData.surgeonId} onChange={e => setFormData({...formData, surgeonId: e.target.value})}>
+        <Select label="Surgeon (Optional for now, Phase 3 focus)" value={formData.surgeonId} onChange={e => setFormData({ ...formData, surgeonId: e.target.value })}>
           <option value="">Select Surgeon</option>
           {doctors.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
         </Select>
-        
-        <Select label="Anesthetist" value={formData.anesthetistId} onChange={e => setFormData({...formData, anesthetistId: e.target.value})}>
+
+        <Select label="Anesthetist" value={formData.anesthetistId} onChange={e => setFormData({ ...formData, anesthetistId: e.target.value })}>
           <option value="">Select Anesthetist</option>
           {doctors.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
         </Select>
 
-        <Select label="OT Nurse" value={formData.nurseId} onChange={e => setFormData({...formData, nurseId: e.target.value})}>
+        <Select label="OT Nurse" value={formData.nurseId} onChange={e => setFormData({ ...formData, nurseId: e.target.value })}>
           <option value="">Select Nurse</option>
           {nurses.map(n => <option key={n._id} value={n._id}>{n.name}</option>)}
         </Select>
 
-        <Input label="Notes" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
-        
+        <Input label="Notes" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
+
         <Btn type="submit">Confirm Schedule</Btn>
       </form>
     </Modal>
@@ -488,7 +615,7 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
   const [assignments, setAssignments] = useState([]);
   const [allStaff, setAllStaff] = useState([]);
   const [savingAssignments, setSavingAssignments] = useState(false);
-  
+
   // ── Billing state ──
   const [billingInfo, setBillingInfo] = useState(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
@@ -498,7 +625,7 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
     API.get(`/ot/bookings/${booking._id}/assignments`)
       .then(res => setAssignments(res.data))
       .catch(console.error);
-    
+
     API.get('/staff')
       .then(res => setAllStaff(res.data.staff || res.data))
       .catch(console.error);
@@ -527,9 +654,9 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
   // ── Status update handler ──
   const handleStatus = async (newStatus, override = false) => {
     try {
-      const res = await API.put(`/ot/bookings/${booking._id}/status`, { 
-        status: newStatus, 
-        override 
+      const res = await API.put(`/ot/bookings/${booking._id}/status`, {
+        status: newStatus,
+        override
       });
       toast.success('Status updated');
       onUpdate(res.data);
@@ -593,25 +720,25 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
 
   return (
     <Modal title="Booking Details" onClose={onClose} width={700}>
-      <div style={{ 
-        display: 'flex', 
-        gap: 8, 
-        borderBottom: '1px solid var(--border)', 
-        paddingBottom: 10, 
-        marginBottom: 15, 
-        flexWrap: 'wrap' 
+      <div style={{
+        display: 'flex',
+        gap: 8,
+        borderBottom: '1px solid var(--border)',
+        paddingBottom: 10,
+        marginBottom: 15,
+        flexWrap: 'wrap'
       }}>
         {tabs.map(tab => (
-          <button 
+          <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{ 
-              padding: '6px 14px', 
-              border: 'none', 
-              background: activeTab === tab ? 'var(--primary)' : 'transparent', 
-              color: activeTab === tab ? '#fff' : 'var(--text)', 
-              borderRadius: 'var(--radius-sm)', 
-              cursor: 'pointer', 
+            style={{
+              padding: '6px 14px',
+              border: 'none',
+              background: activeTab === tab ? 'var(--primary)' : 'transparent',
+              color: activeTab === tab ? '#fff' : 'var(--text)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
               textTransform: 'capitalize',
               fontWeight: activeTab === tab ? 600 : 400,
               fontSize: 13,
@@ -627,19 +754,19 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
         <div>
           <p><strong>Patient:</strong> {booking.requestId?.patientId?.name || 'N/A'}</p>
           <p><strong>Procedure:</strong> {booking.requestId?.proposedProcedure || 'N/A'}</p>
-          <p><strong>Status:</strong> 
+          <p><strong>Status:</strong>
             <Badge color={
               booking.status === 'completed' ? 'green' :
-              booking.status === 'in_progress' ? 'yellow' :
-              booking.status === 'cancelled' ? 'red' :
-              booking.status === 'confirmed' ? 'blue' :
-              'gray'
+                booking.status === 'in_progress' ? 'yellow' :
+                  booking.status === 'cancelled' ? 'red' :
+                    booking.status === 'confirmed' ? 'blue' :
+                      'gray'
             }>
               {booking.status}
             </Badge>
           </p>
           <p><strong>Time:</strong> {new Date(booking.scheduledStart).toLocaleString()} - {new Date(booking.scheduledEnd).toLocaleTimeString()}</p>
-          <p><strong>Duration:</strong> 
+          <p><strong>Duration:</strong>
             {((new Date(booking.scheduledEnd) - new Date(booking.scheduledStart)) / (1000 * 60 * 60)).toFixed(1)} hours
           </p>
           {booking.notes && <p><strong>Notes:</strong> {booking.notes}</p>}
@@ -647,41 +774,41 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
           <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 15 }}>
             <h4 style={{ margin: '0 0 10px 0' }}>Update Status</h4>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Btn 
-                variant="primary" 
-                onClick={() => handleStatus('confirmed')} 
+              <Btn
+                variant="primary"
+                onClick={() => handleStatus('confirmed')}
                 disabled={booking.status !== 'scheduled'}
                 size="sm"
               >
                 Confirm
               </Btn>
-              <Btn 
-                variant="warning" 
-                onClick={() => handleStatus('in_progress')} 
+              <Btn
+                variant="warning"
+                onClick={() => handleStatus('in_progress')}
                 disabled={booking.status !== 'confirmed'}
                 size="sm"
               >
                 In Progress
               </Btn>
-              <Btn 
-                variant="success" 
-                onClick={() => handleStatus('completed')} 
+              <Btn
+                variant="success"
+                onClick={() => handleStatus('completed')}
                 disabled={booking.status !== 'in_progress'}
                 size="sm"
               >
                 Complete
               </Btn>
-              <Btn 
-                variant="danger" 
-                onClick={() => handleStatus('cancelled')} 
+              <Btn
+                variant="danger"
+                onClick={() => handleStatus('cancelled')}
                 disabled={!isAdmin}
                 size="sm"
               >
                 Cancel
               </Btn>
-              <Btn 
-                variant="ghost" 
-                onClick={() => handleStatus('postponed')} 
+              <Btn
+                variant="ghost"
+                onClick={() => handleStatus('postponed')}
                 disabled={!isAdmin}
                 size="sm"
               >
@@ -705,10 +832,10 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
             const currentStaffName = typeof assig.staffId === 'object' ? assig.staffId?.name : '';
             return (
               <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <Select 
-                  label="Role" 
-                  value={assig.role} 
-                  onChange={e => handleAssignmentChange(idx, 'role', e.target.value)} 
+                <Select
+                  label="Role"
+                  value={assig.role}
+                  onChange={e => handleAssignmentChange(idx, 'role', e.target.value)}
                   style={{ flex: 1 }}
                 >
                   <option value="surgeon">Surgeon</option>
@@ -716,10 +843,10 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
                   <option value="anesthetist">Anesthetist</option>
                   <option value="nurse">Nurse</option>
                 </Select>
-                <Select 
-                  label="Staff Member" 
-                  value={currentStaffId || ''} 
-                  onChange={e => handleAssignmentChange(idx, 'staffId', e.target.value)} 
+                <Select
+                  label="Staff Member"
+                  value={currentStaffId || ''}
+                  onChange={e => handleAssignmentChange(idx, 'staffId', e.target.value)}
                   style={{ flex: 2 }}
                 >
                   <option value="">Select Staff</option>
@@ -738,7 +865,7 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
               </div>
             );
           })}
-          
+
           {isAdmin && (
             <>
               <div>
@@ -777,16 +904,16 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
           ) : billingInfo ? (
             <div>
               {/* Summary Cards */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '1fr 1fr 1fr', 
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
                 gap: 12,
                 marginBottom: 16,
               }}>
-                <div style={{ 
-                  padding: '14px 16px', 
-                  background: '#f0fdf4', 
-                  borderRadius: 10, 
+                <div style={{
+                  padding: '14px 16px',
+                  background: '#f0fdf4',
+                  borderRadius: 10,
                   textAlign: 'center',
                   border: '1px solid #bbf7d0',
                 }}>
@@ -795,10 +922,10 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
                     ₹{billingInfo.total?.toLocaleString() || 0}
                   </div>
                 </div>
-                <div style={{ 
-                  padding: '14px 16px', 
-                  background: '#f8fafc', 
-                  borderRadius: 10, 
+                <div style={{
+                  padding: '14px 16px',
+                  background: '#f8fafc',
+                  borderRadius: 10,
                   textAlign: 'center',
                   border: '1px solid #e2e8f0',
                 }}>
@@ -807,18 +934,18 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
                     {billingInfo.durationHours?.toFixed(1)} hrs
                   </div>
                 </div>
-                <div style={{ 
-                  padding: '14px 16px', 
-                  background: booking.status === 'completed' ? '#f0fdf4' : '#fef3c7', 
-                  borderRadius: 10, 
+                <div style={{
+                  padding: '14px 16px',
+                  background: booking.status === 'completed' ? '#f0fdf4' : '#fef3c7',
+                  borderRadius: 10,
                   textAlign: 'center',
                   border: booking.status === 'completed' ? '1px solid #bbf7d0' : '1px solid #fde68a',
                 }}>
                   <div style={{ fontSize: 11, color: '#64748b' }}>Billing Status</div>
-                  <div style={{ 
-                    fontSize: 16, 
-                    fontWeight: 700, 
-                    color: booking.status === 'completed' ? '#16a34a' : '#f59e0b' 
+                  <div style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: booking.status === 'completed' ? '#16a34a' : '#f59e0b'
                   }}>
                     {booking.status === 'completed' ? '✅ Billed' : '⏳ Pending'}
                   </div>
@@ -827,15 +954,15 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
 
               {/* Breakdown */}
               {billingInfo.breakdown && (
-                <div style={{ 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: 10, 
+                <div style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 10,
                   overflow: 'hidden',
                   marginBottom: 16,
                 }}>
-                  <div style={{ 
-                    padding: '10px 16px', 
-                    background: '#f8fafc', 
+                  <div style={{
+                    padding: '10px 16px',
+                    background: '#f8fafc',
                     borderBottom: '1px solid #e2e8f0',
                     fontWeight: 600,
                     fontSize: 13,
@@ -845,9 +972,9 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
                   </div>
                   <div style={{ padding: '8px 0' }}>
                     {Object.entries(billingInfo.breakdown).map(([key, value], idx) => (
-                      <div key={key} style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
+                      <div key={key} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
                         padding: '6px 16px',
                         borderBottom: idx < Object.entries(billingInfo.breakdown).length - 1 ? '1px solid #f1f5f9' : 'none',
                       }}>
@@ -859,9 +986,9 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
                         </span>
                       </div>
                     ))}
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
                       padding: '8px 16px',
                       borderTop: '2px solid #0f4c81',
                       marginTop: '4px',
@@ -878,9 +1005,9 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
 
               {/* Bill ID if available */}
               {billingInfo.billId && (
-                <div style={{ 
-                  padding: '10px 16px', 
-                  background: '#eff6ff', 
+                <div style={{
+                  padding: '10px 16px',
+                  background: '#eff6ff',
                   borderRadius: 8,
                   border: '1px solid #bfdbfe',
                   fontSize: 13,
@@ -898,9 +1025,9 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
               )}
 
               {!billingInfo.billId && booking.status === 'completed' && (
-                <div style={{ 
-                  padding: '10px 16px', 
-                  background: '#fef3c7', 
+                <div style={{
+                  padding: '10px 16px',
+                  background: '#fef3c7',
                   borderRadius: 8,
                   border: '1px solid #fde68a',
                   fontSize: 13,
@@ -911,9 +1038,9 @@ function BookingDetailsModal({ booking, onClose, onUpdate }) {
               )}
             </div>
           ) : (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '30px 0', 
+            <div style={{
+              textAlign: 'center',
+              padding: '30px 0',
               color: '#94a3b8',
             }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🧾</div>
@@ -937,7 +1064,7 @@ function PostOpTab({ bookingId }) {
     try {
       const res = await API.get(`/ot/bookings/${bookingId}/postop`);
       if (res.data) setData(res.data);
-    } catch(err){}
+    } catch (err) { }
   };
 
   useEffect(() => { fetchData(); }, [bookingId]);
@@ -949,7 +1076,7 @@ function PostOpTab({ bookingId }) {
       toast.success('Vitals added');
       setVitalForm({ bp: '', pulse: '', spo2: '', consciousness: 'Alert' });
       fetchData();
-    } catch(err) { toast.error('Failed to add vitals'); }
+    } catch (err) { toast.error('Failed to add vitals'); }
   };
 
   const updateStatus = async (newStatus) => {
@@ -957,7 +1084,7 @@ function PostOpTab({ bookingId }) {
       await API.put(`/ot/bookings/${bookingId}/postop/status`, { status: newStatus, notes: data.notes });
       toast.success('Recovery status updated');
       fetchData();
-    } catch(err) { toast.error('Failed to update status'); }
+    } catch (err) { toast.error('Failed to update status'); }
   };
 
   return (
@@ -975,7 +1102,7 @@ function PostOpTab({ bookingId }) {
       </div>
 
       <div>
-<Input label="PACU/Recovery Notes" value={data.notes} onChange={e => setData({...data, notes: e.target.value})} placeholder="Notes to attach upon transfer..." />
+        <Input label="PACU/Recovery Notes" value={data.notes} onChange={e => setData({ ...data, notes: e.target.value })} placeholder="Notes to attach upon transfer..." />
         <Btn size="sm" variant="ghost" onClick={() => updateStatus(data.status)} style={{ marginTop: 5 }}>Save Notes</Btn>
 
         <h4 style={{ margin: '15px 0 10px 0' }}>Uploaded Forms</h4>
@@ -993,7 +1120,7 @@ function PostOpTab({ bookingId }) {
             ))}
           </ul>
         ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No forms uploaded yet.</p> )}
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No forms uploaded yet.</p>)}
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 15 }}>
@@ -1024,10 +1151,10 @@ function PostOpTab({ bookingId }) {
         ) : <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No vitals recorded yet.</p>}
 
         <form onSubmit={addVital} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', background: 'var(--surface)', padding: 10, borderRadius: 8, boxShadow: 'var(--shadow-sm)' }}>
-          <Input label="BP" placeholder="120/80" value={vitalForm.bp} onChange={e => setVitalForm({...vitalForm, bp: e.target.value})} style={{ flex: 1 }} required />
-          <Input label="Pulse" type="number" value={vitalForm.pulse} onChange={e => setVitalForm({...vitalForm, pulse: e.target.value})} style={{ flex: 1 }} required />
-          <Input label="SpO2" type="number" value={vitalForm.spo2} onChange={e => setVitalForm({...vitalForm, spo2: e.target.value})} style={{ flex: 1 }} required />
-          <Select label="Consciousness" value={vitalForm.consciousness} onChange={e => setVitalForm({...vitalForm, consciousness: e.target.value})} style={{ flex: 1 }}>
+          <Input label="BP" placeholder="120/80" value={vitalForm.bp} onChange={e => setVitalForm({ ...vitalForm, bp: e.target.value })} style={{ flex: 1 }} required />
+          <Input label="Pulse" type="number" value={vitalForm.pulse} onChange={e => setVitalForm({ ...vitalForm, pulse: e.target.value })} style={{ flex: 1 }} required />
+          <Input label="SpO2" type="number" value={vitalForm.spo2} onChange={e => setVitalForm({ ...vitalForm, spo2: e.target.value })} style={{ flex: 1 }} required />
+          <Select label="Consciousness" value={vitalForm.consciousness} onChange={e => setVitalForm({ ...vitalForm, consciousness: e.target.value })} style={{ flex: 1 }}>
             <option value="Alert">Alert</option>
             <option value="Drowsy">Drowsy</option>
             <option value="Stuporous">Stuporous</option>
@@ -1073,14 +1200,14 @@ function PreOpTab({ bookingId }) {
 
   return (
     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-      <Select label="ASA Score" value={data.asaScore} onChange={e => setData({...data, asaScore: e.target.value})}>
+      <Select label="ASA Score" value={data.asaScore} onChange={e => setData({ ...data, asaScore: e.target.value })}>
         <option value="">Select Score</option>
-        {['I','II','III','IV','V','VI'].map(s => <option key={s} value={s}>{s}</option>)}
+        {['I', 'II', 'III', 'IV', 'V', 'VI'].map(s => <option key={s} value={s}>{s}</option>)}
       </Select>
-      <Input label="PAC Notes" value={data.pacNotes} onChange={e => setData({...data, pacNotes: e.target.value})} />
-      <Input label="Investigations Reviewed (comma separated)" value={data.investigationsReviewed} onChange={e => setData({...data, investigationsReviewed: e.target.value})} />
+      <Input label="PAC Notes" value={data.pacNotes} onChange={e => setData({ ...data, pacNotes: e.target.value })} />
+      <Input label="Investigations Reviewed (comma separated)" value={data.investigationsReviewed} onChange={e => setData({ ...data, investigationsReviewed: e.target.value })} />
       <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-        <input type="checkbox" checked={data.fitForSurgery} onChange={e => setData({...data, fitForSurgery: e.target.checked})} style={{ width: 18, height: 18 }} />
+        <input type="checkbox" checked={data.fitForSurgery} onChange={e => setData({ ...data, fitForSurgery: e.target.checked })} style={{ width: 18, height: 18 }} />
         <strong>Patient is Fit for Surgery</strong>
       </label>
       <Btn type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Assessment'}</Btn>
@@ -1097,9 +1224,9 @@ function ConsentTab({ bookingId }) {
     try {
       const res = await API.get(`/ot/bookings/${bookingId}/consent`);
       setConsents(res.data);
-    } catch(err){}
+    } catch (err) { }
   };
-  
+
   useEffect(() => { fetchConsents(); }, [bookingId]);
 
   const handleUpload = async (e) => {
@@ -1108,13 +1235,13 @@ function ConsentTab({ bookingId }) {
     const formData = new FormData();
     formData.append('patientSignature', file);
     formData.append('templateId', templateId);
-    
+
     try {
-      await API.post(`/ot/bookings/${bookingId}/consent`, formData, { headers: { 'Content-Type': 'multipart/form-data' }});
+      await API.post(`/ot/bookings/${bookingId}/consent`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('Consent uploaded');
       setFile(null);
       fetchConsents();
-    } catch(err) { toast.error('Upload failed'); }
+    } catch (err) { toast.error('Upload failed'); }
   };
 
   return (
@@ -1162,7 +1289,7 @@ function SafetyTab({ bookingId }) {
     const newItems = { ...items, [key]: !items[key] };
     setItems(newItems);
     API.put(`/ot/bookings/${bookingId}/safety/${stage}`, { items: newItems })
-       .catch(err => toast.error('Failed to auto-save checklist'));
+      .catch(err => toast.error('Failed to auto-save checklist'));
   };
 
   const saveChecklist = async () => {
