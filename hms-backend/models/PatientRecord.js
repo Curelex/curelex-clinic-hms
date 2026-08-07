@@ -19,6 +19,7 @@ const patientRecordSchema = new mongoose.Schema({
   clinicId: {
     type: String,
     required: true,
+    default: 'default',
     index: true
   },
 
