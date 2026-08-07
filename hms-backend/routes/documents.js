@@ -72,8 +72,13 @@ async function resolvePatientAccess(req, patientId) {
     return { ok: false, status: 403, message: 'Access denied' };
   }
 
-  // Use the clinicId stored on the patient record (not from the JWT)
-  return { ok: true, patient, clinicId: patient.clinicId };
+  // Patient model uses clinicIds[] (array), not a singular clinicId field.
+  // Pick the first associated clinic, or fall back to 'global' for patients
+  // who registered on the platform before visiting any clinic.
+  const clinicId = (patient.clinicIds && patient.clinicIds.length > 0)
+    ? String(patient.clinicIds[0])
+    : 'global';
+  return { ok: true, patient, clinicId };
 }
 
 // ── POST /api/documents/upload ────────────────────────────────────────────
