@@ -8,22 +8,57 @@ import Transaction from '../models/Transaction.js';
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
+import { isPaymentTest, isPaymentLive } from '../services/paymentMode.js';
 
-/**
- * Generate a unique receipt ID
- */
 function generateReceipt(prefix) {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 8);
   return `${prefix}_${timestamp}_${random}`.toUpperCase();
 }
 
-/**
- * Create Razorpay order for telemedicine payment
- */
+// ── Helper: Process payment bypass for test mode ──
+async function processTestPayment(transaction, type) {
+  // Generate a mock payment ID
+  const mockPaymentId = `mock_pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  
+  // Update transaction as paid
+  transaction.paymentStatus = 'paid';
+  transaction.paidAt = new Date();
+  transaction.paymentDetails = {
+    ...transaction.paymentDetails,
+    razorpayPaymentId: mockPaymentId,
+    paymentMethod: 'test_mode',
+    isTestMode: true,
+  };
+  await transaction.save();
+
+  // Process based on type
+  const notes = transaction.paymentDetails?.notes || {};
+  const paymentType = notes.type || type;
+
+  let result = { success: true, transaction, testMode: true };
+
+  switch (paymentType) {
+    case 'telemedicine':
+      result = await handleTelemedicinePayment(transaction, { id: mockPaymentId, method: 'test_mode' });
+      break;
+    case 'billing':
+      result = await handleBillPayment(transaction, { amount: transaction.amount });
+      break;
+    case 'subscription':
+      result = await handleSubscriptionPayment(transaction, { amount: transaction.amount });
+      break;
+    default:
+      console.warn('Unknown payment type:', paymentType);
+  }
+
+  return result;
+}
+
+// ── Create Telemedicine Order ──
 export const createTelemedicineOrder = async (req, res) => {
   try {
-    const { id } = req.params; // telemedicine ID
+    const { id } = req.params;
     const userId = req.user.id;
 
     const telemedicine = await Telemedicine.findById(id)
@@ -34,25 +69,22 @@ export const createTelemedicineOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Telemedicine request not found' });
     }
 
-    // Check if patient owns this request
     const patient = await Patient.findOne({ userId });
     if (!patient || String(patient._id) !== String(telemedicine.patientId)) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Check if already paid
     if (telemedicine.paymentStatus === 'paid') {
       return res.status(400).json({ success: false, message: 'Already paid' });
     }
 
-    // Check if already has pending order
     const existingTransaction = await Transaction.findOne({
       telemedicineId: telemedicine._id,
       paymentStatus: 'pending',
     });
     if (existingTransaction) {
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: 'Payment already in progress. Please complete or retry.',
         transactionId: existingTransaction.transactionId,
       });
@@ -64,7 +96,52 @@ export const createTelemedicineOrder = async (req, res) => {
     }
 
     const receipt = generateReceipt('TEL');
+    
+    // ── Check payment mode ──
+    if (isPaymentTest()) {
+      // ── TEST MODE: Skip Razorpay, process immediately ──
+      const transaction = new Transaction({
+        patientId: patient._id,
+        doctorId: telemedicine.doctorId,
+        clinicId: telemedicine.clinicId || null,
+        telemedicineId: telemedicine._id,
+        amount,
+        doctorFee: amount,
+        paymentStatus: 'pending',
+        paymentMethod: 'test_mode',
+        transactionId: `TEST_${receipt}`,
+        paymentGateway: 'test_mode',
+        paymentDetails: {
+          receipt,
+          isTestMode: true,
+          notes: {
+            type: 'telemedicine',
+            telemedicineId: String(telemedicine._id),
+            patientId: String(patient._id),
+            doctorId: String(telemedicine.doctorId),
+          },
+        },
+      });
+      await transaction.save();
 
+      // Process payment immediately in test mode
+      const result = await processTestPayment(transaction, 'telemedicine');
+      
+      return res.json({
+        success: true,
+        testMode: true,
+        message: 'Test mode: Payment bypassed successfully',
+        orderId: transaction.transactionId,
+        amount: result.transaction.amount,
+        currency: 'INR',
+        receipt,
+        telemedicineId: telemedicine._id,
+        transactionId: transaction._id,
+        paymentResult: result,
+      });
+    }
+
+    // ── LIVE MODE: Use Razorpay ──
     const result = await razorpayService.createOrder({
       amount,
       receipt,
@@ -82,14 +159,13 @@ export const createTelemedicineOrder = async (req, res) => {
       return res.status(500).json({ success: false, message: result.error });
     }
 
-    // Save transaction record
     const transaction = new Transaction({
       patientId: patient._id,
       doctorId: telemedicine.doctorId,
       clinicId: telemedicine.clinicId || null,
       telemedicineId: telemedicine._id,
       amount,
-      doctorFee: amount, // Doctor gets 100% (no commission)
+      doctorFee: amount,
       paymentStatus: 'pending',
       paymentMethod: 'razorpay',
       transactionId: result.orderId,
@@ -104,7 +180,6 @@ export const createTelemedicineOrder = async (req, res) => {
 
     await transaction.save();
 
-    // Update telemedicine status
     telemedicine.paymentStatus = 'pending';
     telemedicine.transactionId = result.orderId;
     await telemedicine.save();
@@ -125,21 +200,17 @@ export const createTelemedicineOrder = async (req, res) => {
   }
 };
 
-/**
- * Create Razorpay order for bill payment
- */
+// ── Create Bill Order ──
 export const createBillOrder = async (req, res) => {
   try {
     const { billId } = req.params;
     const userId = req.user.id;
 
     const bill = await Billing.findById(billId).populate('patient', 'name email phone');
-
     if (!bill) {
       return res.status(404).json({ success: false, message: 'Bill not found' });
     }
 
-    // Check if patient owns this bill
     const patient = await Patient.findOne({ userId });
     if (!patient || String(patient._id) !== String(bill.patient._id)) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
@@ -152,6 +223,54 @@ export const createBillOrder = async (req, res) => {
 
     const receipt = generateReceipt('BILL');
 
+    // ── Check payment mode ──
+    if (isPaymentTest()) {
+      // ── TEST MODE: Skip Razorpay ──
+      const transaction = new Transaction({
+        patientId: patient._id,
+        doctorId: null,
+        clinicId: bill.clinicId || null,
+        telemedicineId: null,
+        amount: remainingAmount,
+        doctorFee: 0,
+        paymentStatus: 'pending',
+        paymentMethod: 'test_mode',
+        transactionId: `TEST_${receipt}`,
+        paymentGateway: 'test_mode',
+        paymentDetails: {
+          receipt,
+          isTestMode: true,
+          billId: bill._id,
+          notes: {
+            type: 'billing',
+            billId: String(bill._id),
+            billNumber: bill.billId || bill._id.toString(),
+            patientId: String(patient._id),
+          },
+        },
+        notes: `Payment for bill ${bill.billId || bill._id}`,
+      });
+      await transaction.save();
+
+      // Process payment immediately in test mode
+      const result = await processTestPayment(transaction, 'billing');
+
+      return res.json({
+        success: true,
+        testMode: true,
+        message: 'Test mode: Payment bypassed successfully',
+        orderId: transaction.transactionId,
+        amount: result.transaction.amount,
+        currency: 'INR',
+        receipt,
+        billId: bill._id,
+        remainingAmount,
+        transactionId: transaction._id,
+        paymentResult: result,
+      });
+    }
+
+    // ── LIVE MODE: Use Razorpay ──
     const result = await razorpayService.createOrder({
       amount: remainingAmount,
       receipt,
@@ -169,7 +288,6 @@ export const createBillOrder = async (req, res) => {
       return res.status(500).json({ success: false, message: result.error });
     }
 
-    // Save transaction reference
     const transaction = new Transaction({
       patientId: patient._id,
       doctorId: null,
@@ -210,9 +328,7 @@ export const createBillOrder = async (req, res) => {
   }
 };
 
-/**
- * Create Razorpay order for plan subscription
- */
+// ── Create Plan Order ──
 export const createPlanOrder = async (req, res) => {
   try {
     const { plan } = req.body;
@@ -228,7 +344,6 @@ export const createPlanOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Clinic not found' });
     }
 
-    // Get plan price
     const planPrices = {
       lite: 999,
       plus: 1499,
@@ -244,6 +359,53 @@ export const createPlanOrder = async (req, res) => {
 
     const receipt = generateReceipt('PLAN');
 
+    // ── Check payment mode ──
+    if (isPaymentTest()) {
+      // ── TEST MODE: Skip Razorpay ──
+      const transaction = new Transaction({
+        patientId: null,
+        doctorId: null,
+        clinicId: clinic._id,
+        telemedicineId: null,
+        amount,
+        doctorFee: 0,
+        paymentStatus: 'pending',
+        paymentMethod: 'test_mode',
+        transactionId: `TEST_${receipt}`,
+        paymentGateway: 'test_mode',
+        paymentDetails: {
+          receipt,
+          isTestMode: true,
+          notes: {
+            type: 'subscription',
+            clinicId: String(clinic._id),
+            plan,
+            clinicName: clinic.name,
+            userEmail: user.email,
+            userId: String(user._id),
+          },
+        },
+      });
+      await transaction.save();
+
+      // Process payment immediately in test mode
+      const result = await processTestPayment(transaction, 'subscription');
+
+      return res.json({
+        success: true,
+        testMode: true,
+        message: 'Test mode: Plan activated successfully',
+        orderId: transaction.transactionId,
+        amount: result.transaction.amount,
+        currency: 'INR',
+        receipt,
+        plan,
+        clinicId: clinic._id,
+        paymentResult: result,
+      });
+    }
+
+    // ── LIVE MODE: Use Razorpay ──
     const result = await razorpayService.createOrder({
       amount,
       receipt,
@@ -277,23 +439,39 @@ export const createPlanOrder = async (req, res) => {
   }
 };
 
-/**
- * Verify payment and complete transaction
- */
+// ── Verify Payment ──
 export const verifyPayment = async (req, res) => {
   try {
     const { orderId, paymentId, signature, type } = req.body;
 
-    // Verify signature
-    const isValid = razorpayService.verifyPayment({ orderId, paymentId, signature });
+    // ── Check if it's a test mode transaction ──
+    if (orderId && orderId.startsWith('TEST_')) {
+      const transaction = await Transaction.findOne({ transactionId: orderId });
+      if (!transaction) {
+        return res.status(404).json({ success: false, message: 'Transaction not found' });
+      }
 
+      if (transaction.paymentStatus === 'paid') {
+        return res.json({ success: true, message: 'Already verified', transaction });
+      }
+
+      // Process test payment
+      const result = await processTestPayment(transaction, type);
+      return res.json({
+        success: true,
+        testMode: true,
+        message: 'Test mode: Payment verified',
+        ...result,
+      });
+    }
+
+    // ── LIVE MODE: Verify with Razorpay ──
+    const isValid = razorpayService.verifyPayment({ orderId, paymentId, signature });
     if (!isValid) {
       return res.status(400).json({ success: false, message: 'Invalid payment signature' });
     }
 
-    // Find transaction
     const transaction = await Transaction.findOne({ transactionId: orderId });
-
     if (!transaction) {
       return res.status(404).json({ success: false, message: 'Transaction not found' });
     }
@@ -302,7 +480,6 @@ export const verifyPayment = async (req, res) => {
       return res.json({ success: true, message: 'Already verified', transaction });
     }
 
-    // Get payment details from Razorpay
     const paymentResult = await razorpayService.getPayment(paymentId);
     if (!paymentResult.success) {
       return res.status(500).json({ success: false, message: 'Failed to fetch payment details' });
@@ -310,7 +487,6 @@ export const verifyPayment = async (req, res) => {
 
     const payment = paymentResult.payment;
 
-    // Update transaction
     transaction.paymentStatus = 'paid';
     transaction.paidAt = new Date();
     transaction.paymentDetails = {
@@ -327,7 +503,6 @@ export const verifyPayment = async (req, res) => {
 
     await transaction.save();
 
-    // Handle different payment types
     const notes = transaction.paymentDetails?.notes || {};
     const paymentType = notes.type || type;
 
@@ -354,152 +529,7 @@ export const verifyPayment = async (req, res) => {
   }
 };
 
-/**
- * Handle telemedicine payment completion
- */
-async function handleTelemedicinePayment(transaction, payment) {
-  const telemedicine = await Telemedicine.findById(transaction.telemedicineId);
-  if (!telemedicine) {
-    throw new Error('Telemedicine request not found');
-  }
-
-  // Update telemedicine
-  telemedicine.paymentStatus = 'paid';
-  telemedicine.status = 'payment_completed';
-  telemedicine.paidAt = new Date();
-  telemedicine.paymentMethod = 'razorpay';
-  telemedicine.paymentDetails = {
-    razorpayPaymentId: payment.id,
-    razorpayAmount: payment.amount,
-    razorpayCurrency: payment.currency,
-    method: payment.method,
-  };
-  telemedicine.doctorPayoutStatus = 'pending';
-  telemedicine.doctorPayoutAmount = telemedicine.consultationFee;
-
-  // Generate meeting link if not already
-  if (!telemedicine.meetingLink) {
-    const meetingId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    telemedicine.meetingId = meetingId;
-    telemedicine.meetingLink = `https://meet.jit.si/Curelex-${meetingId}`;
-    telemedicine.status = 'scheduled';
-  }
-
-  await telemedicine.save();
-
-  // Create notification for doctor
-  const Notification = mongoose.model('Notification');
-  await Notification.create({
-    userId: telemedicine.doctorId,
-    message: `✅ Payment received! You can now start consultation with ${telemedicine.patientName}.`,
-    taskId: telemedicine._id,
-    clinicId: telemedicine.clinicId,
-    read: false,
-  });
-
-  return {
-    success: true,
-    telemedicine,
-    transaction,
-    meetingLink: telemedicine.meetingLink,
-  };
-}
-
-/**
- * Handle bill payment completion
- */
-async function handleBillPayment(transaction, payment) {
-  const billId = transaction.paymentDetails?.billId;
-  if (!billId) {
-    throw new Error('Bill ID not found in transaction');
-  }
-
-  const bill = await Billing.findById(billId);
-  if (!bill) {
-    throw new Error('Bill not found');
-  }
-
-  const paidAmount = transaction.amount / 100; // Convert from paise
-  bill.paidAmount = (bill.paidAmount || 0) + paidAmount;
-
-  if (bill.paidAmount >= bill.totalAmount) {
-    bill.paymentStatus = 'Paid';
-  } else {
-    bill.paymentStatus = 'Partial';
-  }
-
-  bill.paymentMethod = 'Card';
-  await bill.save();
-
-  return {
-    success: true,
-    bill,
-    transaction,
-    remainingAmount: bill.totalAmount - bill.paidAmount,
-  };
-}
-
-/**
- * Handle subscription payment completion
- */
-async function handleSubscriptionPayment(transaction, payment) {
-  const clinicId = transaction.paymentDetails?.notes?.clinicId;
-  const plan = transaction.paymentDetails?.notes?.plan;
-
-  if (!clinicId || !plan) {
-    throw new Error('Clinic ID or plan not found in transaction');
-  }
-
-  const clinic = await Clinic.findById(clinicId);
-  if (!clinic) {
-    throw new Error('Clinic not found');
-  }
-
-  const now = new Date();
-  const expiresAt = new Date(now);
-  expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-  // Update clinic
-  clinic.plan = plan;
-  clinic.planActivatedAt = now.toISOString().split('T')[0];
-  clinic.planExpiresAt = expiresAt.toISOString().split('T')[0];
-  clinic.planStatus = 'active';
-  clinic.gracePeriodEndsAt = null;
-  clinic.isDataLocked = false;
-  await clinic.save();
-
-  // Update subscription
-  let subscription = await Subscription.findOne({ clinicId });
-  if (!subscription) {
-    subscription = new Subscription({
-      clinicId,
-      stripeCustomerId: `rzp_${Date.now()}`,
-      plan,
-      status: 'active',
-      currentPeriodStart: now,
-      currentPeriodEnd: expiresAt,
-    });
-  } else {
-    subscription.plan = plan;
-    subscription.status = 'active';
-    subscription.currentPeriodStart = now;
-    subscription.currentPeriodEnd = expiresAt;
-    subscription.cancelAtPeriodEnd = false;
-    subscription.canceledAt = null;
-  }
-  await subscription.save();
-
-  return {
-    success: true,
-    clinic,
-    subscription,
-    expiresAt,
-  };
-}
-
-/**
- * Get payment status
- */
+// ── Payment status ──
 export const getPaymentStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -517,6 +547,7 @@ export const getPaymentStatus = async (req, res) => {
       transaction,
       status: transaction.paymentStatus,
       paidAt: transaction.paidAt,
+      testMode: transaction.paymentDetails?.isTestMode || false,
     });
   } catch (error) {
     console.error('Get payment status error:', error);
@@ -524,9 +555,7 @@ export const getPaymentStatus = async (req, res) => {
   }
 };
 
-/**
- * Get payment history for a user
- */
+// ── Payment history ──
 export const getPaymentHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -551,3 +580,135 @@ export const getPaymentHistory = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ── Payment handlers (unchanged) ──
+async function handleTelemedicinePayment(transaction, payment) {
+  const telemedicine = await Telemedicine.findById(transaction.telemedicineId);
+  if (!telemedicine) {
+    throw new Error('Telemedicine request not found');
+  }
+
+  telemedicine.paymentStatus = 'paid';
+  telemedicine.status = 'payment_completed';
+  telemedicine.paidAt = new Date();
+  telemedicine.paymentMethod = transaction.paymentDetails?.isTestMode ? 'test_mode' : 'razorpay';
+  telemedicine.paymentDetails = {
+    razorpayPaymentId: payment.id,
+    razorpayAmount: payment.amount,
+    razorpayCurrency: payment.currency,
+    method: payment.method || 'test_mode',
+    isTestMode: transaction.paymentDetails?.isTestMode || false,
+  };
+  telemedicine.doctorPayoutStatus = 'pending';
+  telemedicine.doctorPayoutAmount = telemedicine.consultationFee;
+
+  if (!telemedicine.meetingLink) {
+    const meetingId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    telemedicine.meetingId = meetingId;
+    telemedicine.meetingLink = `https://meet.jit.si/Curelex-${meetingId}`;
+    telemedicine.status = 'scheduled';
+  }
+
+  await telemedicine.save();
+
+  const Notification = mongoose.model('Notification');
+  await Notification.create({
+    userId: telemedicine.doctorId,
+    message: `✅ Payment received! You can now start consultation with ${telemedicine.patientName}.`,
+    taskId: telemedicine._id,
+    clinicId: telemedicine.clinicId,
+    read: false,
+  });
+
+  return {
+    success: true,
+    telemedicine,
+    transaction,
+    meetingLink: telemedicine.meetingLink,
+  };
+}
+
+async function handleBillPayment(transaction, payment) {
+  const billId = transaction.paymentDetails?.billId;
+  if (!billId) {
+    throw new Error('Bill ID not found in transaction');
+  }
+
+  const bill = await Billing.findById(billId);
+  if (!bill) {
+    throw new Error('Bill not found');
+  }
+
+  const paidAmount = transaction.amount / 100 || transaction.amount;
+  bill.paidAmount = (bill.paidAmount || 0) + paidAmount;
+
+  if (bill.paidAmount >= bill.totalAmount) {
+    bill.paymentStatus = 'Paid';
+  } else {
+    bill.paymentStatus = 'Partial';
+  }
+
+  bill.paymentMethod = transaction.paymentDetails?.isTestMode ? 'Test Mode' : 'Card';
+  await bill.save();
+
+  return {
+    success: true,
+    bill,
+    transaction,
+    remainingAmount: bill.totalAmount - bill.paidAmount,
+  };
+}
+
+async function handleSubscriptionPayment(transaction, payment) {
+  const notes = transaction.paymentDetails?.notes || {};
+  const clinicId = notes.clinicId;
+  const plan = notes.plan;
+
+  if (!clinicId || !plan) {
+    throw new Error('Clinic ID or plan not found in transaction');
+  }
+
+  const clinic = await Clinic.findById(clinicId);
+  if (!clinic) {
+    throw new Error('Clinic not found');
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+  clinic.plan = plan;
+  clinic.planActivatedAt = now.toISOString().split('T')[0];
+  clinic.planExpiresAt = expiresAt.toISOString().split('T')[0];
+  clinic.planStatus = 'active';
+  clinic.gracePeriodEndsAt = null;
+  clinic.isDataLocked = false;
+  await clinic.save();
+
+  let subscription = await Subscription.findOne({ clinicId });
+  if (!subscription) {
+    subscription = new Subscription({
+      clinicId,
+      razorpayCustomerId: `rzp_${Date.now()}`,
+      plan,
+      status: 'active',
+      currentPeriodStart: now,
+      currentPeriodEnd: expiresAt,
+    });
+  } else {
+    subscription.plan = plan;
+    subscription.status = 'active';
+    subscription.currentPeriodStart = now;
+    subscription.currentPeriodEnd = expiresAt;
+    subscription.cancelAtPeriodEnd = false;
+    subscription.canceledAt = null;
+  }
+  await subscription.save();
+
+  return {
+    success: true,
+    clinic,
+    subscription,
+    expiresAt,
+  };
+}

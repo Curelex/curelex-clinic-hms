@@ -4,7 +4,7 @@ import API from '../utils/api';
 import { generateBillPDF } from '../utils/BillPDF';
 import PaymentButton from '../components/PaymentButton'; // ✅ ADD THIS IMPORT
 import { useAuth } from '../context/AuthContext'; 
-
+import { isPaymentTest, isPaymentLive } from '../utils/paymentConfig';
 // ── Resolve clinicId from the stored JWT / user object ───────────────────────
 function getClinicId() {
   try {
@@ -898,45 +898,50 @@ export default function Billing() {
               </div>
 
               {/* ── Modal Footer ──────────────────────────────────────────────── */}
-              <div className="modal-footer">
-                <button type="button" className="btn btn-ghost"
-                  onClick={() => { setModal(false); resetModal(); }}>
-                  Cancel
-                </button>
-                {editId && (
-                  <button type="button"
-                    onClick={() => handleDownloadPDF(editId)}
-                    disabled={pdfLoading === editId}
-                    style={{
-                      padding: '9px 20px', borderRadius: 8,
-                      border: '1px solid #0f4c81', background: '#fff',
-                      color: '#0f4c81', fontWeight: 700, fontSize: 13,
-                      cursor: pdfLoading === editId ? 'not-allowed' : 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      opacity: pdfLoading === editId ? .6 : 1,
-                    }}>
-                    {pdfLoading === editId ? '⏳ Generating…' : '🖨 Download PDF'}
-                  </button>
-                )}
+             <div className="modal-footer">
+  <button type="button" className="btn btn-ghost"
+    onClick={() => { setModal(false); resetModal(); }}>
+    Cancel
+  </button>
+  {editId && (
+    <button type="button"
+      onClick={() => handleDownloadPDF(editId)}
+      disabled={pdfLoading === editId}
+      style={{
+        padding: '9px 20px', borderRadius: 8,
+        border: '1px solid #0f4c81', background: '#fff',
+        color: '#0f4c81', fontWeight: 700, fontSize: 13,
+        cursor: pdfLoading === editId ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', gap: 6,
+        opacity: pdfLoading === editId ? .6 : 1,
+      }}>
+      {pdfLoading === editId ? '⏳ Generating…' : '🖨 Download PDF'}
+    </button>
+  )}
 
-                {/* ✅ REPLACED with PaymentButton */}
-                <PaymentButton
-                  type="billing"
-                  id={form.patient || editId}
-                  amount={form.totalAmount * 100 || 0}
-                  description={`Bill ${form.billId || 'New Bill'}`}
-                  onSuccess={() => {
-                    fetchBills();
-                    alert('✅ Payment successful! Bill settled.');
-                  }}
-                  onError={(error) => {
-                    alert(`❌ Payment failed: ${error.message}`);
-                  }}
-                  buttonText={editId ? 'Update & Pay Bill' : 'Create & Pay Bill'}
-                  variant="primary"
-                  disabled={!form.patient}
-                />
-              </div>
+  {isPaymentLive() ? (
+    <PaymentButton
+      type="billing"
+      id={form.patient || editId}
+      amount={form.totalAmount * 100 || 0}
+      description={`Bill ${form.billId || 'New Bill'}`}
+      onSuccess={() => {
+        fetchBills();
+        alert('✅ Payment successful! Bill settled.');
+      }}
+      onError={(error) => {
+        alert(`❌ Payment failed: ${error.message}`);
+      }}
+      buttonText={editId ? 'Update & Pay Bill' : 'Create & Pay Bill'}
+      variant="primary"
+      disabled={!form.patient}
+    />
+  ) : (
+    <button type="submit" className="btn btn-primary" disabled={!form.patient}>
+      {editId ? 'Update Bill' : 'Create Bill'}
+    </button>
+  )}
+</div>
             </form>
           </div>
         </div>

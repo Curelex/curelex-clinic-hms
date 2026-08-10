@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import PaymentButton from '../components/PaymentButton';
+import { isPaymentTest, isPaymentLive } from '../utils/paymentConfig';
 
 const C = {
   brand: '#0a3d62', 
@@ -397,27 +398,52 @@ export default function PlanSelection({ onDone }) {
                       </div>
                     )}
                   </div>
-                  <div style={{padding:'0 22px'}}>
-                    <PaymentButton
-  type="plan"
-  id={p.key}
-  amount={p.price * 100}
-  description={`${p.name} - Monthly Subscription`}
-  onSuccess={() => {
-    setStep('success');
-    if (onDone) {
-      setTimeout(() => onDone(), 2000);
-    }
-  }}
-  onError={(error) => {
-    setError(error.message || 'Payment failed');
-    setStep('plans');
-  }}
-  buttonText={isCurrentPlan ? '✓ Already Have This Plan' : `Choose ${p.name} →`}
-  variant="primary"
-  disabled={isCurrentPlan}
-/>
-                  </div>
+                 <div style={{padding:'0 22px'}}>
+  {isPaymentLive() ? (
+    <PaymentButton
+      type="plan"
+      id={p.key}
+      amount={p.price * 100}
+      description={`${p.name} - Monthly Subscription`}
+      onSuccess={() => {
+        setStep('success');
+        if (onDone) {
+          setTimeout(() => onDone(), 2000);
+        }
+      }}
+      onError={(error) => {
+        setError(error.message || 'Payment failed');
+        setStep('plans');
+      }}
+      buttonText={isCurrentPlan ? '✓ Already Have This Plan' : `Choose ${p.name} →`}
+      variant="primary"
+      disabled={isCurrentPlan}
+    />
+  ) : (
+    <button 
+      onClick={() => choosePlan(p.key)} 
+      className="pay-btn"
+      disabled={isCurrentPlan}
+      style={{
+        width:'100%',
+        padding:'13px 20px',
+        borderRadius:11,
+        border:'none',
+        background: isCurrentPlan ? '#94a3b8' : `linear-gradient(135deg,${gradFrom},${gradTo})`,
+        color:'#fff',
+        fontSize:15,
+        fontWeight:700,
+        cursor: isCurrentPlan ? 'not-allowed' : 'pointer',
+        boxShadow: isCurrentPlan ? 'none' : `0 5px 18px ${shadow}`,
+        transition:'opacity 0.18s',
+        opacity: isCurrentPlan ? 0.7 : 1,
+      }}
+      onClick={() => choosePlan(p.key)}
+    >
+      {isCurrentPlan ? '✓ Already Have This Plan' : `Choose ${p.name} →`}
+    </button>
+  )}
+</div>
                 </div>
               );
             })}
@@ -497,197 +523,226 @@ export default function PlanSelection({ onDone }) {
       )}
 
       {/* ══ CONFIRM ══ */}
-      {step === 'confirm' && plan && (
-        <div style={{width:'100%',maxWidth:440,animation:'fadeUp 0.4s ease'}}>
-          <button 
-            onClick={() => setStep('plans')} 
-            style={{
-              background:'none',
-              border:'none',
-              cursor:'pointer',
-              color:C.textMuted,
-              fontSize:13.5,
-              display:'flex',
-              alignItems:'center',
-              gap:6,
-              marginBottom:18,
-              padding:0,
-              fontFamily:'inherit'
-            }}
-          >
-            ← Back to Plans
-          </button>
-          <div style={{
-            background:C.white,
-            borderRadius:22,
-            padding:'32px 30px',
-            boxShadow:'0 20px 60px rgba(10,61,98,0.13)',
-            border:'1px solid rgba(10,61,98,0.07)',
-            position:'relative',
-            overflow:'hidden'
-          }}>
-            <div style={{
-              position:'absolute',
-              top:0,
-              left:0,
-              right:0,
-              height:4,
-              background: `linear-gradient(90deg,${plan.gradFrom},${plan.gradTo})`
-            }}/>
-            <div style={{fontFamily:'Georgia,serif',fontSize:22,fontWeight:700,color:C.textDark,marginBottom:22}}>
-              {hasCurrentPlan ? 'Upgrade Summary' : 'Order Summary'}
-            </div>
-            
-            {error && (
-              <div style={{background:'#fee2e2',color:'#991b1b',padding:'12px 16px',borderRadius:8,marginBottom:16,fontSize:13}}>
-                ⚠️ {error}
-              </div>
-            )}
-            
-            {hasCurrentPlan && currentPlan && currentPlan.plan !== plan.key && (
-              <div style={{
-                background:'rgba(21,101,168,0.06)',
-                border:'1px solid rgba(21,101,168,0.2)',
-                borderRadius:10,
-                padding:'12px 16px',
-                marginBottom:16,
-                fontSize:13,
-                color:C.textMuted,
-                display:'flex',
-                justifyContent:'space-between',
-                alignItems:'center',
-                flexWrap:'wrap',
-                gap:8,
-              }}>
-                <span>Current Plan: <strong style={{color:C.brand}}>{currentPlan.planLabel || currentPlan.plan}</strong></span>
-                <span>→</span>
-                <span>New Plan: <strong style={{color:plan.color}}>{plan.name}</strong></span>
-              </div>
-            )}
-
-            {isFreePlan && (
-              <div style={{
-                background:'rgba(0,184,148,0.06)',
-                border:'1px solid rgba(0,184,148,0.2)',
-                borderRadius:10,
-                padding:'12px 16px',
-                marginBottom:16,
-                fontSize:13,
-                color:C.textMuted,
-                textAlign:'center',
-              }}>
-                🎉 You're currently on the Free Plan. Upgrading to <strong style={{color:plan.color}}>{plan.name}</strong> will unlock all features!
-              </div>
-            )}
-
-            <div style={{
-              background: plan.colorLight,
-              border: `1.5px solid ${plan.color}30`,
-              borderRadius:14,
-              padding:'18px 20px',
-              marginBottom:20,
-              display:'flex',
-              justifyContent:'space-between',
-              alignItems:'center'
-            }}>
-              <div>
-                <div style={{fontWeight:700,fontSize:17,color:C.textDark}}>
-                  {plan.icon} {plan.name}
-                </div>
-                <div style={{fontSize:13,color:C.textMuted,marginTop:3}}>
-                  Monthly · Renews in 30 days
-                </div>
-              </div>
-              <div style={{fontWeight:800,fontSize:22,color:plan.color}}>
-                ₹{plan.price.toLocaleString()}
-              </div>
-            </div>
-
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:11.5,fontWeight:600,color:C.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:12}}>
-                What's Included
-              </div>
-              {plan.features.slice(0, 8).map((feat, i) => (
-                <div key={i} className="feature-row">
-                  <span style={{
-                    width:18,
-                    height:18,
-                    borderRadius:'50%',
-                    background: plan.color,
-                    color:'#fff',
-                    display:'flex',
-                    alignItems:'center',
-                    justifyContent:'center',
-                    fontSize:10,
-                    flexShrink:0,
-                    fontWeight:700,
-                    marginTop:1
-                  }}>
-                    ✓
-                  </span>
-                  <span style={{color:C.textDark,fontSize:13.5}}>{feat}</span>
-                </div>
-              ))}
-              {plan.features.length > 8 && (
-                <div style={{fontSize:12.5,color:C.textMuted,marginTop:6,paddingLeft:27}}>
-                  + {plan.features.length - 8} more features
-                </div>
-              )}
-            </div>
-
-            <div style={{borderTop:`1px dashed ${C.border}`,margin:'18px 0'}}/>
-
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-              <span style={{fontWeight:600,fontSize:15,color:C.textDark}}>Subscription</span>
-              <span style={{fontWeight:700,fontSize:16,color:C.textDark}}>
-                ₹{plan.price.toLocaleString()}
-              </span>
-            </div>
-
-            {hasCurrentPlan && currentPlan && currentPlan.plan !== plan.key && currentPlan.daysRemaining > 0 && (
-              <div style={{
-                display:'flex',
-                justifyContent:'space-between',
-                alignItems:'center',
-                marginBottom:8,
-                fontSize:13,
-                color:C.textMuted,
-                padding:'8px 12px',
-                background:'rgba(0,184,148,0.06)',
-                borderRadius:8,
-              }}>
-                <span>Prorated amount ({currentPlan.daysRemaining} days remaining)</span>
-                <span style={{fontWeight:700,color:'#00a878'}}>
-                  ₹{Math.ceil((plan.price - (currentPlan.planPrice || 0)) / 30 * currentPlan.daysRemaining)}
-                </span>
-              </div>
-            )}
-
-            <PaymentButton
-  type="plan"
-  id={selected}
-  amount={plan.price * 100}
-  description={`${plan.name} - Monthly Subscription`}
-  onSuccess={() => {
-    setStep('success');
-    if (onDone) {
-      setTimeout(() => onDone(), 2000);
-    }
-  }}
-  onError={(error) => {
-    setError(error.message || 'Payment failed');
-    setStep('confirm');
-  }}
-  buttonText={hasCurrentPlan ? '🚀 Upgrade Plan' : '🚀 Pay Now & Activate Plan'}
-  variant="success"
-  disabled={loading}
-/>
-            <div style={{textAlign:'center',marginTop:12,fontSize:12,color:C.textLight}}>
-              Instant activation · Secure payment
-            </div>
-          </div>
+{step === 'confirm' && plan && (
+  <div style={{width:'100%',maxWidth:440,animation:'fadeUp 0.4s ease'}}>
+    <button 
+      onClick={() => setStep('plans')} 
+      style={{
+        background:'none',
+        border:'none',
+        cursor:'pointer',
+        color:C.textMuted,
+        fontSize:13.5,
+        display:'flex',
+        alignItems:'center',
+        gap:6,
+        marginBottom:18,
+        padding:0,
+        fontFamily:'inherit'
+      }}
+    >
+      ← Back to Plans
+    </button>
+    <div style={{
+      background:C.white,
+      borderRadius:22,
+      padding:'32px 30px',
+      boxShadow:'0 20px 60px rgba(10,61,98,0.13)',
+      border:'1px solid rgba(10,61,98,0.07)',
+      position:'relative',
+      overflow:'hidden'
+    }}>
+      <div style={{
+        position:'absolute',
+        top:0,
+        left:0,
+        right:0,
+        height:4,
+        background: `linear-gradient(90deg,${plan.gradFrom},${plan.gradTo})`
+      }}/>
+      <div style={{fontFamily:'Georgia,serif',fontSize:22,fontWeight:700,color:C.textDark,marginBottom:22}}>
+        {hasCurrentPlan ? 'Upgrade Summary' : 'Order Summary'}
+      </div>
+      
+      {error && (
+        <div style={{background:'#fee2e2',color:'#991b1b',padding:'12px 16px',borderRadius:8,marginBottom:16,fontSize:13}}>
+          ⚠️ {error}
         </div>
       )}
+      
+      {hasCurrentPlan && currentPlan && currentPlan.plan !== plan.key && (
+        <div style={{
+          background:'rgba(21,101,168,0.06)',
+          border:'1px solid rgba(21,101,168,0.2)',
+          borderRadius:10,
+          padding:'12px 16px',
+          marginBottom:16,
+          fontSize:13,
+          color:C.textMuted,
+          display:'flex',
+          justifyContent:'space-between',
+          alignItems:'center',
+          flexWrap:'wrap',
+          gap:8,
+        }}>
+          <span>Current Plan: <strong style={{color:C.brand}}>{currentPlan.planLabel || currentPlan.plan}</strong></span>
+          <span>→</span>
+          <span>New Plan: <strong style={{color:plan.color}}>{plan.name}</strong></span>
+        </div>
+      )}
+
+      {isFreePlan && (
+        <div style={{
+          background:'rgba(0,184,148,0.06)',
+          border:'1px solid rgba(0,184,148,0.2)',
+          borderRadius:10,
+          padding:'12px 16px',
+          marginBottom:16,
+          fontSize:13,
+          color:C.textMuted,
+          textAlign:'center',
+        }}>
+          🎉 You're currently on the Free Plan. Upgrading to <strong style={{color:plan.color}}>{plan.name}</strong> will unlock all features!
+        </div>
+      )}
+
+      <div style={{
+        background: plan.colorLight,
+        border: `1.5px solid ${plan.color}30`,
+        borderRadius:14,
+        padding:'18px 20px',
+        marginBottom:20,
+        display:'flex',
+        justifyContent:'space-between',
+        alignItems:'center'
+      }}>
+        <div>
+          <div style={{fontWeight:700,fontSize:17,color:C.textDark}}>
+            {plan.icon} {plan.name}
+          </div>
+          <div style={{fontSize:13,color:C.textMuted,marginTop:3}}>
+            Monthly · Renews in 30 days
+          </div>
+        </div>
+        <div style={{fontWeight:800,fontSize:22,color:plan.color}}>
+          ₹{plan.price.toLocaleString()}
+        </div>
+      </div>
+
+      <div style={{marginBottom:22}}>
+        <div style={{fontSize:11.5,fontWeight:600,color:C.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:12}}>
+          What's Included
+        </div>
+        {plan.features.slice(0, 8).map((feat, i) => (
+          <div key={i} className="feature-row">
+            <span style={{
+              width:18,
+              height:18,
+              borderRadius:'50%',
+              background: plan.color,
+              color:'#fff',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              fontSize:10,
+              flexShrink:0,
+              fontWeight:700,
+              marginTop:1
+            }}>
+              ✓
+            </span>
+            <span style={{color:C.textDark,fontSize:13.5}}>{feat}</span>
+          </div>
+        ))}
+        {plan.features.length > 8 && (
+          <div style={{fontSize:12.5,color:C.textMuted,marginTop:6,paddingLeft:27}}>
+            + {plan.features.length - 8} more features
+          </div>
+        )}
+      </div>
+
+      <div style={{borderTop:`1px dashed ${C.border}`,margin:'18px 0'}}/>
+
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <span style={{fontWeight:600,fontSize:15,color:C.textDark}}>Subscription</span>
+        <span style={{fontWeight:700,fontSize:16,color:C.textDark}}>
+          ₹{plan.price.toLocaleString()}
+        </span>
+      </div>
+
+      {hasCurrentPlan && currentPlan && currentPlan.plan !== plan.key && currentPlan.daysRemaining > 0 && (
+        <div style={{
+          display:'flex',
+          justifyContent:'space-between',
+          alignItems:'center',
+          marginBottom:8,
+          fontSize:13,
+          color:C.textMuted,
+          padding:'8px 12px',
+          background:'rgba(0,184,148,0.06)',
+          borderRadius:8,
+        }}>
+          <span>Prorated amount ({currentPlan.daysRemaining} days remaining)</span>
+          <span style={{fontWeight:700,color:'#00a878'}}>
+            ₹{Math.ceil((plan.price - (currentPlan.planPrice || 0)) / 30 * currentPlan.daysRemaining)}
+          </span>
+        </div>
+      )}
+
+      {/* ✅ FIXED: Use regular button in test mode, PaymentButton in live mode */}
+      {isPaymentLive() ? (
+        <PaymentButton
+          type="plan"
+          id={selected}
+          amount={plan.price * 100}
+          description={`${plan.name} - Monthly Subscription`}
+          onSuccess={() => {
+            setStep('success');
+            if (onDone) {
+              setTimeout(() => onDone(), 2000);
+            }
+          }}
+          onError={(error) => {
+            setError(error.message || 'Payment failed');
+            setStep('confirm');
+          }}
+          buttonText={hasCurrentPlan ? '🚀 Upgrade Plan' : '🚀 Pay Now & Activate Plan'}
+          variant="success"
+          disabled={loading}
+        />
+      ) : (
+        <button 
+          onClick={handlePay} 
+          disabled={loading} 
+          className="pay-btn"
+          style={{
+            width:'100%',
+            padding:'16px 20px',
+            borderRadius:11,
+            border:'none',
+            background: loading ? '#94a3b8' : `linear-gradient(135deg,${C.accent},${C.accentLight})`,
+            color:'#fff',
+            fontSize:16,
+            fontWeight:700,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow:'0 5px 20px rgba(0,184,148,0.35)',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            gap:10,
+            transition:'opacity 0.18s'
+          }}
+        >
+          {loading ? 'Processing...' : hasCurrentPlan ? '🚀 Upgrade Plan' : '🚀 Pay Now & Activate Plan'}
+        </button>
+      )}
+
+      <div style={{textAlign:'center',marginTop:12,fontSize:12,color:C.textLight}}>
+        Instant activation · Secure payment
+      </div>
+    </div>
+  </div>
+)}
 
       {/* ══ PAYING ══ */}
       {step === 'paying' && (
