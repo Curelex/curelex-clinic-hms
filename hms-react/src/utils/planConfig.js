@@ -23,7 +23,6 @@ export const PLAN_CONFIGS = {
       emergency: false,
       tasks: false,
       reports: false,
-
     },
     visibleSections: {
       overview: true,
@@ -34,6 +33,7 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: false,
       revenue: false,
+      tokens: true
     },
     limits: {
       patients: 50,
@@ -64,6 +64,7 @@ export const PLAN_CONFIGS = {
       emergency: false,
       tasks: false,
       reports: false,
+      tokens: true
     },
     visibleSections: {
       overview: true,
@@ -74,6 +75,7 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: false,
       revenue: false,
+      tokens: true
     },
     limits: {
       patients: 100,
@@ -114,6 +116,7 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: true,
       revenue: true,
+      tokens: true
     },
     limits: {
       patients: 500,
@@ -154,6 +157,7 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: true,
       revenue: true,
+      tokens: true
     },
     limits: {
       patients: 2000,
@@ -197,6 +201,7 @@ export const HOSPITAL_PLAN_CONFIGS = {
       customReports: false,
       icu: false,
       ot: false,
+      tokens: true
     },
     visibleSections: {
       overview: true,
@@ -214,10 +219,10 @@ export const HOSPITAL_PLAN_CONFIGS = {
   bedManagement: false,
   billing: false,
   prescriptions: false,
-  telemedicine: false,   // ← add
-  inventory: false,      // ← add
-  staff: false,          // ← add
-  tokens: true,          // ← add (tokens feature is true even on free)
+  telemedicine: false,   
+  inventory: false,      
+  staff: false,          
+  tokens: true,          
   pharmacy: false,
   icu: false,
         ot: false,

@@ -59,13 +59,19 @@ function clinicFilter(clinicId) {
 
 const router = express.Router();
 
-// ── Get all patients (clinic-scoped if a clinic is resolved, else global) ──
+
+// ── Get all patients ──
 router.get('/', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
-    const { search, status, page = 1, limit = 20 } = req.query;
+    const { search, status, page = 1, limit = 20, global } = req.query;
 
-    let query = { ...clinicFilter(clinicId) };
+    let query = {};
+    
+    // If global=true, don't filter by clinic
+    if (global !== 'true') {
+      query = { ...clinicFilter(clinicId) };
+    }
 
     if (search && search.trim() !== '') {
       query.$or = [

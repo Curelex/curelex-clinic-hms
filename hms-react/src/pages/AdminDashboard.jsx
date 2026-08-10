@@ -12,6 +12,7 @@ import { useMemo } from 'react';
 import inventoryService from '../services/inventoryService';
 import { useNavigate } from 'react-router-dom';
 import API from '../utils/api';
+import TokenQueue from '../components/TokenQueue';
 
 const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
 const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || '/api/clinic';
@@ -689,6 +690,7 @@ const navItems = [
   { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
   { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
   { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
+  { icon: '🎫', label: 'Token Queue', section: 'tokens', tab: 'tokens', badge: undefined },  // ← ADD THIS
   { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
   { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
   { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
@@ -730,6 +732,12 @@ const navItems = [
             paidTotal={paidTotal}
             duesTotal={duesTotal}
           />}
+          {tab === 'tokens' && (
+  <TokenQueue 
+    clinicId={clinic?._id} 
+    activePlan={safePlan}
+  />
+)}
           {tab === 'doctors' && <DoctorManagement doctors={doctors} patients={patientList} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={safePlan} reload={reload} />}
           {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
           {tab === 'patients' && <AllPatients patients={patientList} clinicName={clinic?.name} />}
