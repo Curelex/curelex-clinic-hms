@@ -412,7 +412,9 @@ router.post('/login', async (req, res) => {
           email: patient.email,
           password: password,
           role: 'patient',
-          clinicId: patient.clinicId,
+          clinicId: (patient.clinicIds && patient.clinicIds.length > 0)
+            ? patient.clinicIds[0]
+            : null,
           phone: patient.phone || '',
           permissions: ['patient-dashboard'],
           isActive: true,
