@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
     const allClinics = await Clinic.find({});
     console.log('🔍 ALL CLINICS IN DB:', allClinics);
 
-    const clinics = await Clinic.find(filter, '_id name email phone address')
+    const clinics = await Clinic.find(filter, '_id name email phone address type')
       .sort({ name: 1 })
       .limit(20); // cap results so the dropdown stays fast
 

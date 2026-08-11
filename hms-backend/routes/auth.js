@@ -180,7 +180,7 @@ router.post('/register', async (req, res) => {
 
     const user = await User.create({
       name, email, password, role,
-      clinicId, department, phone,
+      clinicId, department, phone, address,
       permissions: ROLE_PERMISSIONS_MAP[role] || ['dashboard'],
     });
 
@@ -190,13 +190,14 @@ router.post('/register', async (req, res) => {
           message: 'Practice address is required for doctor registration' 
         });
       }
-
+      console.log(user);
       await DoctorProfile.create({
         userId: user._id,
         name: user.name,
         email: user.email,
         mobile: user.phone || '',
         verificationStatus: 'pending',
+        address: address
       });
     }
 
@@ -777,59 +778,130 @@ router.put('/change-password', auth, async (req, res) => {
   }
 });
 
+// ── Get approved & active separate doctors ──
+router.get('/separate-doctors/approved', auth, async (req, res) => {
+  try {
+    // Find all separate doctors with active status and approved verification
+    const doctors = await User.find({
+      role: 'separate_doctor',
+      isActive: true,
+      verificationStatus: 'approved'
+    })
+      .select('name department consultationFee telemedicineFee phone email avatar bankDetails')
+      .sort({ name: 1 })
+      .lean();
+
+    // Get DoctorProfile data for these doctors
+    const doctorIds = doctors.map(d => d._id);
+    const profiles = await DoctorProfile.find(
+      { userId: { $in: doctorIds } },
+      'userId photoUrl specialization qualification experience bio'
+    ).lean();
+
+    const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+
+    // Get feedback ratings for these doctors
+    const Feedback = mongoose.model('Feedback');
+    const feedbackStats = await Feedback.aggregate([
+      { $match: { doctorId: { $in: doctorIds } } },
+      { 
+        $group: { 
+          _id: "$doctorId", 
+          averageRating: { $avg: "$doctorRating" }, 
+          totalRatings: { $sum: 1 } 
+        } 
+      }
+    ]);
+
+    const feedbackMap = new Map();
+    feedbackStats.forEach(f => {
+      feedbackMap.set(String(f._id), {
+        averageRating: Number(f.averageRating.toFixed(1)),
+        totalRatings: f.totalRatings
+      });
+    });
+
+    // Enrich doctors with profile and rating data
+    const enrichedDoctors = doctors.map(doc => {
+      const profile = profileMap.get(String(doc._id));
+      const feedback = feedbackMap.get(String(doc._id));
+      
+      return {
+        ...doc,
+        photoUrl: profile?.photoUrl || doc.avatar || '',
+        specialization: profile?.specialization || doc.department || '',
+        qualification: profile?.qualification || '',
+        experience: profile?.experience || 0,
+        bio: profile?.bio || '',
+        averageRating: feedback?.averageRating || 0,
+        totalRatings: feedback?.totalRatings || 0,
+      };
+    });
+
+    res.json({ 
+      success: true, 
+      doctors: enrichedDoctors,
+      count: enrichedDoctors.length 
+    });
+  } catch (err) {
+    console.error('Error fetching approved separate doctors:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── Get available doctors (all doctors) ──
 router.get('/available-doctors', auth, async (req, res) => {
   try {
     const doctors = await User.find(
-      { role: { $in: ['doctor', 'separate_doctor'] }, isActive: true },
-      'name department consultationFee telemedicineFee phone email avatar bankDetails'
+      { 
+        role: { $in: ['doctor', 'separate_doctor'] }, 
+        isActive: true 
+      },
+      'name department consultationFee telemedicineFee phone email avatar bankDetails clinicId'
     ).sort({ name: 1 }).lean();
 
-    // ── Only show doctors who have completed telemedicine setup ──
-    const setupCompleteDoctors = doctors.filter(doc => {
-      const hasFee = Number(doc.telemedicineFee) > 0;
-      const hasBankDetails = Boolean(
-        doc.bankDetails?.accountHolderName &&
-        doc.bankDetails?.accountNumber &&
-        doc.bankDetails?.bankName &&
-        doc.bankDetails?.ifscCode
-      );
-      return hasFee && hasBankDetails;
-    });
-
-    // ── Merge in DoctorProfile.photoUrl and Feedback ratings ──
-    const doctorIds = setupCompleteDoctors.map(d => d._id);
+    // Enrich with DoctorProfile and Feedback data
+    const doctorIds = doctors.map(d => d._id);
+    
     const profiles = await DoctorProfile.find(
       { userId: { $in: doctorIds } },
       'userId photoUrl specialization'
     ).lean();
-
+    
     const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+    
     const Feedback = mongoose.model('Feedback');
-
-    const enrichedDoctors = [];
-    for (let doc of setupCompleteDoctors) {
-      const profile = profileMap.get(String(doc._id));
-      
-      const stats = await Feedback.aggregate([
-        { $match: { doctorId: doc._id } },
-        { $group: { _id: "$doctorId", averageRating: { $avg: "$doctorRating" }, totalRatings: { $sum: 1 } } }
-      ]);
-      
-      let averageRating = 0;
-      let totalRatings = 0;
-      if (stats.length > 0) {
-        averageRating = Number(stats[0].averageRating.toFixed(1));
-        totalRatings = stats[0].totalRatings;
+    const feedbackStats = await Feedback.aggregate([
+      { $match: { doctorId: { $in: doctorIds } } },
+      { 
+        $group: { 
+          _id: "$doctorId", 
+          averageRating: { $avg: "$doctorRating" }, 
+          totalRatings: { $sum: 1 } 
+        } 
       }
+    ]);
+    
+    const feedbackMap = new Map();
+    feedbackStats.forEach(f => {
+      feedbackMap.set(String(f._id), {
+        averageRating: Number(f.averageRating.toFixed(1)),
+        totalRatings: f.totalRatings
+      });
+    });
+
+    const enrichedDoctors = doctors.map(doc => {
+      const profile = profileMap.get(String(doc._id));
+      const feedback = feedbackMap.get(String(doc._id));
       
-      enrichedDoctors.push({
+      return {
         ...doc,
         photoUrl: profile?.photoUrl || doc.avatar || '',
-        specialization: profile?.specialization || '',
-        averageRating,
-        totalRatings
-      });
-    }
+        specialization: profile?.specialization || doc.department || '',
+        averageRating: feedback?.averageRating || 0,
+        totalRatings: feedback?.totalRatings || 0,
+      };
+    });
 
     res.json({ success: true, doctors: enrichedDoctors });
   } catch (err) {
