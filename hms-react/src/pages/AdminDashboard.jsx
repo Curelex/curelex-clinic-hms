@@ -13,6 +13,7 @@ import inventoryService from '../services/inventoryService';
 import { useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 import TokenQueue from '../components/TokenQueue';
+import ClinicPrescriptions from './ClinicPrescriptions';
 
 const IMS_BASE = import.meta.env.VITE_IMS_API_URL || 'http://localhost:5000/ims/api/v1';
 const CLINIC_BASE = import.meta.env.VITE_CLINIC_API_URL || '/api/clinic';
@@ -684,29 +685,32 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
     </span>
   );
 
+// In AdminDashboard.jsx - update navItems
+
 const navItems = [
   { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
   { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
   { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
   { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
   { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
-  { icon: '🎫', label: 'Token Queue', section: 'tokens', tab: 'tokens', badge: undefined },  // ← ADD THIS
+  { icon: '🎫', label: 'Token Queue', section: 'tokens', tab: 'tokens', badge: undefined },
+  { icon: '📋', label: 'Prescriptions', section: 'prescriptions', tab: 'prescriptions', badge: undefined },  // ← ADD THIS
   { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
   { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
   { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
 ]
-  .filter(item => {
-    const planKey = safePlan || 'free';
-    const isVisible = isSectionVisible('clinic', planKey, item.section);
-    return isVisible;
-  })
-  .map(item => ({
-    icon: item.icon,
-    label: item.label,
-    active: tab === item.tab,
-    onClick: () => setTab(item.tab),
-    badge: item.badge,
-  }));
+.filter(item => {
+  const planKey = safePlan || 'free';
+  const isVisible = isSectionVisible('clinic', planKey, item.section);
+  return isVisible;
+})
+.map(item => ({
+  icon: item.icon,
+  label: item.label,
+  active: tab === item.tab,
+  onClick: () => setTab(item.tab),
+  badge: item.badge,
+}));
 
   // ── Check if pharmacists are allowed in this plan ──
   const planConfig = getPlanConfig('clinic',safePlan);
@@ -741,6 +745,15 @@ const navItems = [
           {tab === 'doctors' && <DoctorManagement doctors={doctors} patients={patientList} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={safePlan} reload={reload} />}
           {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
           {tab === 'patients' && <AllPatients patients={patientList} clinicName={clinic?.name} />}
+          {tab === 'prescriptions' && (
+  <ClinicPrescriptions 
+    clinicId={clinic?._id} 
+    activePlan={safePlan}
+    onRefresh={() => {
+      // Refresh parent if needed
+    }}
+  />
+)}
           {tab === 'followups' && <AdminFollowUps patients={patientList} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
           {tab === 'settings' && <ClinicSettings clinic={clinic} onSave={handleSaveClinic} />}
           {tab === 'pharmacists' && canManagePharmacists && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
