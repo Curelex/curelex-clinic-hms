@@ -33,7 +33,8 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: false,
       revenue: false,
-      tokens: true
+      tokens: true,
+      prescriptions: false,
     },
     limits: {
       patients: 50,
@@ -75,7 +76,8 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: false,
       revenue: false,
-      tokens: true
+      tokens: true,
+      prescriptions: false,
     },
     limits: {
       patients: 100,
@@ -116,7 +118,8 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: true,
       revenue: true,
-      tokens: true
+      tokens: true,
+      prescriptions: true,
     },
     limits: {
       patients: 500,
@@ -157,7 +160,8 @@ export const PLAN_CONFIGS = {
       settings: true,
       pharmacists: true,
       revenue: true,
-      tokens: true
+      tokens: true,
+      prescriptions: true,
     },
     limits: {
       patients: 2000,

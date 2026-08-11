@@ -471,3 +471,29 @@ export const getPrescriptionForPrint = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ── Get Prescriptions by Clinic ──
+export const getClinicPrescriptions = async (req, res) => {
+  try {
+    const clinicId = req.query.clinicId || req.user?.clinicId;
+    
+    if (!clinicId) {
+      return res.status(400).json({ success: false, message: 'Clinic ID is required' });
+    }
+
+    const prescriptions = await Prescription.find({ clinicId })
+      .populate('patientId', 'name patientId phone')
+      .populate('doctorId', 'name department')
+      .populate('medicines.medicineId', 'name dosageForm strength')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: prescriptions.length,
+      prescriptions,
+    });
+  } catch (error) {
+    console.error('Get clinic prescriptions error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

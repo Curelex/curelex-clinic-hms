@@ -3,7 +3,6 @@ import express from 'express';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import * as prescriptionController from '../controllers/prescriptionController.js';
-// ✅ Import medicine controller for search
 import * as medicineController from '../controllers/medicineController.js';
 
 const router = express.Router();
@@ -11,16 +10,15 @@ const router = express.Router();
 // All routes require authentication
 router.use(auth);
 
-// ── Prescription Routes ──
-
-// Get stats
 router.get('/stats', prescriptionController.getPrescriptionStats);
 
-// ✅ Search medicines (uses medicine controller)
+// Get prescriptions by clinic - must come BEFORE /:id and /doctor/:id
+router.get('/clinic', prescriptionController.getClinicPrescriptions);
+
+// Search medicines - must come BEFORE /:id
 router.get('/medicines/search', medicineController.searchMedicines);
 
-// Create prescription
-router.post('/', roleCheck('doctor', 'admin'), prescriptionController.createPrescription);
+// ── Dynamic routes (with :id parameter) go AFTER specific routes ──
 
 // Get prescriptions by patient
 router.get('/patient/:id', prescriptionController.getPrescriptionsByPatient);
@@ -31,11 +29,16 @@ router.get('/patient/:id/paginated', prescriptionController.getPatientPrescripti
 // Get prescriptions by doctor
 router.get('/doctor/:id', prescriptionController.getPrescriptionsByDoctor);
 
-// Get single prescription
-router.get('/:id', prescriptionController.getPrescriptionById);
-
 // Get prescription for print
 router.get('/:id/print', prescriptionController.getPrescriptionForPrint);
+
+// Get single prescription - must come LAST
+router.get('/:id', prescriptionController.getPrescriptionById);
+
+// ── POST/PUT/DELETE routes ──
+
+// Create prescription
+router.post('/', roleCheck('doctor', 'admin'), prescriptionController.createPrescription);
 
 // Update prescription
 router.put('/:id', roleCheck('doctor', 'admin'), prescriptionController.updatePrescription);

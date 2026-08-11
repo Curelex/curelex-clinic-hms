@@ -21,6 +21,114 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
+// ── Star Rating Display ──
+function StarRating({ rating, reviews = 0 }) {
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 1 }}>
+        {[...Array(fullStars)].map((_, i) => (
+          <span key={`full-${i}`} style={{ color: '#f59e0b', fontSize: 14 }}>★</span>
+        ))}
+        {hasHalfStar && (
+          <span style={{ color: '#f59e0b', fontSize: 14 }}>½</span>
+        )}
+        {[...Array(emptyStars)].map((_, i) => (
+          <span key={`empty-${i}`} style={{ color: '#d1d5db', fontSize: 14 }}>★</span>
+        ))}
+      </div>
+      {reviews > 0 && (
+        <span style={{ fontSize: 11, color: '#94a3b8' }}>({reviews})</span>
+      )}
+    </div>
+  );
+}
+
+// ── Top Rated Card ──
+function TopRatedCard({ item, type, onSelect }) {
+  const isMobile = useIsMobile();
+  
+  const getIcon = () => {
+    if (type === 'clinic') return '🏥';
+    if (type === 'hospital') return '🏨';
+    return '👨‍⚕️';
+  };
+
+  const getSubText = () => {
+    if (type === 'clinic' || type === 'hospital') {
+      return item.address || '📍 Location not specified';
+    }
+    return item.department || item.specialization || 'General Medicine';
+  };
+
+  return (
+    <div
+      onClick={() => onSelect(item)}
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        padding: isMobile ? '14px 16px' : '16px 20px',
+        border: '1.5px solid #e5e7eb',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#2d6be4';
+        e.currentTarget.style.boxShadow = '0 4px 16px rgba(45,107,228,0.10)';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#e5e7eb';
+        e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
+        e.currentTarget.style.transform = 'translateY(0)';
+      }}
+    >
+      <div style={{
+        width: 44,
+        height: 44,
+        borderRadius: 10,
+        background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 20,
+        flexShrink: 0,
+      }}>
+        {getIcon()}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236' }}>
+          {item.name}
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+          {getSubText()}
+        </div>
+        <div style={{ marginTop: 4 }}>
+          <StarRating rating={item.rating || 0} reviews={item.reviews || 0} />
+        </div>
+      </div>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: '#2d6be4',
+        background: '#eff6ff',
+        padding: '4px 12px',
+        borderRadius: 20,
+        flexShrink: 0,
+      }}>
+        {type === 'doctor' ? 'Consult' : 'View'}
+      </div>
+    </div>
+  );
+}
+
 export default function PatientDashboard() {
   const { user, patient, logout, isPatient, isDoctorOnline } = useAuth();
   const navigate = useNavigate();
@@ -39,6 +147,12 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
+
+  // ── Top Rated Data ──
+  const [topClinics, setTopClinics] = useState([]);
+  const [topHospitals, setTopHospitals] = useState([]);
+  const [topSeparateDoctors, setTopSeparateDoctors] = useState([]);
+  const [loadingTopRated, setLoadingTopRated] = useState(true);
 
   const [locationLabel, setLocationLabel] = useState('Home');
   const [locationLoading, setLocationLoading] = useState(false);
@@ -76,7 +190,49 @@ export default function PatientDashboard() {
     if (!user) { navigate('/patient-login'); return; }
     if (!isPatient()) { navigate('/'); return; }
     loadDashboardData();
+    loadTopRated();
   }, [user]);
+
+// ── Load Top Rated Data ──
+async function loadTopRated() {
+  setLoadingTopRated(true);
+  try {
+    // Fetch all clinics with ratings
+    const ratingsRes = await API.get('/feedback/clinic/ratings/all');
+    const allClinics = ratingsRes.data.clinics || [];
+
+    // Separate clinics and hospitals using the type field
+    const clinics = allClinics.filter(c => c.type === 'clinic');
+    const hospitals = allClinics.filter(c => c.type === 'hospital');
+
+    setTopClinics(clinics.slice(0, 5));
+    setTopHospitals(hospitals.slice(0, 5));
+
+    // ── ✅ FIX: Fetch approved separate doctors only ──
+    const separateDoctorsRes = await API.get('/auth/separate-doctors/approved');
+    const separateDoctors = separateDoctorsRes.data.doctors || [];
+
+    setTopSeparateDoctors(separateDoctors.slice(0, 5));
+
+  } catch (err) {
+    console.error('Error loading top rated data:', err);
+  }
+  setLoadingTopRated(false);
+}
+
+  // ── Handle item selection ──
+  const handleItemSelect = (item, type) => {
+    if (type === 'doctor') {
+      navigate('/patient-telemedicine', {
+        state: { preSelectDoctor: item._id },
+      });
+    } else {
+      // For clinics/hospitals, open the clinic search or show details
+      navigate('/patient-appointments', {
+        state: { preSelectClinic: item._id },
+      });
+    }
+  };
 
   async function loadDashboardData() {
     setLoading(true);
@@ -105,7 +261,12 @@ export default function PatientDashboard() {
 
       try {
         const docRes = await API.get('/auth/available-doctors');
-        if (docRes.data.success) setDoctors(docRes.data.doctors || []);
+  if (docRes.data.success) {
+    
+    const allDoctors = docRes.data.doctors || [];
+    
+    setDoctors(allDoctors);
+  }
       } catch { console.log('Doctors not available'); }
     } catch (error) { console.error('Error loading dashboard:', error); }
     setLoading(false);
@@ -130,7 +291,7 @@ export default function PatientDashboard() {
   const initials = patientName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   const upcomingAppointments = appointments.filter(a => new Date(a.appointmentTime) > new Date());
 
-  // ── Shared scroll-row style (used for both card rows) ────────────────────
+  // ── Shared scroll-row style ──
   const scrollRowStyle = isMobile
     ? {
       display: 'flex',
@@ -147,9 +308,40 @@ export default function PatientDashboard() {
     }
     : {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
       gap: '14px',
     };
+
+  // ── Section header style ──
+  const sectionHeaderStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    flexWrap: 'wrap',
+    gap: 8,
+  };
+
+  const sectionTitleStyle = {
+    margin: 0,
+    fontSize: isMobile ? 17 : 19,
+    fontWeight: 700,
+    color: '#1a2236',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  };
+
+  const viewAllStyle = {
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#2d6be4',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    fontFamily: 'inherit',
+  };
 
   if (loading) {
     return (
@@ -243,7 +435,7 @@ export default function PatientDashboard() {
         <div className="pd-main">
           <main className="pd-body">
 
-            {/* Hero Banner */}
+            {/* ── Hero Banner ── */}
             <div
               style={{
                 display: "flex",
@@ -260,8 +452,6 @@ export default function PatientDashboard() {
                 position: "relative",
               }}
             >
-              {/* Left Side */}
-              {/* Left Side */}
               <div
                 style={{
                   flex: 1,
@@ -309,10 +499,7 @@ export default function PatientDashboard() {
                     cursor: "pointer",
                   }}
                 >
-                  <i
-                    className="fas fa-calendar-plus"
-                    style={{ marginRight: "8px" }}
-                  />
+                  <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }} />
                   Book Appointment
                 </button>
                 {isMobile && (
@@ -339,7 +526,6 @@ export default function PatientDashboard() {
                 )}
               </div>
 
-              {/* Right Side */}
               <div
                 style={{
                   flex: 1,
@@ -350,7 +536,6 @@ export default function PatientDashboard() {
                   minHeight: "320px",
                 }}
               >
-                {/* Background Blue Circle */}
                 <div
                   style={{
                     position: "absolute",
@@ -362,8 +547,6 @@ export default function PatientDashboard() {
                     zIndex: 0,
                   }}
                 />
-
-                {/* Logo */}
                 <div
                   style={{
                     position: "absolute",
@@ -386,8 +569,6 @@ export default function PatientDashboard() {
                     }}
                   />
                 </div>
-
-                {/* Doctor Image */}
                 <img
                   src={heroImage}
                   alt="Healthcare"
@@ -404,17 +585,143 @@ export default function PatientDashboard() {
               </div>
             </div>
 
-            {/* Admission banner */}
+            {/* ── TOP RATED CLINICS ── */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={sectionHeaderStyle}>
+                <h3 style={sectionTitleStyle}>
+                  <span>🏥</span> Top Rated Clinics
+                </h3>
+                <button 
+                  onClick={() => navigate('/patient-appointments')} 
+                  style={viewAllStyle}
+                >
+                  View All →
+                </button>
+              </div>
+              {loadingTopRated ? (
+                <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                  <i className="fas fa-spinner fa-spin" /> Loading...
+                </div>
+              ) : topClinics.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                  No clinics available
+                </div>
+              ) : (
+                <div style={scrollRowStyle}>
+                  {topClinics.map(clinic => (
+                    <TopRatedCard
+                      key={clinic._id}
+                      item={clinic}
+                      type="clinic"
+                      onSelect={() => handleItemSelect(clinic, 'clinic')}
+                    />
+                  ))}
+                </div>
+              )}
+              {isMobile && topClinics.length > 0 && (
+                <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+                  ← swipe to see more →
+                </p>
+              )}
+            </div>
+
+            {/* ── TOP RATED HOSPITALS ── */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={sectionHeaderStyle}>
+                <h3 style={sectionTitleStyle}>
+                  <span>🏨</span> Top Rated Hospitals
+                </h3>
+                <button 
+                  onClick={() => navigate('/patient-appointments')} 
+                  style={viewAllStyle}
+                >
+                  View All →
+                </button>
+              </div>
+              {loadingTopRated ? (
+                <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                  <i className="fas fa-spinner fa-spin" /> Loading...
+                </div>
+              ) : topHospitals.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                  No hospitals available
+                </div>
+              ) : (
+                <div style={scrollRowStyle}>
+                  {topHospitals.map(hospital => (
+                    <TopRatedCard
+                      key={hospital._id}
+                      item={hospital}
+                      type="hospital"
+                      onSelect={() => handleItemSelect(hospital, 'hospital')}
+                    />
+                  ))}
+                </div>
+              )}
+              {isMobile && topHospitals.length > 0 && (
+                <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+                  ← swipe to see more →
+                </p>
+              )}
+            </div>
+
+            {/* ── TOP RATED SEPARATE DOCTORS ── */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={sectionHeaderStyle}>
+                <h3 style={sectionTitleStyle}>
+                  <span>👨‍⚕️</span> Top Rated Independent Doctors
+                </h3>
+                <button 
+                  onClick={() => navigate('/patient-telemedicine')} 
+                  style={viewAllStyle}
+                >
+                  View All →
+                </button>
+              </div>
+              {loadingTopRated ? (
+                <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                  <i className="fas fa-spinner fa-spin" /> Loading...
+                </div>
+              ) : topSeparateDoctors.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                  No independent doctors available
+                </div>
+              ) : (
+                <div style={scrollRowStyle}>
+                  {topSeparateDoctors.map(doc => (
+                    <TopRatedCard
+                      key={doc._id}
+                      item={doc}
+                      type="doctor"
+                      onSelect={() => handleItemSelect(doc, 'doctor')}
+                    />
+                  ))}
+                </div>
+              )}
+              {isMobile && topSeparateDoctors.length > 0 && (
+                <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+                  ← swipe to see more →
+                </p>
+              )}
+            </div>
+
+            {/* ── Admission banner ── */}
             {admission && (
               <div
                 className="pd-admission-banner"
                 onClick={() => navigate('/patient-admission')}
                 style={{
                   background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
-                  border: '1px solid #6ee7b7', borderRadius: 16,
-                  padding: '18px 22px', marginBottom: 24, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  gap: 14, flexWrap: 'wrap',
+                  border: '1px solid #6ee7b7',
+                  borderRadius: 16,
+                  padding: '18px 22px',
+                  marginBottom: 24,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 14,
+                  flexWrap: 'wrap',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -436,7 +743,7 @@ export default function PatientDashboard() {
               </div>
             )}
 
-            {/* Quick Stats */}
+            {/* ── Quick Stats ── */}
             <div className="pd-stats">
               {[
                 { icon: 'fa-calendar-check', label: 'Upcoming', value: stats.upcomingAppointments, color: '#2d6be4' },
@@ -456,9 +763,8 @@ export default function PatientDashboard() {
               ))}
             </div>
 
-            {/* Dashboard Grid */}
+            {/* ── Dashboard Grid ── */}
             <div className="pd-grid">
-
               {/* Upcoming Appointments */}
               <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '18px 20px 14px', borderBottom: '0.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -588,7 +894,7 @@ export default function PatientDashboard() {
               </div>
             </div>
 
-            {/* Available Doctors */}
+            {/* ── Available Doctors ── */}
             <div style={{ marginTop: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a2236' }}>Available Doctors</h3>
@@ -676,7 +982,6 @@ export default function PatientDashboard() {
                                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Telemedicine Fee</div>
                                 <div style={{ fontSize: 20, fontWeight: 700, color: '#1a2236' }}>₹{doc.telemedicineFee || 299}</div>
                               </div>
-
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <button
@@ -743,7 +1048,6 @@ export default function PatientDashboard() {
                   <h2 style={{ margin: 0, fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>
                     Consult top doctors online for any health concern
                   </h2>
-                  {/* Subtitle hidden on mobile (was cramped/unnecessary on small screens) */}
                   {!isMobile && (
                     <p style={{ margin: '5px 0 0', fontSize: 13, color: '#64748b' }}>
                       Private online consultations with verified doctors in all specialists
@@ -758,7 +1062,6 @@ export default function PatientDashboard() {
                 </button>
               </div>
 
-              {/* ── Swipeable speciality cards ── */}
               <div style={scrollRowStyle}>
                 {[
                   { label: 'Period doubts or Pregnancy', icon: 'fa-venus', color: '#ec4899' },
@@ -772,7 +1075,6 @@ export default function PatientDashboard() {
                     key={i}
                     onClick={() => navigate('/patient-telemedicine')}
                     style={{
-                      // ── SIZE FIX: smaller card (was 160px / full grid col) ──
                       flex: `0 0 ${isMobile ? '130px' : '150px'}`,
                       minWidth: isMobile ? 130 : 150,
                       scrollSnapAlign: 'start',
@@ -785,7 +1087,6 @@ export default function PatientDashboard() {
                       userSelect: 'none',
                     }}
                   >
-                    {/* Icon circle — smaller */}
                     <div style={{
                       width: isMobile ? 48 : 52,
                       height: isMobile ? 48 : 52,
@@ -798,11 +1099,9 @@ export default function PatientDashboard() {
                     }}>
                       <i className={`fas ${item.icon}`} />
                     </div>
-
                     <p style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 600, color: '#0f172a', lineHeight: 1.35 }}>
                       {item.label}
                     </p>
-
                     <button
                       style={{
                         padding: '5px 12px',
@@ -823,7 +1122,6 @@ export default function PatientDashboard() {
                 ))}
               </div>
 
-              {/* Swipe hint — only on mobile */}
               {isMobile && (
                 <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
                   ← swipe to see more →

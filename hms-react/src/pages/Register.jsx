@@ -55,6 +55,7 @@ export default function Register() {
         name: form.name,
         email: form.email,
         password: form.password,
+        address: form.address,
         role: form.accountType,
         department: form.department,
         phone: form.phone,
@@ -181,6 +182,12 @@ export default function Register() {
             <label className="form-label">Email Address *</label>
             <input className="form-control" name="email" type="email" placeholder="you@hospital.com"
               value={form.email} onChange={handleChange} required />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Address *</label>
+            <input className="form-control" name="address" type="text" placeholder="address"
+              value={form.address} onChange={handleChange} required />
           </div>
 
           <div className="form-group">
