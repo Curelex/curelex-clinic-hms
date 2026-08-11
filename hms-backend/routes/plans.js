@@ -7,6 +7,7 @@ import planService from '../services/planService.js';
 import Clinic from '../models/Clinic.js';
 import Subscription from '../models/Subscription.js';
 import { createPlanOrder, verifyPayment } from '../controllers/paymentController.js';
+import { isPaymentLive } from '../services/paymentMode.js';
 
 const router = express.Router();
 
@@ -288,7 +289,13 @@ router.get('/stripe-plans', auth, async (req, res) => {
   }
 });
 
-router.post('/create-order', auth, createPlanOrder);
-router.post('/verify-payment', auth, verifyPayment);
+if (isPaymentLive()) {
+  router.post('/create-order', auth, createPlanOrder);
+  
+  router.post('/verify-payment', auth, verifyPayment);
+} else {
+  console.log('🔧 Payment mode: TEST - Razorpay bypassed');
+}
+
 
 export default router;

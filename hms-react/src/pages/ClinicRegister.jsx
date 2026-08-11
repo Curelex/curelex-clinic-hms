@@ -506,6 +506,7 @@ export default function ClinicRegistration({ onClose, onSuccess }) {
         name: form.ownerName,
         email: form.email,
         password: form.password,
+        address: form.address,
         role: 'admin',
         clinicName: form.clinicName,
         phone: form.phone,

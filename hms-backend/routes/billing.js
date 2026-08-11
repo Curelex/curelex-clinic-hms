@@ -195,7 +195,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-router.post('/:billId/create-order', auth, createBillOrder);
-router.post('/verify-payment', auth, verifyPayment);
+// router.post('/:billId/create-order', auth, createBillOrder);
+// router.post('/verify-payment', auth, verifyPayment);
 
 export default router;

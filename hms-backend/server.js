@@ -22,7 +22,7 @@ import Notification from './models/Notification.js';
 import User from './models/User.js';
 // import clinicApp from './clinic/clinic/app.js';
 import razorpayWebhook from './webhooks/razorpayWebhook.js';
-
+import paymentRoutes from './routes/payment.js';
 // Routes
 import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
@@ -100,7 +100,12 @@ app.use('/api/v1/ims/reports/download-pdf', helmet({ contentSecurityPolicy: fals
 app.use('/api/reports/download-pdf',        helmet({ contentSecurityPolicy: false }));
 app.use(helmet());
 
-app.use('/api/webhooks', razorpayWebhook);
+if (isPaymentLive()) {
+  app.use('/api/webhooks', razorpayWebhook);
+  console.log('✅ Razorpay webhook: LIVE mode');
+} else {
+  console.log('🔧 Razorpay webhook: TEST mode (bypassed)');
+}
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -116,6 +121,7 @@ app.use((req, res, next) => {
 
 // MongoDB
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { isPaymentLive } from './services/paymentMode.js';
 // import { clinicConnection } from './clinic/clinic/config/db.js';
 // ── Seed Demo Accounts and Super Admin on boot ───────────────────────────
 async function seedSuperAdmin() {
@@ -487,6 +493,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/telemedicine', telemedicineRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/ot', otRoutes);
 app.use('/api/plans', planRoutes);
