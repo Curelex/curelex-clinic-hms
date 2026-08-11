@@ -707,6 +707,7 @@ async function handleSubscriptionPayment(transaction, payment) {
 
   return {
     success: true,
+    transaction,
     clinic,
     subscription,
     expiresAt,

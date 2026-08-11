@@ -289,12 +289,12 @@ router.get('/stripe-plans', auth, async (req, res) => {
   }
 });
 
+router.post('/create-order', auth, createPlanOrder);
+router.post('/verify-payment', auth, verifyPayment);
 if (isPaymentLive()) {
-  router.post('/create-order', auth, createPlanOrder);
-  
-  router.post('/verify-payment', auth, verifyPayment);
+  console.log('✅ Plan payment routes: LIVE mode');
 } else {
-  console.log('🔧 Payment mode: TEST - Razorpay bypassed');
+  console.log('🔧 Plan payment routes: TEST mode (mock orders)');
 }
 
 

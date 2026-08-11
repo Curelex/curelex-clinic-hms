@@ -7,12 +7,12 @@ const TransactionSchema = new mongoose.Schema({
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Patient',
-    required: true,
+    required: false,
   },
   doctorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false,
   },
   clinicId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -21,7 +21,7 @@ const TransactionSchema = new mongoose.Schema({
   telemedicineId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Telemedicine',
-    required: true,
+    required: false,
   },
 
   // Payment details
@@ -42,7 +42,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['card', 'upi', 'netbanking', 'wallet', 'mock'],
+    enum: ['card', 'upi', 'netbanking', 'wallet', 'mock', 'test_mode'],
   },
   transactionId: {
     type: String,
@@ -51,7 +51,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   paymentGateway: {
     type: String,
-    enum: ['mock', 'razorpay', 'stripe', 'paytm'],
+    enum: ['mock', 'razorpay', 'stripe', 'paytm', 'test_mode'],
     default: 'mock',
   },
   paymentDetails: {
