@@ -31,10 +31,11 @@ function isSameDay(a, b) {
 }
 
 export default function PatientDocuments() {
-  const { user, patient, logout, isPatient } = useAuth();
+  const { user, patient, logout, isPatient, getEffectiveClinicId } = useAuth();
   const navigate = useNavigate();
 
   const patientId = patient?._id || patient?.id || user?.id || user?._id;
+  const clinicId  = patient?.clinicId || user?.clinicId || user?.clinic || (getEffectiveClinicId ? getEffectiveClinicId() : null);
   const patientName = patient?.name || user?.name || 'Patient';
   const patientEmail = patient?.email || user?.email || '';
 
@@ -100,6 +101,7 @@ export default function PatientDocuments() {
       formData.append('patientId', patientId);
       formData.append('category', category);
       formData.append('description', description);
+        formData.append('clinicId', clinicId);
 
       await API.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
