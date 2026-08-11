@@ -98,7 +98,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
     }
 
     const doc = await Document.create({
-      clinicId:        access.clinicId,   // patient's actual clinicId
+      clinicId:        access.clinicId || 'global', // guard: null-safe for patients with no clinic
       patient:         patientId,
       token:           tokenId || null,
       category:        category || 'Other',

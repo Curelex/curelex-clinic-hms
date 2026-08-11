@@ -4,7 +4,8 @@ import mongoose from 'mongoose';
 const DocumentSchema = new mongoose.Schema({
   clinicId: { 
     type: String, 
-    required: true, 
+    required: true,
+    default: 'global', // fallback for self-registered patients with no associated clinic
     index: true 
   },
   patient: { 
