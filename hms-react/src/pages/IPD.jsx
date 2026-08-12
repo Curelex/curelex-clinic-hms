@@ -5,6 +5,7 @@ import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import PatientAdmitModal from '../components/PatientAdmitModal';
 import PrintAdmissionForm from '../components/PrintAdmissionForm';
+import PrintDischargeForm from '../components/PrintDischargeForm';
 import DischargeForm from './DischargeForm';
 
 
@@ -74,6 +75,7 @@ export default function IPD() {
   const [admitModal,     setAdmitModal]     = useState(false);
   const [doctors,        setDoctors]        = useState([]);
   const [printAdmission, setPrintAdmission] = useState(null);
+  const [printDischarge, setPrintDischarge] = useState(null);
 
   const [admitForm,      setAdmitForm]      = useState({ roomType: '', roomNumber: '', notes: '' });
   const [chosenPatient,  setChosenPatient]  = useState(null);
@@ -508,6 +510,13 @@ export default function IPD() {
                     onClick={() => setPrintAdmission(selected)}>
                     🖨️ Print Admission Form
                   </button>
+                  {selected.status === 'Discharged' && (
+                    <button className="btn btn-sm btn-outline"
+                      style={{ borderColor: '#2563eb', color: '#2563eb' }}
+                      onClick={() => setPrintDischarge(selected)}>
+                      🖨️ Print Discharge Form
+                    </button>
+                  )}
                   {selected.status === 'Admitted' && isReceptionist && (
                     <button
                       className="btn btn-sm btn-outline"
@@ -711,6 +720,14 @@ export default function IPD() {
         <PrintAdmissionForm
           admission={printAdmission}
           onClose={() => setPrintAdmission(null)}
+        />
+      )}
+
+      {/* ── PRINT DISCHARGE FORM MODAL ──────────────────────────── */}
+      {printDischarge && (
+        <PrintDischargeForm
+          admission={printDischarge}
+          onClose={() => setPrintDischarge(null)}
         />
       )}
 
