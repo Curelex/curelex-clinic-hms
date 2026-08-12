@@ -131,6 +131,12 @@ const Home = () => {
   const [consultLoading, setConsultLoading] = useState(false);
   const [consultSubmitted, setConsultSubmitted] = useState(false);
 
+
+  // Reset the browser tab title to plain "Curelex" whenever Home loads
+  // (e.g. navigating back from a login page that set a role-specific title).
+  useEffect(() => {
+    document.title = 'Curelex';
+  }, []);
   // ── Redirect if already logged in ──
   useEffect(() => {
     if (isAuthenticated()) {
@@ -220,11 +226,22 @@ const Home = () => {
      Clinic now redirects to the standalone curelex-clinic-ims app. ── */
   const handlePatientSelect = () => {
     setShowRoleModal(false);
+    document.title = 'Curelex Patients';
     navigate('/patient-login');
   };
 
   const handleStaffSelect = () => {
     setShowRoleModal(false);
+    document.title = 'Curelex Doctors';
+    navigate('/Register', {
+      state: {
+        accountType: "separate_doctor"
+      },
+    });
+  };
+  const handleHospitalSelect = () => {
+    setShowRoleModal(false);
+    document.title = 'Curelex HMS';
     navigate('/Register', {
       state: {
         accountType: "separate_doctor"
@@ -234,6 +251,7 @@ const Home = () => {
 
   const handleClinicSelect = () => {
     setShowRoleModal(false);
+    document.title = 'Curelex Clinic';
     navigate('/login-clinic');
   };
 
@@ -656,7 +674,7 @@ const Home = () => {
                 <h3>Clinic</h3>
                 <p>Manage appointments, patients, billing and more</p>
               </button>
-              <button className="role-card" onClick={handleStaffSelect}>
+              <button className="role-card" onClick={handleHospitalSelect}>
                 <div className="role-icon"><i className="fas fa-hospital"></i></div>
                 <h3>Hospital</h3>
                 <p>Manage appointments, patients, billing and more</p>

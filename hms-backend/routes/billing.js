@@ -195,6 +195,29 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+router.patch('/:billId/payment', auth, async (req, res) => {
+  try {
+    const clinicId = req.user.clinicId || 'default';
+    const { paymentStatus, paymentMethod } = req.body;
+
+    const update = {};
+    if (paymentStatus) update.paymentStatus = paymentStatus;
+    if (paymentMethod) update.paymentMethod = paymentMethod;
+    if (paymentStatus === 'Paid') update.paidAt = new Date();
+
+    const bill = await Billing.findOneAndUpdate(
+      { _id: req.params.billId, clinicId },
+      update,
+      { new: true }
+    ).populate('patient', 'name patientId phone age gender bloodGroup');
+
+    if (!bill) return res.status(404).json({ message: 'Bill not found' });
+    res.json(bill);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // router.post('/:billId/create-order', auth, createBillOrder);
 // router.post('/verify-payment', auth, verifyPayment);
 
