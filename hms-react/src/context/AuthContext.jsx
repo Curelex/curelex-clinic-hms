@@ -175,10 +175,39 @@ export const AuthProvider = ({ children }) => {
     if (response.data.success) {
       const { openingHours, clinicName, clinicType } = response.data;
       
-      // Check if timings exist (all days have open/close)
-      const hasTimings = openingHours && 
-        ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-          .every(day => openingHours[day] && openingHours[day].open && openingHours[day].close);
+     // Check if timings are properly configured.
+// A closed day is valid without open/close times.
+const days = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday'
+];
+
+const hasTimings =
+  openingHours &&
+  days.every(day => {
+    const dayData = openingHours[day];
+
+    if (!dayData) return false;
+
+    // Closed day is valid
+    if (dayData.isOpen === false) {
+      return true;
+    }
+
+    // Open day must have both opening and closing times
+    return (
+      dayData.isOpen === true &&
+      typeof dayData.open === 'string' &&
+      dayData.open.trim() !== '' &&
+      typeof dayData.close === 'string' &&
+      dayData.close.trim() !== ''
+    );
+  });
       
       return {
         hasTimings,

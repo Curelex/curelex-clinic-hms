@@ -1,4 +1,5 @@
-// hms-backend/routes/dashboard.js
+// hms-backend/routes/dashboard.js - Complete rewrite with proper stats
+
 import { fileURLToPath } from 'url';
 import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,11 +16,11 @@ import Lab from '../models/Lab.js';
 import Inventory from '../models/Inventory.js';
 import Admission from '../models/Admission.js';
 import Appointment from '../models/Appointment.js';
+import Token from '../models/Token.js';
 import mongoose from 'mongoose';
 
 /**
  * Safely converts any clinicId value to a mongoose ObjectId or null
- * Returns null for 'default' or invalid values
  */
 function toObjectId(id) {
   if (!id || id === 'default' || id === 'null' || id === 'undefined') return null;
@@ -46,7 +47,7 @@ router.get('/stats', auth, async (req, res) => {
     const role = req.user.role;
     const userId = req.user.id;
 
-    // ── If no clinicId, return empty stats (prevents ObjectId cast errors) ──
+    // ── If no clinicId, return empty stats ──
     if (!clinicId) {
       return res.json({
         totalPatients: 0,
@@ -76,31 +77,30 @@ router.get('/stats', auth, async (req, res) => {
       });
     }
 
-    // ✅ FIX: Patient no longer has a `clinicId` field — it has `clinicIds`
-    // (an array, since a patient can belong to multiple clinics). Mongo
-    // matches `{ clinicIds: clinicId }` as "array contains this id", same
-    // pattern used in routes/patients.js. Every Patient query in this file
-    // was still querying the old (nonexistent) `clinicId` field, which is
-    // why patient-derived counts always showed 0 regardless of real data.
     const patientClinicFilter = { clinicIds: clinicId };
+    const today = new Date(); 
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today); 
+    tomorrow.setDate(today.getDate() + 1);
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-
-    /* ── Helpers shared across roles ──────────────────────── */
-    const todayAppointments = await Appointment.countDocuments({ 
+    // ── Common stats for all roles ──
+    const todayAppointments = await Token.countDocuments({ 
       clinicId, 
-      date: { $gte: today, $lt: tomorrow } 
+      date: today.toISOString().split('T')[0]
     });
-    const pendingAppointments = await Appointment.countDocuments({ 
+    
+    const pendingAppointments = await Token.countDocuments({ 
       clinicId, 
-      status: 'Scheduled' 
+      status: { $in: ['Pending', 'Waiting'] } 
     });
-    const recentAppointments = await Appointment
-      .find({ clinicId, date: { $gte: today, $lt: tomorrow } })
+    
+    const recentAppointments = await Token.find({ 
+      clinicId, 
+      date: today.toISOString().split('T')[0] 
+    })
       .populate('patient', 'name')
       .populate('doctor', 'name')
-      .sort({ time: 1 })
+      .sort({ createdAt: -1 })
       .limit(5);
 
     const admittedPatients = await Admission.countDocuments({ 
@@ -112,10 +112,17 @@ router.get('/stats', auth, async (req, res) => {
        ADMIN — full stats
     ────────────────────────────────────────────────────── */
     if (role === 'admin' || role === 'super_admin') {
-      const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const sixMonthsAgo = new Date(); 
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
       const [
-        totalPatients, activePatients, totalRevenue,
-        pendingBills, lowStockItems, pendingLabs, monthlyRevenue,
+        totalPatients, 
+        activePatients, 
+        totalRevenue,
+        pendingBills, 
+        lowStockItems, 
+        pendingLabs, 
+        monthlyRevenue,
       ] = await Promise.all([
         Patient.countDocuments(patientClinicFilter),
         Patient.countDocuments({ ...patientClinicFilter, status: 'Active' }),
@@ -123,13 +130,8 @@ router.get('/stats', auth, async (req, res) => {
           { $match: { clinicId, paymentStatus: 'Paid' } },
           { $group: { _id: null, total: { $sum: '$totalAmount' } } },
         ]),
-        Billing.countDocuments({ clinicId, paymentStatus: 'Pending' }),
+        Billing.countDocuments({ clinicId, paymentStatus: { $in: ['Pending', 'Partial'] } }),
         Inventory.countDocuments({ clinicId, quantity: { $lt: 10 } }),
-        // ✅ FIX: Lab.status enum is ['Ordered', 'Sample Collected',
-        // 'Processing', 'Completed', 'Cancelled'] — there is no 'Pending'
-        // value on the Lab document itself (only on individual test
-        // sub-entries). A freshly ordered lab starts as 'Ordered', so that
-        // is the "awaiting action" state to count here.
         Lab.countDocuments({ clinicId, status: { $in: ['Ordered', 'Sample Collected', 'Processing'] } }),
         Billing.aggregate([
           {
@@ -164,18 +166,18 @@ router.get('/stats', auth, async (req, res) => {
         .limit(5);
 
       return res.json({
-        totalPatients,
-        activePatients,
-        admittedPatients,
-        todayAppointments,
-        pendingAppointments,
+        totalPatients: totalPatients || 0,
+        activePatients: activePatients || 0,
+        admittedPatients: admittedPatients || 0,
+        todayAppointments: todayAppointments || 0,
+        pendingAppointments: pendingAppointments || 0,
         totalRevenue: totalRevenue[0]?.total || 0,
-        pendingBills,
-        lowStockItems,
-        pendingLabs,
-        monthlyRevenue,
-        recentAppointments,
-        recentAdmissions,
+        pendingBills: pendingBills || 0,
+        lowStockItems: lowStockItems || 0,
+        pendingLabs: pendingLabs || 0,
+        monthlyRevenue: monthlyRevenue || [],
+        recentAppointments: recentAppointments || [],
+        recentAdmissions: recentAdmissions || [],
       });
     }
 
@@ -183,12 +185,7 @@ router.get('/stats', auth, async (req, res) => {
        DOCTOR — my patients + my appointments + labs + IPD
     ────────────────────────────────────────────────────── */
     if (role === 'doctor' || role === 'separate_doctor') {
-      const myPatients = await Appointment.distinct('patient', { clinicId, doctor: userId });
-      // ✅ FIX: same Lab.status enum issue as above, plus Lab has no
-      // `doctor` field on the schema (it references patient/orderedBy) —
-      // querying `doctor: userId` here would never match anything even if
-      // the status were valid. Scoping to clinic + "not yet completed" is
-      // the closest correct equivalent until a doctor field is added to Lab.
+      const myPatients = await Token.distinct('patient', { clinicId, doctor: userId });
       const pendingLabs = await Lab.countDocuments({
         clinicId,
         status: { $in: ['Ordered', 'Sample Collected', 'Processing'] },
@@ -196,12 +193,12 @@ router.get('/stats', auth, async (req, res) => {
       const myAdmittedPatients = await Admission.countDocuments({ clinicId, doctor: userId, status: 'Admitted' });
 
       return res.json({
-        myPatients: myPatients.length,
-        admittedPatients: myAdmittedPatients,
-        todayAppointments,
-        pendingAppointments,
-        pendingLabs,
-        recentAppointments: recentAppointments.filter(a => String(a.doctor?._id) === String(userId)),
+        myPatients: myPatients.length || 0,
+        admittedPatients: myAdmittedPatients || 0,
+        todayAppointments: todayAppointments || 0,
+        pendingAppointments: pendingAppointments || 0,
+        pendingLabs: pendingLabs || 0,
+        recentAppointments: recentAppointments.filter(a => String(a.doctor?._id) === String(userId)) || [],
       });
     }
 
@@ -216,11 +213,11 @@ router.get('/stats', auth, async (req, res) => {
       });
 
       return res.json({
-        activePatients,
-        admittedPatients,
-        todayAppointments,
-        pendingLabs,
-        recentAppointments,
+        activePatients: activePatients || 0,
+        admittedPatients: admittedPatients || 0,
+        todayAppointments: todayAppointments || 0,
+        pendingLabs: pendingLabs || 0,
+        recentAppointments: recentAppointments || [],
       });
     }
 
@@ -230,7 +227,7 @@ router.get('/stats', auth, async (req, res) => {
     if (role === 'receptionist') {
       const [totalPatients, pendingBills] = await Promise.all([
         Patient.countDocuments(patientClinicFilter),
-        Billing.countDocuments({ clinicId, paymentStatus: 'Pending' }),
+        Billing.countDocuments({ clinicId, paymentStatus: { $in: ['Pending', 'Partial'] } }),
       ]);
 
       const recentAdmissions = await Admission.find({ clinicId, status: 'Admitted' })
@@ -240,13 +237,13 @@ router.get('/stats', auth, async (req, res) => {
         .limit(5);
 
       return res.json({
-        todayAppointments,
-        pendingAppointments,
-        pendingBills,
-        totalPatients,
-        admittedPatients,
-        recentAppointments,
-        recentAdmissions,
+        todayAppointments: todayAppointments || 0,
+        pendingAppointments: pendingAppointments || 0,
+        pendingBills: pendingBills || 0,
+        totalPatients: totalPatients || 0,
+        admittedPatients: admittedPatients || 0,
+        recentAppointments: recentAppointments || [],
+        recentAdmissions: recentAdmissions || [],
       });
     }
 
@@ -262,16 +259,19 @@ router.get('/stats', auth, async (req, res) => {
         Inventory.find({ clinicId, quantity: { $lt: 10 } }).sort({ quantity: 1 }).limit(8),
       ]);
 
-      return res.json({ lowStockItems, outOfStock, pendingOrders, totalMeds, lowStockMeds });
+      return res.json({ 
+        lowStockItems: lowStockItems || 0, 
+        outOfStock: outOfStock || 0, 
+        pendingOrders: pendingOrders || 0, 
+        totalMeds: totalMeds || 0, 
+        lowStockMeds: lowStockMeds || [] 
+      });
     }
 
     /* ──────────────────────────────────────────────────────
        LAB TECH — pending/completed/urgent tests
     ────────────────────────────────────────────────────── */
     if (role === 'lab_technician') {
-      // ✅ FIX: 'Pending' -> 'Ordered' (real enum value for a freshly
-      // ordered, not-yet-actioned lab), and priority 'urgent' -> 'Urgent'
-      // (Lab.priority enum is ['Normal', 'Urgent', 'STAT'], case-sensitive).
       const [pendingLabs, completedLabs, urgentLabs, totalLabs, pendingLabList] = await Promise.all([
         Lab.countDocuments({ clinicId, status: 'Ordered' }),
         Lab.countDocuments({ clinicId, status: 'Completed', updatedAt: { $gte: today } }),
@@ -283,11 +283,21 @@ router.get('/stats', auth, async (req, res) => {
           .limit(8),
       ]);
 
-      return res.json({ pendingLabs, completedLabs, urgentLabs, totalLabs, pendingLabList });
+      return res.json({ 
+        pendingLabs: pendingLabs || 0, 
+        completedLabs: completedLabs || 0, 
+        urgentLabs: urgentLabs || 0, 
+        totalLabs: totalLabs || 0, 
+        pendingLabList: pendingLabList || [] 
+      });
     }
 
-    /* Fallback */
-    return res.json({ todayAppointments, pendingAppointments, recentAppointments });
+    /* ── Fallback ── */
+    return res.json({ 
+      todayAppointments: todayAppointments || 0, 
+      pendingAppointments: pendingAppointments || 0, 
+      recentAppointments: recentAppointments || [] 
+    });
 
   } catch (err) {
     console.error('Dashboard error:', err);

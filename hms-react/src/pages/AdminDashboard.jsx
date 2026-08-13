@@ -525,37 +525,71 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   }, [clinicType]);
 
   useEffect(() => {
-    const checkTimings = async () => {
-      // Only check for clinic admins
-      if (user?.role === 'admin' && clinicType === 'clinic') {
-        try {
-          const response = await API.get('/clinics/timings');
-          console.log(response);
-          if (response.data.success) {
-            const { openingHours, name } = response.data;
-            setClinicName(name || 'Clinic');
-            
-            // Check if timings exist (all days have open/close)
-            const hasTimings = openingHours && 
-              ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-                .every(day => openingHours[day] && openingHours[day].open && openingHours[day].close);
-            
-            if (!hasTimings) {
-              setShowTimingsModal(true);
-              setClinicTimingsData(openingHours);
-            }
-          }
-        } catch (err) {
-          console.error('Failed to check clinic timings:', err);
-        }
-      }
-      setTimingsChecked(true);
-    };
+  const checkTimings = async () => {
+    // Only check for clinic admins
+    if (user?.role === 'admin' && clinicType === 'clinic') {
+      try {
+        const response = await API.get('/clinics/timings');
 
-    if (clinic && !timingsChecked) {
-      checkTimings();
+        if (response.data.success) {
+          const { openingHours, clinicName } = response.data;
+
+          setClinicName(clinicName || 'Clinic');
+
+          const days = [
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+            'sunday'
+          ];
+
+          const hasTimings =
+            openingHours &&
+            days.every(day => {
+              const dayData = openingHours[day];
+
+              if (!dayData) return false;
+
+              // Closed day is valid
+              if (dayData.isOpen === false) {
+                return true;
+              }
+
+              // Open day must have valid opening and closing times
+              return (
+                dayData.isOpen === true &&
+                typeof dayData.open === 'string' &&
+                dayData.open.trim() !== '' &&
+                typeof dayData.close === 'string' &&
+                dayData.close.trim() !== ''
+              );
+            });
+
+          console.log('Opening hours:', openingHours);
+          console.log('Has timings:', hasTimings);
+
+          if (!hasTimings) {
+            setShowTimingsModal(true);
+            setClinicTimingsData(openingHours);
+          } else {
+            setShowTimingsModal(false);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check clinic timings:', err);
+      }
     }
-  }, [clinic, user, clinicType, timingsChecked]);
+
+    setTimingsChecked(true);
+  };
+
+  if (clinic && !timingsChecked) {
+    checkTimings();
+  }
+}, [clinic, user, clinicType, timingsChecked]);
 
   // ── Clinic type check ──
   useEffect(() => {
