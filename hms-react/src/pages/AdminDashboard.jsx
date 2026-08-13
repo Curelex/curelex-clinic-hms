@@ -4,7 +4,7 @@ import {
   DashboardLayout, Card, Stat, Btn, Badge, Input, Select,
   Modal, Alert, SectionHeader, Empty, TokenBadge,
 } from '../components/UI';
-
+import ClinicTimingsModal from '../components/ClinicTimingsModal';
 import { useClinicAdmin } from '../hooks/useClinicAdmin';
 import { useAuth } from '../context/AuthContext';
 import { isSectionVisible, canAddStaff, getPlanConfig, isFeatureVisible } from '../utils/planConfig';
@@ -393,6 +393,11 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   const isLoadingRef = useRef(false);
   const initialLoadDone = useRef(false);
   const reloadTimeoutRef = useRef(null);
+  const [showTimingsModal, setShowTimingsModal] = useState(false);
+  const [timingsChecked, setTimingsChecked] = useState(false);
+  const [clinicTimingsData, setClinicTimingsData] = useState(null);
+  const [clinicName, setClinicName] = useState('');
+
 
   const [notifications, setNotifications] = useState({
     lowStock: [],
@@ -518,6 +523,48 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
       window.location.href = '/dashboard';
     }
   }, [clinicType]);
+
+  useEffect(() => {
+    const checkTimings = async () => {
+      // Only check for clinic admins
+      if (user?.role === 'admin' && clinicType === 'clinic') {
+        try {
+          const response = await API.get('/clinics/timings');
+          console.log(response);
+          if (response.data.success) {
+            const { openingHours, name } = response.data;
+            setClinicName(name || 'Clinic');
+            
+            // Check if timings exist (all days have open/close)
+            const hasTimings = openingHours && 
+              ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                .every(day => openingHours[day] && openingHours[day].open && openingHours[day].close);
+            
+            if (!hasTimings) {
+              setShowTimingsModal(true);
+              setClinicTimingsData(openingHours);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to check clinic timings:', err);
+        }
+      }
+      setTimingsChecked(true);
+    };
+
+    if (clinic && !timingsChecked) {
+      checkTimings();
+    }
+  }, [clinic, user, clinicType, timingsChecked]);
+
+  // ── Clinic type check ──
+  useEffect(() => {
+    if (clinicType && clinicType !== 'clinic') {
+      console.log('⚠️ Not a clinic, redirecting...');
+      window.location.href = '/dashboard';
+    }
+  }, [clinicType]);
+
 
   // ── Plan visibility check ──
   const safePlan = useMemo(() => {
@@ -719,6 +766,18 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   return (
     <>
       <div style={{ filter: active ? 'none' : 'blur(3px) brightness(0.88)', pointerEvents: active ? 'auto' : 'none', userSelect: active ? 'auto' : 'none', transition: 'filter 0.3s' }}>
+        {showTimingsModal && (
+  <ClinicTimingsModal
+    isOpen={showTimingsModal}
+    onClose={() => setShowTimingsModal(false)}
+    onSave={(timings) => {
+      // Update local state if needed
+      setTimingsChecked(true);
+    }}
+    clinicType={clinic?.type || 'clinic'}
+    clinicName={clinic?.name || ''}
+  />
+)}
         <DashboardLayout
           title="Admin Dashboard"
           subtitle={`Welcome, ${clinic.owner || 'Admin'}`}
@@ -779,6 +838,20 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
         </DashboardLayout>
       </div>
       {!active && <PlanGateOverlay clinicName={clinic.name} onChoosePlan={onChoosePlan} />}
+      {showTimingsModal && (
+        <ClinicTimingsModal
+          isOpen={showTimingsModal}
+          onClose={() => setShowTimingsModal(false)}
+          onSave={(timings) => {
+            setShowTimingsModal(false);
+            setTimingsChecked(true);
+            // Optionally refresh clinic data
+          }}
+          clinicType="clinic"
+          clinicName={clinic?.name || 'Clinic'}
+          initialTimings={clinicTimingsData}
+        />
+      )}
     </>
   );
 }
@@ -2381,7 +2454,7 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   );
 }
 
-// AdminDashboard.jsx - Updated PharmacistManagement component
+
 
 function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefresh }) {
   const [show, setShow] = useState(false);
@@ -2870,6 +2943,7 @@ function ClinicSettings({ clinic, user, onSave }) {
   const [err, setErr] = useState('');
   const [planStatus, setPlanStatus] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
+  const [displayTimings, setDisplayTimings] = useState(null);
 
   const { pincode: lookupPin, setPincode: setLookupPin, fetchedData, loading: pinLoading, error: pinError } = usePincodeLookup();
 
@@ -2891,6 +2965,10 @@ function ClinicSettings({ clinic, user, onSave }) {
   }, []);
 
   useEffect(() => {
+  fetchTimings();
+}, []);
+
+  useEffect(() => {
     if (!fetchedData || !fetchedData.length) return;
     const first = fetchedData[0];
     setForm((prev) => ({
@@ -2901,6 +2979,17 @@ function ClinicSettings({ clinic, user, onSave }) {
       city: first.Division || prev.city,
     }));
   }, [fetchedData]);
+
+  const fetchTimings = async () => {
+  try {
+    const response = await API.get('/clinics/timings');
+    if (response.data.success) {
+      setDisplayTimings(response.data.openingHours);
+    }
+  } catch (err) {
+    console.error('Failed to fetch timings:', err);
+  }
+};
 
   function handlePincodeChange(val) {
     const clean = val.replace(/\D/g, '').slice(0, 6);
@@ -3218,6 +3307,62 @@ function ClinicSettings({ clinic, user, onSave }) {
         {err && <Alert type="error" style={{ marginBottom: 14 }}>{err}</Alert>}
         <Btn onClick={save} disabled={busy} full size="lg">{busy ? 'Saving…' : '💾 Save Clinic Settings'}</Btn>
       </Card>
+
+      {displayTimings && (
+  <Card style={{ marginBottom: 20 }}>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      marginBottom: 12 
+    }}>
+      <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>⏰ Operating Hours</h3>
+      <button
+        onClick={() => setShowTimingsModal(true)}
+        style={{
+          padding: '6px 16px',
+          borderRadius: '8px',
+          border: '1px solid #2d6be4',
+          background: 'transparent',
+          color: '#2d6be4',
+          fontSize: '13px',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        ✏️ Edit
+      </button>
+    </div>
+    <div style={{ 
+      display: 'grid', 
+      gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+      gap: '8px' 
+    }}>
+      {Object.entries(displayTimings).map(([day, data]) => (
+        <div key={day} style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          background: data.isOpen ? '#f8fafc' : '#f1f5f9',
+        }}>
+          <span style={{ 
+            fontWeight: data.isOpen ? 600 : 400,
+            color: data.isOpen ? '#1a2236' : '#94a3b8' 
+          }}>
+            {day.charAt(0).toUpperCase() + day.slice(1)}
+          </span>
+          <span style={{
+            fontWeight: 600,
+            color: data.isOpen ? '#16a34a' : '#94a3b8'
+          }}>
+            {data.isOpen ? `${data.open} - ${data.close}` : 'Closed'}
+          </span>
+        </div>
+      ))}
+    </div>
+  </Card>
+)}
     </div>
   );
 }

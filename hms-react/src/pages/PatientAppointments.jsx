@@ -146,6 +146,49 @@ export default function PatientAppointments() {
     setDoctorsLoading(false);
   }
 
+  const checkClinicOpen = async (clinicId) => {
+  if (!clinicId) {
+    setPayError('Clinic not selected. Please select a clinic first.');
+    return false;
+  }
+
+  try {
+    const { data } = await API.get(`/clinics/check-open?clinicId=${clinicId}`);
+    
+    if (data.success) {
+      // Check if timings exist
+      if (!data.todayHours) {
+        setPayError('This clinic has not set their operating hours yet. Please contact the clinic directly.');
+        return false;
+      }
+      
+      if (!data.isOpen) {
+        const hours = data.todayHours;
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[new Date().getDay()];
+        
+        let message = `🏥 This clinic is currently closed.`;
+        if (hours && !hours.isOpen) {
+          message = `🏥 This clinic is closed on ${dayName}.`;
+        } else if (hours && hours.open && hours.close) {
+          message = `🏥 This clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
+        } else {
+          message = `🏥 This clinic is currently closed.`;
+        }
+        setPayError(message);
+        return false;
+      }
+      return true;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to check clinic status:', err);
+    // If the API fails, allow booking but show a warning
+    setPayError('⚠️ Could not verify clinic hours. Please confirm with the clinic.');
+    return true; // Allow booking if check fails (fallback)
+  }
+};
+
   const handleLogout = () => { logout(); navigate('/patient-login'); };
   const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
 
@@ -204,59 +247,80 @@ export default function PatientAppointments() {
   };
 
   const handleConfirmPayment = async () => {
-    setPayError('');
-    if (payMethod === 'card') {
-      if (!cardNumber || !cardExpiry || !cardCvv) {
-        setPayError('Please fill in all card details.');
-        return;
-      }
-    } else if (payMethod === 'upi') {
-      if (!upiId) { setPayError('Please enter your UPI ID.'); return; }
+  setPayError('');
+  
+  // Validate payment method
+  if (payMethod === 'card') {
+    if (!cardNumber || !cardExpiry || !cardCvv) {
+      setPayError('Please fill in all card details.');
+      return;
     }
-
-    setPaying(true);
-    try {
-      const payRes = await API.post(`/patient-portal/payments/mock`, {
-        doctorId: form.doctorId,
-        amount: selectedDoctor?.consultationFee || 0,
-        method: payMethod,
-      });
-
-      if (!payRes.data.success) {
-        setPayError('Payment failed. Please try again.');
-        setPaying(false);
-        return;
-      }
-
-      const { paymentStatus, transactionId, paidAt } = payRes.data.payment;
-
-      setSubmitting(true);
-      const res = await API.post(`/patient-portal/${patientId}/appointments`, {
-        name:             form.name,
-        age:              form.age,
-        gender:           form.gender,
-        symptoms:         form.symptoms,
-        clinicId:         form.clinicId,
-        doctorId:         form.doctorId,
-        consultationType: form.consultationType,
-        paymentStatus,
-        transactionId,
-        paidAt,
-        method: payMethod,
-      });
-
-      if (res.data.success) {
-        setShowModal(false);
-        loadAppointments();
-      } else {
-        setPayError(res.data.message || 'Could not create token after payment.');
-      }
-    } catch (err) {
-      setPayError(err.response?.data?.message || 'Payment could not be completed. Please try again.');
+  } else if (payMethod === 'upi') {
+    if (!upiId) { 
+      setPayError('Please enter your UPI ID.'); 
+      return; 
     }
+  }
+
+  // ── NEW: Check if clinic is open BEFORE processing payment ──
+  if (!form.clinicId) {
+    setPayError('Please select a clinic first.');
+    return;
+  }
+
+  const isOpen = await checkClinicOpen(form.clinicId);
+  if (!isOpen) {
+    // Error message is already set in checkClinicOpen
     setPaying(false);
-    setSubmitting(false);
-  };
+    return;
+  }
+
+  setPaying(true);
+  try {
+    // Mock payment
+    const payRes = await API.post(`/patient-portal/payments/mock`, {
+      doctorId: form.doctorId,
+      amount: selectedDoctor?.consultationFee || 0,
+      method: payMethod,
+    });
+
+    if (!payRes.data.success) {
+      setPayError('Payment failed. Please try again.');
+      setPaying(false);
+      return;
+    }
+
+    const { paymentStatus, transactionId, paidAt } = payRes.data.payment;
+
+    setSubmitting(true);
+    const res = await API.post(`/patient-portal/${patientId}/appointments`, {
+      name: form.name,
+      age: form.age,
+      gender: form.gender,
+      symptoms: form.symptoms,
+      clinicId: form.clinicId,
+      doctorId: form.doctorId,
+      consultationType: form.consultationType,
+      paymentStatus,
+      transactionId,
+      paidAt,
+      method: payMethod,
+    });
+
+    if (res.data.success) {
+      setShowModal(false);
+      loadAppointments();
+      toast.success('Appointment booked successfully!');
+    } else {
+      setPayError(res.data.message || 'Could not create token after payment.');
+    }
+  } catch (err) {
+    console.error('Booking error:', err);
+    setPayError(err.response?.data?.message || 'Payment could not be completed. Please try again.');
+  }
+  setPaying(false);
+  setSubmitting(false);
+};
 
   // ── Cancel an appointment (patient-initiated) ─────────────────────────
   const handleCancelAppointment = async (tokenId) => {

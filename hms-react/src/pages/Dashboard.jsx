@@ -10,6 +10,7 @@ import heroAdmin from "../../assets/hero-admin.png";
 import curelexLogo from "../../assets/logo.png";
 import heroDoctor from "../../assets/hero-doctor.jpg";
 import { isFeatureVisible, isSectionVisible } from '../utils/planConfig';
+import ClinicTimingsModal from '../components/ClinicTimingsModal';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -572,6 +573,11 @@ export default function Dashboard() {
   const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
   const showDoctorWidgets = isDoctor || isSuperAdmin;
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [showTimingsModal, setShowTimingsModal] = useState(false);
+  const [timingsChecked, setTimingsChecked] = useState(false);
+  const [clinicTimingsData, setClinicTimingsData] = useState(null);
+  const [clinicName, setClinicName] = useState('');
+
 
   const clinicId = getEffectiveClinicId() || 'default';
 
@@ -590,6 +596,38 @@ export default function Dashboard() {
     activePlan,
     isAdmin
   });
+
+  useEffect(() => {
+  const checkTimings = async () => {
+    // Only check for hospital admins
+    if (user?.role === 'admin' && isHospitalUser) {
+      try {
+        const response = await API.get('/clinics/timings');
+        if (response.data.success) {
+          const { openingHours, clinicName: name } = response.data;
+          setClinicName(name || 'Hospital');
+          
+          // Check if timings exist (all days have open/close)
+          const hasTimings = openingHours && 
+            ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+              .every(day => openingHours[day] && openingHours[day].open && openingHours[day].close);
+          
+          if (!hasTimings) {
+            setShowTimingsModal(true);
+            setClinicTimingsData(openingHours);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check hospital timings:', err);
+      }
+    }
+    setTimingsChecked(true);
+  };
+
+  if (user && !timingsChecked) {
+    checkTimings();
+  }
+}, [user, isHospitalUser, timingsChecked]);
 
   useEffect(() => {
     // If user is a clinic admin, redirect to clinic dashboard
@@ -766,6 +804,21 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* ── Timings Modal ──
+      {showTimingsModal && (
+        <ClinicTimingsModal
+          isOpen={showTimingsModal}
+          onClose={() => setShowTimingsModal(false)}
+          onSave={(timings) => {
+            setShowTimingsModal(false);
+            setTimingsChecked(true);
+          }}
+          clinicType="hospital"
+          clinicName={clinicName || 'Hospital'}
+          initialTimings={clinicTimingsData}
+        />
+      )} */}
 
       {showDoctorWidgets && user?.role !== 'separate_doctor' && <DoctorEmergencyAlerts />}
 
@@ -1155,6 +1208,20 @@ export default function Dashboard() {
           <p className="text-muted text-small">Ask your admin to grant you access to the modules you need.</p>
         </div>
       )}
+
+      {showTimingsModal && (
+  <ClinicTimingsModal
+    isOpen={showTimingsModal}
+    onClose={() => setShowTimingsModal(false)}
+    onSave={(timings) => {
+      setShowTimingsModal(false);
+      setTimingsChecked(true);
+    }}
+    clinicType="hospital"
+    clinicName={clinicName || 'Hospital'}
+    initialTimings={clinicTimingsData}
+  />
+)}
     </div>
   );
 }
