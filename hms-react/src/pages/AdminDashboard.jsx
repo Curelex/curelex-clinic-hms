@@ -525,15 +525,15 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   }, [clinic?.plan]);
 
   useEffect(() => {
-  const section = TAB_TO_SECTION[tab];
-  if (section && !isSectionVisible('clinic', safePlan, section)) {
-    console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
-    setTab('overview');
-  }
-}, [safePlan, tab]);
+    const section = TAB_TO_SECTION[tab];
+    if (section && !isSectionVisible('clinic', safePlan, section)) {
+      console.log(`⚠️ Section ${section} not visible in plan ${safePlan}, switching to overview`);
+      setTab('overview');
+    }
+  }, [safePlan, tab]);
 
   // ── Safe data access with null checks ──
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA');
   const doctors = Array.isArray(users) ? users.filter((u) => u?.role === 'doctor') : [];
   const receptionists = Array.isArray(users) ? users.filter((u) => u?.role === 'receptionist') : [];
   const pharmacists = Array.isArray(users) ? users.filter((u) => u?.role === 'pharmacist') : [];
@@ -685,35 +685,35 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
     </span>
   );
 
-// In AdminDashboard.jsx - update navItems
+  // In AdminDashboard.jsx - update navItems
 
-const navItems = [
-  { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
-  { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
-  { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
-  { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
-  { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
-  { icon: '🎫', label: 'Token Queue', section: 'tokens', tab: 'tokens', badge: undefined },
-  { icon: '📋', label: 'Prescriptions', section: 'prescriptions', tab: 'prescriptions', badge: undefined },  // ← ADD THIS
-  { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
-  { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
-  { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
-]
-.filter(item => {
-  const planKey = safePlan || 'free';
-  const isVisible = isSectionVisible('clinic', planKey, item.section);
-  return isVisible;
-})
-.map(item => ({
-  icon: item.icon,
-  label: item.label,
-  active: tab === item.tab,
-  onClick: () => setTab(item.tab),
-  badge: item.badge,
-}));
+  const navItems = [
+    { icon: '📊', label: 'Overview', section: 'overview', tab: 'overview', badge: undefined },
+    { icon: '👨‍⚕️', label: 'Doctors', section: 'doctors', tab: 'doctors', badge: doctors.length || undefined },
+    { icon: '📋', label: 'Receptionists', section: 'receptionists', tab: 'receptionists', badge: receptionists.length || undefined },
+    { icon: '👥', label: 'All Patients', section: 'allPatients', tab: 'patients', badge: undefined },
+    { icon: '📅', label: 'Follow-ups', section: 'followUps', tab: 'followups', badge: followUpPatients.length || undefined },
+    { icon: '🎫', label: 'Token Queue', section: 'tokens', tab: 'tokens', badge: undefined },
+    { icon: '📋', label: 'Prescriptions', section: 'prescriptions', tab: 'prescriptions', badge: undefined },  // ← ADD THIS
+    { icon: '⚙️', label: 'Settings', section: 'settings', tab: 'settings', badge: undefined },
+    { icon: '💊', label: 'Pharmacists', section: 'pharmacists', tab: 'pharmacists', badge: pharmacists.length || undefined },
+    { icon: '💰', label: 'Revenue', section: 'revenue', tab: 'revenue', badge: undefined },
+  ]
+    .filter(item => {
+      const planKey = safePlan || 'free';
+      const isVisible = isSectionVisible('clinic', planKey, item.section);
+      return isVisible;
+    })
+    .map(item => ({
+      icon: item.icon,
+      label: item.label,
+      active: tab === item.tab,
+      onClick: () => setTab(item.tab),
+      badge: item.badge,
+    }));
 
   // ── Check if pharmacists are allowed in this plan ──
-  const planConfig = getPlanConfig('clinic',safePlan);
+  const planConfig = getPlanConfig('clinic', safePlan);
   const canManagePharmacists = planConfig.maxPharmacists !== 0;
 
   return (
@@ -737,25 +737,25 @@ const navItems = [
             duesTotal={duesTotal}
           />}
           {tab === 'tokens' && (
-  <TokenQueue 
-    clinicId={clinic?._id} 
-    activePlan={safePlan}
-  />
-)}
+            <TokenQueue
+              clinicId={clinic?._id}
+              activePlan={safePlan}
+            />
+          )}
           {tab === 'doctors' && <DoctorManagement doctors={doctors} patients={patientList} onAdd={handleAddUser} onDelete={handleDeleteUser} onUpdateTokenLimit={handleUpdateTokenLimit} onUpdateDoctor={handleUpdateDoctor} activePlan={safePlan} reload={reload} />}
           {tab === 'receptionists' && <ReceptionistManagement receptionists={receptionists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
           {tab === 'patients' && <AllPatients patients={patientList} clinicName={clinic?.name} />}
           {tab === 'prescriptions' && (
-  <ClinicPrescriptions 
-    clinicId={clinic?._id} 
-    activePlan={safePlan}
-    onRefresh={() => {
-      // Refresh parent if needed
-    }}
-  />
-)}
+            <ClinicPrescriptions
+              clinicId={clinic?._id}
+              activePlan={safePlan}
+              onRefresh={() => {
+                // Refresh parent if needed
+              }}
+            />
+          )}
           {tab === 'followups' && <AdminFollowUps patients={patientList} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
-          {tab === 'settings' && <ClinicSettings clinic={clinic} onSave={handleSaveClinic} />}
+          {tab === 'settings' && <ClinicSettings clinic={clinic} user={user} onSave={handleSaveClinic} />}
           {tab === 'pharmacists' && canManagePharmacists && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
           {tab === 'pharmacists' && !canManagePharmacists && (
             <Card style={{ textAlign: 'center', padding: 40 }}>
@@ -809,11 +809,11 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
   // ── Grace Period Warning Banner ──
   const renderGracePeriodWarning = () => {
     if (!planStatus) return null;
-    
+
     const isGracePeriod = planStatus.planStatus === 'grace_period';
     const isExpired = planStatus.planStatus === 'expired';
     const daysRemaining = planStatus.daysRemaining || 0;
-    
+
     if (isExpired && planStatus.isDataLocked) {
       return (
         <div style={{
@@ -857,7 +857,7 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
         </div>
       );
     }
-    
+
     if (isGracePeriod) {
       const isUrgent = daysRemaining <= 3;
       return (
@@ -876,20 +876,20 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '28px' }}>{isUrgent ? '⚠️' : '⏳'}</span>
             <div>
-              <div style={{ 
-                fontWeight: '700', 
-                color: isUrgent ? '#92400e' : '#78350f', 
-                fontSize: '16px' 
+              <div style={{
+                fontWeight: '700',
+                color: isUrgent ? '#92400e' : '#78350f',
+                fontSize: '16px'
               }}>
                 {isUrgent ? '⚠️ Grace Period Ending Soon!' : '⏳ Grace Period Active'}
               </div>
-              <div style={{ 
-                color: isUrgent ? '#78350f' : '#92400e', 
-                fontSize: '13px', 
-                marginTop: '2px' 
+              <div style={{
+                color: isUrgent ? '#78350f' : '#92400e',
+                fontSize: '13px',
+                marginTop: '2px'
               }}>
-                Your {planStatus.planLabel || planStatus.plan} plan expired. You have 
-                <strong style={{ color: isUrgent ? '#dc2626' : '#d97706' }}> {daysRemaining} </strong> 
+                Your {planStatus.planLabel || planStatus.plan} plan expired. You have
+                <strong style={{ color: isUrgent ? '#dc2626' : '#d97706' }}> {daysRemaining} </strong>
                 day{daysRemaining > 1 ? 's' : ''} left in the grace period.
                 {isUrgent && ' Please renew immediately to avoid data lock!'}
               </div>
@@ -913,7 +913,7 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
         </div>
       );
     }
-    
+
     // If plan is active but expiring soon (less than 7 days)
     if (planStatus.planStatus === 'active' && daysRemaining > 0 && daysRemaining <= 7 && planStatus.plan !== 'free') {
       return (
@@ -958,7 +958,7 @@ function Overview({ clinic, doctors, todayPatients, paidTotal, duesTotal }) {
         </div>
       );
     }
-    
+
     return null;
   };
   return (
@@ -1910,8 +1910,8 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more doctors based on plan
-  const canAdd = canAddStaff('clinic',activePlan, 'doctors', doctors.length);
-  const planConfig = getPlanConfig('clinic',activePlan);
+  const canAdd = canAddStaff('clinic', activePlan, 'doctors', doctors.length);
+  const planConfig = getPlanConfig('clinic', activePlan);
   const maxDoctors = planConfig.maxDoctors === -1 ? '∞' : planConfig.maxDoctors;
 
   function handleEnterKey(e) {
@@ -2196,8 +2196,8 @@ function ReceptionistManagement({ receptionists, onAdd, onDelete, activePlan }) 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   // Check if can add more receptionists based on plan
-  const canAdd = canAddStaff('clinic',activePlan, 'receptionists', receptionists.length);
-  const planConfig = getPlanConfig('clinic',activePlan);
+  const canAdd = canAddStaff('clinic', activePlan, 'receptionists', receptionists.length);
+  const planConfig = getPlanConfig('clinic', activePlan);
   const maxReceptionists = planConfig.maxReceptionists === -1 ? '∞' : planConfig.maxReceptionists;
 
   function handleEnterKey(e) {
@@ -2392,10 +2392,10 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
 
   // ── FIX: Check if can add more pharmacists based on plan ──
   // If plan is 'pro' or 'plus', pharmacists should be allowed
-  const planConfig = getPlanConfig('clinic',activePlan || 'free');
+  const planConfig = getPlanConfig('clinic', activePlan || 'free');
   const maxPharmacists = planConfig.maxPharmacists || 0;
   const canAddMore = maxPharmacists === -1 || pharmacists.length < maxPharmacists;
-  
+
   // ── FIX: If maxPharmacists is 0, show upgrade message ──
   const showUpgradeMessage = maxPharmacists === 0 || (!canAddMore && maxPharmacists > 0);
 
@@ -2506,7 +2506,7 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
     }
   }
 
- return (
+  return (
     <div>
       <SectionHeader
         title="Pharmacists"
@@ -2857,10 +2857,10 @@ function usePincodeLookup() {
 
 // hms-react/src/pages/AdminDashboard.jsx - Updated Clinic Component
 
-function ClinicSettings({ clinic, onSave }) {
+function ClinicSettings({ clinic, user, onSave }) {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    name: clinic.name || '', owner: clinic.owner || '', phone: clinic.phone || '',
+    name: clinic.name || '', owner: clinic.owner || user?.name || '', phone: clinic.phone || '',
     email: clinic.email || '', address: clinic.address || '', pincode: clinic.pincode || '',
     state: clinic.state || '', district: clinic.district || '',
     subDistrict: clinic.subDistrict || '', city: clinic.city || '',
@@ -2923,9 +2923,21 @@ function ClinicSettings({ clinic, onSave }) {
   }
 
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-  const districts = form.state ? (INDIA_STATES_DISTRICTS[form.state] || []) : [];
-  const subDistrictOptions = fetchedData ? [...new Set(fetchedData.map((po) => po.Block).filter(Boolean))].sort() : [];
-  const postOfficeOptions = fetchedData ? fetchedData.map((po) => po.Name).filter(Boolean).sort() : [];
+  const stateOptions = fetchedData
+    ? [...new Set(fetchedData.map((po) => po.State).filter(Boolean))].sort()
+    : INDIA_STATE_NAMES;
+
+  const districts = fetchedData
+    ? [...new Set(fetchedData.map((po) => po.District).filter(Boolean))].sort()
+    : (form.state ? (INDIA_STATES_DISTRICTS[form.state] || []) : []);
+
+  const subDistrictOptions = fetchedData
+    ? [...new Set(fetchedData.map((po) => po.Block).filter(Boolean))].sort()
+    : [];
+
+  const postOfficeOptions = fetchedData
+    ? [...new Set(fetchedData.map((po) => po.Name).filter(Boolean))].sort()
+    : [];
 
   async function save() {
     setBusy(true); setErr('');
@@ -2942,40 +2954,40 @@ function ClinicSettings({ clinic, onSave }) {
     if (loadingPlan) {
       return { label: 'Loading...', color: '#94a3b8', bg: '#f1f5f9' };
     }
-    
+
     if (!planStatus || !planStatus.plan || planStatus.plan === 'free') {
-      return { 
-        label: 'Free Plan', 
-        color: '#6c757d', 
+      return {
+        label: 'Free Plan',
+        color: '#6c757d',
         bg: '#f0f4f8',
         showUpgrade: true,
         upgradeLabel: 'Choose a Plan →'
       };
     }
-    
+
     if (planStatus.planStatus === 'expired') {
-      return { 
-        label: `${planStatus.planLabel || planStatus.plan} (Expired)`, 
-        color: '#dc3545', 
+      return {
+        label: `${planStatus.planLabel || planStatus.plan} (Expired)`,
+        color: '#dc3545',
         bg: '#fee2e2',
         showUpgrade: true,
         upgradeLabel: '🔄 Renew Now'
       };
     }
-    
+
     if (planStatus.planStatus === 'grace_period') {
-      return { 
-        label: `${planStatus.planLabel || planStatus.plan} (Grace Period: ${planStatus.daysRemaining || 0} days left)`, 
-        color: '#f59e0b', 
+      return {
+        label: `${planStatus.planLabel || planStatus.plan} (Grace Period: ${planStatus.daysRemaining || 0} days left)`,
+        color: '#f59e0b',
         bg: '#fef3c7',
         showUpgrade: true,
         upgradeLabel: '🔄 Renew Now'
       };
     }
-    
-    return { 
-      label: `${planStatus.planLabel || planStatus.plan} Plan (Active)`, 
-      color: '#00a878', 
+
+    return {
+      label: `${planStatus.planLabel || planStatus.plan} Plan (Active)`,
+      color: '#00a878',
       bg: '#e8f9f5',
       showUpgrade: true,
       upgradeLabel: '⬆ Upgrade Plan'
@@ -2987,85 +2999,85 @@ function ClinicSettings({ clinic, onSave }) {
   return (
     <div style={{ maxWidth: 680 }}>
       <SectionHeader title="Clinic Settings" subtitle="Manage your clinic information" />
-      
+
       {/* ── Plan Management Card ── */}
       <Card style={{ marginBottom: 20, border: `2px solid ${planDisplay.color}30` }}>
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    flexWrap: 'wrap',
-    gap: '12px'
-  }}>
-    <div>
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📋 Current Plan</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        <span style={{
-          display: 'inline-flex',
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 14px',
-          borderRadius: '20px',
-          fontSize: '13px',
-          fontWeight: 700,
-          background: planDisplay.bg,
-          color: planDisplay.color,
-          border: `1px solid ${planDisplay.color}30`,
+          flexWrap: 'wrap',
+          gap: '12px'
         }}>
-          <span style={{
-            display: 'inline-block',
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: planDisplay.color,
-          }} />
-          {planDisplay.label}
-        </span>
-        {planStatus && planStatus.daysRemaining > 0 && planStatus.plan !== 'free' && planStatus.planStatus === 'active' && (
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
-            {planStatus.daysRemaining} days remaining
-          </span>
-        )}
-        {planStatus && planStatus.planExpiresAt && planStatus.plan !== 'free' && (
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
-            Expires: {new Date(planStatus.planExpiresAt).toLocaleDateString('en-IN', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric'
-            })}
-          </span>
-        )}
-      </div>
-    </div>
-    <button
-      onClick={() => {
-        console.log('🔘 Upgrade button clicked, navigating to /plans');
-        navigate('/plans');
-      }}
-      style={{
-        padding: '8px 20px',
-        borderRadius: '8px',
-        border: 'none',
-        background: planDisplay.color,
-        color: '#fff',
-        fontWeight: 700,
-        fontSize: '13px',
-        cursor: 'pointer',
-        transition: 'opacity 0.2s',
-        whiteSpace: 'nowrap',
-      }}
-      onMouseEnter={(e) => e.target.style.opacity = '0.85'}
-      onMouseLeave={(e) => e.target.style.opacity = '1'}
-    >
-      {planDisplay.upgradeLabel}
-    </button>
-  </div>
-        
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📋 Current Plan</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 14px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 700,
+                background: planDisplay.bg,
+                color: planDisplay.color,
+                border: `1px solid ${planDisplay.color}30`,
+              }}>
+                <span style={{
+                  display: 'inline-block',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: planDisplay.color,
+                }} />
+                {planDisplay.label}
+              </span>
+              {planStatus && planStatus.daysRemaining > 0 && planStatus.plan !== 'free' && planStatus.planStatus === 'active' && (
+                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                  {planStatus.daysRemaining} days remaining
+                </span>
+              )}
+              {planStatus && planStatus.planExpiresAt && planStatus.plan !== 'free' && (
+                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                  Expires: {new Date(planStatus.planExpiresAt).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              console.log('🔘 Upgrade button clicked, navigating to /plans');
+              navigate('/plans');
+            }}
+            style={{
+              padding: '8px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              background: planDisplay.color,
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+              transition: 'opacity 0.2s',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={(e) => e.target.style.opacity = '0.85'}
+            onMouseLeave={(e) => e.target.style.opacity = '1'}
+          >
+            {planDisplay.upgradeLabel}
+          </button>
+        </div>
+
         {/* ── Plan Features Summary ── */}
         {planStatus && planStatus.features && (
-          <div style={{ 
-            marginTop: '12px', 
-            paddingTop: '12px', 
+          <div style={{
+            marginTop: '12px',
+            paddingTop: '12px',
             borderTop: '1px solid #e8edf2',
             display: 'flex',
             flexWrap: 'wrap',
@@ -3098,7 +3110,7 @@ function ClinicSettings({ clinic, onSave }) {
             )}
           </div>
         )}
-        
+
         {/* ── Grace Period / Expired Warning ── */}
         {planStatus && (planStatus.planStatus === 'grace_period' || planStatus.planStatus === 'expired') && (
           <div style={{
@@ -3167,7 +3179,7 @@ function ClinicSettings({ clinic, onSave }) {
             <label style={labelStyle}>State / UT</label>
             <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.state} onChange={(e) => { f('state', e.target.value); f('district', ''); f('subDistrict', ''); }}>
               <option value="">-- Select State --</option>
-              {INDIA_STATE_NAMES.map((s) => <option key={s} value={s}>{s}</option>)}
+              {stateOptions.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
