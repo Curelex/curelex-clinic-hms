@@ -30,7 +30,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
   const [showReturningForm, setShowReturningForm] = useState(false);
   const [selectedReturningPatient, setSelectedReturningPatient] = useState(null);
   const [selectedReturningVisits, setSelectedReturningVisits] = useState([]);
-  
+
   const [genForm, setGenForm] = useState({
     patientId: '',
     doctorId: '',
@@ -50,7 +50,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
     totalFee: '',
     paid: '',
   });
-  
+
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState('');
   const [patientSearch, setPatientSearch] = useState('');
@@ -107,19 +107,19 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
     setSelectedReturningPatient(null);
     setShowReturningForm(false);
     clearTimeout(searchTimer);
-    
-    if (!val.trim()) { 
-      setPatientResults([]); 
-      return; 
+
+    if (!val.trim()) {
+      setPatientResults([]);
+      return;
     }
-    
+
     // If exactly 10 digits, search immediately
     const digits = val.replace(/\D/g, '');
     if (digits.length === 10) {
       searchPatients(digits);
       return;
     }
-    
+
     setIsSearching(true);
     setSearchTimer(setTimeout(async () => {
       await searchPatients(val);
@@ -127,28 +127,28 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
   };
 
   const searchPatients = async (query) => {
-  try {
-    
-    const { data } = await API.get(`/patients?search=${encodeURIComponent(query)}&limit=8&global=true`);
-    console.log(data);
-    setPatientResults(data.patients || []);
-  } catch (err) {
-    console.error('Patient search error:', err);
-    setPatientResults([]);
-  }
-  setIsSearching(false);
-};
+    try {
+
+      const { data } = await API.get(`/patients?search=${encodeURIComponent(query)}&limit=8&global=true`);
+      console.log(data);
+      setPatientResults(data.patients || []);
+    } catch (err) {
+      console.error('Patient search error:', err);
+      setPatientResults([]);
+    }
+    setIsSearching(false);
+  };
 
   const selectPatient = (patient) => {
     console.log('✅ Patient selected:', patient);
     setSelectedReturningPatient(patient);
-    
+
     // Get visit history
     const visits = patients
       .filter(p => p.phone === patient.phone && p.name?.toLowerCase() === patient.name?.toLowerCase())
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     setSelectedReturningVisits(visits);
-    
+
     setGenForm(prev => ({
       ...prev,
       patientId: patient._id,
@@ -290,7 +290,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
     } catch (err) {
       console.error('❌ Token generation error:', err);
       const errorMsg = err.response?.data?.message || 'Failed to generate token';
-      
+
       if (err.response?.data?.activeToken) {
         setActiveTokenError({
           message: errorMsg,
@@ -565,9 +565,9 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
 
       {/* ── Generate Token Modal ── */}
       {showGenerateModal && (
-        <Modal 
-          title={selectedReturningPatient ? 'Returning Patient — Generate Token' : 'Generate Token'} 
-          onClose={() => { setShowGenerateModal(false); resetForm(); }} 
+        <Modal
+          title={selectedReturningPatient ? 'Returning Patient — Generate Token' : 'Generate Token'}
+          onClose={() => { setShowGenerateModal(false); resetForm(); }}
           width={580}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -615,9 +615,9 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
                             {p.gender && ` · ${p.gender}`}
                           </div>
                         </div>
-                        <span style={{ 
-                          fontSize: 11, 
-                          color: '#0f4c81', 
+                        <span style={{
+                          fontSize: 11,
+                          color: '#0f4c81',
                           fontWeight: 600,
                           padding: '4px 10px',
                           borderRadius: 6,
@@ -715,6 +715,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
                     <label style={{ ...labelStyle, fontSize: 12 }}>Age</label>
                     <input
                       type="number"
+                      min="0"
                       value={genForm.age}
                       onChange={e => setGenForm({ ...genForm, age: e.target.value })}
                       placeholder="Age"
@@ -783,10 +784,10 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
                   </div>
                 </div>
 
-                <Btn 
-                  onClick={handleRegisterPatient} 
+                <Btn
+                  onClick={handleRegisterPatient}
                   disabled={registerBusy || !genForm.patientName || !genForm.phone || genForm.phone.length < 10}
-                  style={{ 
+                  style={{
                     marginTop: 12,
                     width: '100%',
                     opacity: (registerBusy || !genForm.patientName || !genForm.phone || genForm.phone.length < 10) ? 0.6 : 1,
@@ -819,7 +820,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
               {genForm.doctorId && (
                 <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>
                   ✅ Doctor selected: {doctors.find(d => d._id === genForm.doctorId)?.name}
-                  {doctors.find(d => d._id === genForm.doctorId)?.consultationFee > 0 && 
+                  {doctors.find(d => d._id === genForm.doctorId)?.consultationFee > 0 &&
                     ` · Fee: ₹${Number(doctors.find(d => d._id === genForm.doctorId)?.consultationFee).toLocaleString('en-IN')}`
                   }
                 </div>
@@ -923,11 +924,11 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
             )}
 
             {/* ── Debug: Form State ── */}
-            <div style={{ 
-              fontSize: 11, 
-              color: '#64748b', 
-              background: '#f8fafc', 
-              padding: 8, 
+            <div style={{
+              fontSize: 11,
+              color: '#64748b',
+              background: '#f8fafc',
+              padding: 8,
               borderRadius: 6,
               display: 'flex',
               gap: 16,
@@ -949,8 +950,8 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
               <Btn variant="ghost" onClick={() => { setShowGenerateModal(false); resetForm(); }}>
                 Cancel
               </Btn>
-              <Btn 
-                onClick={handleGenerateToken} 
+              <Btn
+                onClick={handleGenerateToken}
                 disabled={genLoading || !genForm.patientId || !genForm.doctorId}
                 style={{
                   opacity: (genLoading || !genForm.patientId || !genForm.doctorId) ? 0.6 : 1,

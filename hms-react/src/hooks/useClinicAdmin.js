@@ -3,12 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
 const STATUS_TO_CLINIC = { Waiting: 'waiting', Called: 'called', Done: 'done', Skipped: 'waiting', Pending: 'waiting' };
-const STATUS_TO_TOKEN  = { waiting: 'Waiting', called: 'Called', done: 'Done' };
+const STATUS_TO_TOKEN = { waiting: 'Waiting', called: 'Called', done: 'Done' };
 
 // Derives paid/dues purely from existing fields — no schema changes.
 function derivePayment(t) {
   const fee = t.consultationFee || 0;
-  if (t.paymentStatus === 'paid')    return { paid: t.paymentAmount || fee, dues: 0 };
+  if (t.paymentStatus === 'paid') return { paid: t.paymentAmount || fee, dues: 0 };
   if (t.paymentStatus === 'partial') return { paid: t.paymentAmount || 0, dues: Math.max(fee - (t.paymentAmount || 0), 0) };
   if (t.paymentStatus === 'refunded') return { paid: 0, dues: 0 };
   return { paid: 0, dues: fee }; // 'pending'
@@ -82,7 +82,7 @@ export function useClinicAdmin() {
         if (!clinicId) {
           throw new Error('No clinic ID found');
         }
-        const response = await API.put(`/clinics/${clinicId}`, updates);
+        const response = await API.put('/clinics/me', updates);
         return response.data;
       } catch (error) {
         return handleApiError(error, 'Failed to save clinic data');
@@ -144,8 +144,8 @@ export function useClinicAdmin() {
 
     updateTokenLimit: async (doctorId, limit) => {
       try {
-        const response = await API.put(`/auth/users/${doctorId}`, { 
-          dailyTokenLimit: limit 
+        const response = await API.put(`/auth/users/${doctorId}`, {
+          dailyTokenLimit: limit
         });
         return response.data;
       } catch (error) {
@@ -167,8 +167,8 @@ export function useClinicAdmin() {
 
     updatePatientStatus: async (id, status) => {
       try {
-        const response = await API.patch(`/tokens/${id}/status`, { 
-          status: STATUS_TO_TOKEN[status] || 'Waiting' 
+        const response = await API.patch(`/tokens/${id}/status`, {
+          status: STATUS_TO_TOKEN[status] || 'Waiting'
         });
         return tokenToPatient(response.data.token);
       } catch (error) {
@@ -178,9 +178,9 @@ export function useClinicAdmin() {
 
     updateFollowUp: async (id, followUpDate, followUpNote) => {
       try {
-        const response = await API.patch(`/tokens/${id}/follow-up`, { 
-          followUpDate, 
-          followUpNote 
+        const response = await API.patch(`/tokens/${id}/follow-up`, {
+          followUpDate,
+          followUpNote
         });
         return tokenToPatient(response.data);
       } catch (error) {
@@ -196,9 +196,9 @@ export function useClinicAdmin() {
           throw new Error('No clinic ID found');
         }
         const response = await API.get('/reports/revenue', {
-          params: { 
-            clinicId, 
-            fromDate, 
+          params: {
+            clinicId,
+            fromDate,
             toDate,
             clinicType: clinicType // Include clinic type for filtering
           }
