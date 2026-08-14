@@ -169,6 +169,60 @@ export const AuthProvider = ({ children }) => {
     };
   }, [user, patient, socket]);
 
+  const checkClinicTimings = useCallback(async () => {
+  try {
+    const response = await API.get('/clinics/timings');
+    if (response.data.success) {
+      const { openingHours, clinicName, clinicType } = response.data;
+      
+     // Check if timings are properly configured.
+// A closed day is valid without open/close times.
+const days = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday'
+];
+
+const hasTimings =
+  openingHours &&
+  days.every(day => {
+    const dayData = openingHours[day];
+
+    if (!dayData) return false;
+
+    // Closed day is valid
+    if (dayData.isOpen === false) {
+      return true;
+    }
+
+    // Open day must have both opening and closing times
+    return (
+      dayData.isOpen === true &&
+      typeof dayData.open === 'string' &&
+      dayData.open.trim() !== '' &&
+      typeof dayData.close === 'string' &&
+      dayData.close.trim() !== ''
+    );
+  });
+      
+      return {
+        hasTimings,
+        openingHours,
+        clinicName,
+        clinicType
+      };
+    }
+    return { hasTimings: false };
+  } catch (err) {
+    console.error('Failed to check clinic timings:', err);
+    return { hasTimings: false };
+  }
+}, []);
+
   // ── Doctor status management ─────────────────────────────────────────────
   const setDoctorOnline = useCallback((status) => {
     if (!user || (user.role !== 'doctor' && user.role !== 'separate_doctor')) return;
@@ -408,6 +462,7 @@ const login = async (email, password) => {
     authReady,
     hasPerm,
     clinicType,
+    checkClinicTimings,
     activePlan,
     isPatient,
     isDoctor,

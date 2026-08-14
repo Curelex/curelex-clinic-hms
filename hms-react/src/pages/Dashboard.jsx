@@ -10,6 +10,8 @@ import heroAdmin from "../../assets/hero-admin.png";
 import curelexLogo from "../../assets/logo.png";
 import heroDoctor from "../../assets/hero-doctor.jpg";
 import { isFeatureVisible, isSectionVisible } from '../utils/planConfig';
+import ClinicTimingsModal from '../components/ClinicTimingsModal';
+import { useIMSAnalytics } from '../hooks/useIMSAnalytics';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -572,6 +574,11 @@ export default function Dashboard() {
   const isSuperAdmin = user?.role?.toLowerCase() === 'super_admin';
   const showDoctorWidgets = isDoctor || isSuperAdmin;
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [showTimingsModal, setShowTimingsModal] = useState(false);
+  const [timingsChecked, setTimingsChecked] = useState(false);
+  const [clinicTimingsData, setClinicTimingsData] = useState(null);
+  const [clinicName, setClinicName] = useState('');
+
 
   const clinicId = getEffectiveClinicId() || 'default';
 
@@ -582,14 +589,88 @@ export default function Dashboard() {
     lowStock: [], outOfStock: [], dueMaintenance: [], overdueMaintenance: [],
   });
 
-  console.log('📊 Dashboard Debug:', { 
-    userRole: user?.role, 
-    clinicType, 
-    isClinicUser, 
-    isHospitalUser, 
-    activePlan,
-    isAdmin
-  });
+  const { stats: imsStats, loading: imsLoading, refresh: refreshIMS } = useIMSAnalytics(clinicId);
+
+  
+
+  useEffect(() => {
+  const checkTimings = async () => {
+    // Only check for hospital admins
+    if (user?.role === 'admin' && isHospitalUser) {
+      try {
+        const response = await API.get('/clinics/timings');
+
+        if (response.data.success) {
+          console.log(response.data);
+
+          const {
+            openingHours,
+            clinicName: name
+          } = response.data;
+
+          setClinicName(name || 'Hospital');
+
+          const days = [
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+            'sunday'
+          ];
+
+          // Timings are valid when:
+          // 1. Every day exists
+          // 2. Closed days are allowed without open/close times
+          // 3. Open days must have both open and close times
+          const hasTimings =
+            openingHours &&
+            days.every(day => {
+              const dayData = openingHours[day];
+
+              if (!dayData) {
+                return false;
+              }
+
+              // Closed day is valid
+              if (dayData.isOpen === false) {
+                return true;
+              }
+
+              // Open day must have valid opening and closing times
+              return (
+                dayData.isOpen === true &&
+                typeof dayData.open === 'string' &&
+                dayData.open.trim() !== '' &&
+                typeof dayData.close === 'string' &&
+                dayData.close.trim() !== ''
+              );
+            });
+
+          console.log('Opening Hours:', openingHours);
+          console.log('Has Timings:', hasTimings);
+
+          if (!hasTimings) {
+            setShowTimingsModal(true);
+            setClinicTimingsData(openingHours);
+          } else {
+            // Timings already configured → don't show popup
+            setShowTimingsModal(false);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check hospital timings:', err);
+      }
+    }
+
+    setTimingsChecked(true);
+  };
+
+  if (user && !timingsChecked) {
+    checkTimings();
+  }
+}, [user, isHospitalUser, timingsChecked]);
 
   useEffect(() => {
     // If user is a clinic admin, redirect to clinic dashboard
@@ -766,6 +847,21 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* ── Timings Modal ──
+      {showTimingsModal && (
+        <ClinicTimingsModal
+          isOpen={showTimingsModal}
+          onClose={() => setShowTimingsModal(false)}
+          onSave={(timings) => {
+            setShowTimingsModal(false);
+            setTimingsChecked(true);
+          }}
+          clinicType="hospital"
+          clinicName={clinicName || 'Hospital'}
+          initialTimings={clinicTimingsData}
+        />
+      )} */}
 
       {showDoctorWidgets && user?.role !== 'separate_doctor' && <DoctorEmergencyAlerts />}
 
@@ -1049,6 +1145,127 @@ export default function Dashboard() {
         </div>
       )}
 
+      {(user?.role === 'admin' || user?.role === 'super_admin') && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', margin: 0 }}>
+              📦 Pharmacy & Inventory Analytics
+            </h3>
+            <button 
+              onClick={refreshIMS} 
+              style={{
+                padding: '4px 12px',
+                borderRadius: 6,
+                border: '1px solid #e2e8f0',
+                background: '#fff',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              🔄 Refresh
+            </button>
+          </div>
+          
+          {imsLoading ? (
+            <div className="card" style={{ padding: 20, textAlign: 'center', color: '#94a3b8' }}>
+              Loading inventory data...
+            </div>
+          ) : (
+            <>
+              <div className="stat-grid">
+                <StatCard label="Total Products" value={imsStats.totalProducts || 0} icon="💊" color="#ede9fe" />
+                <StatCard label="Low Stock" value={imsStats.lowStock || 0} icon="⚠️" color="#fef3c7" />
+                <StatCard label="Out of Stock" value={imsStats.outOfStock || 0} icon="❌" color="#fee2e2" />
+                <StatCard label="Total Sales" value={`₹${(imsStats.totalSales || 0).toLocaleString()}`} icon="💰" color="#d1fae5" />
+                <StatCard label="Total Purchases" value={`₹${(imsStats.totalPurchases || 0).toLocaleString()}`} icon="🛒" color="#dbeafe" />
+                <StatCard label="Total Profit" value={`₹${(imsStats.totalProfit || 0).toLocaleString()}`} icon="📈" color="#10b981" />
+              </div>
+
+              {/* Top Products */}
+              {imsStats.topProducts && imsStats.topProducts.length > 0 && (
+                <div className="card" style={{ marginTop: 16 }}>
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>🏆 Top Selling Products</h4>
+                  </div>
+                  <div style={{ padding: 12 }}>
+                    {imsStats.topProducts.map((product, index) => (
+                      <div key={index} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        borderBottom: index < imsStats.topProducts.length - 1 ? '1px solid #f1f5f9' : 'none',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: index === 0 ? '#f59e0b' : index === 1 ? '#94a3b8' : index === 2 ? '#d97706' : '#e2e8f0',
+                            color: index < 3 ? '#fff' : '#64748b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}>
+                            {index + 1}
+                          </span>
+                          <span style={{ fontWeight: 500 }}>{product.productName || 'Unknown'}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                          <span>Qty: {product.quantity || 0}</span>
+                          <span style={{ fontWeight: 600, color: '#0f4c81' }}>₹{(product.total || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Orders */}
+              {imsStats.recentOrders && imsStats.recentOrders.length > 0 && (
+                <div className="card" style={{ marginTop: 16 }}>
+                  <div style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0' }}>
+                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>🕐 Recent Sales</h4>
+                  </div>
+                  <div style={{ overflowX: 'auto', padding: 12 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th style={{ padding: '8px 12px', textAlign: 'left' }}>Order ID</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'left' }}>Items</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Total</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {imsStats.recentOrders.slice(0, 5).map((order, index) => (
+                          <tr key={index} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f4c81' }}>
+                              #{order.orderId || order._id?.slice(-6) || 'N/A'}
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              {order.items?.length || 0} items
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>
+                              ₹{(order.total || 0).toLocaleString()}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b', fontSize: 12 }}>
+                              {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {(isSuperAdmin) && <AdminPayoutManagement />}
       {showRoomSummary && <RoomSummary clinicId={clinicId} />}
 
@@ -1155,6 +1372,20 @@ export default function Dashboard() {
           <p className="text-muted text-small">Ask your admin to grant you access to the modules you need.</p>
         </div>
       )}
+
+      {showTimingsModal && (
+  <ClinicTimingsModal
+    isOpen={showTimingsModal}
+    onClose={() => setShowTimingsModal(false)}
+    onSave={(timings) => {
+      setShowTimingsModal(false);
+      setTimingsChecked(true);
+    }}
+    clinicType="hospital"
+    clinicName={clinicName || 'Hospital'}
+    initialTimings={clinicTimingsData}
+  />
+)}
     </div>
   );
 }

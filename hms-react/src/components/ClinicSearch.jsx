@@ -135,40 +135,94 @@ export default function ClinicSearch({ patientId, patientName }) {
 
   const updateForm = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  // ── Submit booking → generate token ─────────────────────────────────────
-  const handleSubmitBooking = async () => {
-    if (!form.symptoms.trim()) {
-      setFormError('Please briefly describe your symptoms or reason for visit');
-      return;
+
+// Add this function before handleSubmitBooking
+const checkClinicOpen = async (clinicId) => {
+  if (!clinicId) {
+    setFormError('Clinic not selected.');
+    return false;
+  }
+
+  try {
+    const { data } = await API.get(`/clinics/check-open?clinicId=${clinicId}`);
+    
+    if (data.success) {
+      if (!data.todayHours) {
+        setFormError('This clinic has not set their operating hours yet. Please contact the clinic directly.');
+        return false;
+      }
+      
+      if (!data.isOpen) {
+        const hours = data.todayHours;
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[new Date().getDay()];
+        
+        let message = `🏥 This clinic is currently closed.`;
+        if (hours && !hours.isOpen) {
+          message = `🏥 This clinic is closed on ${dayName}.`;
+        } else if (hours && hours.open && hours.close) {
+          message = `🏥 This clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
+        }
+        setFormError(message);
+        return false;
+      }
+      return true;
     }
-    if (!bookingClinic?._id) {
-      setFormError('Could not determine the clinic for this doctor. Please try again.');
-      return;
+    return true;
+  } catch (err) {
+    console.error('Failed to check clinic status:', err);
+    // Allow booking if check fails (fallback)
+    return true;
+  }
+};
+
+const handleSubmitBooking = async () => {
+  if (!form.symptoms.trim()) {
+    setFormError('Please briefly describe your symptoms or reason for visit');
+    return;
+  }
+  if (!bookingClinic?._id) {
+    setFormError('Could not determine the clinic for this doctor. Please try again.');
+    return;
+  }
+
+  // ── Check if clinic is open ──
+  const isOpen = await checkClinicOpen(bookingClinic._id);
+  if (!isOpen) {
+    // Error is already set in checkClinicOpen
+    return;
+  }
+
+  setFormError('');
+  setSubmitting(true);
+  try {
+    const { data } = await API.post('/tokens/generate', {
+      clinicId: bookingClinic._id,
+      doctorId: bookingDoctor._id,
+      patientId,
+      patientName,
+      age: form.age ? parseInt(form.age) : undefined,
+      gender: form.gender,
+      symptoms: form.symptoms.trim(),
+      consultationType: form.consultationType,
+    });
+    setReceipt(data);
+    setBookingDoctor(null);
+    setBookingClinic(null);
+    setOpen(false);
+    setSelectedClinic(null);
+    setQuery('');
+    toast.success(`Token #${data.token.tokenNumber} booked successfully!`);
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || 'Could not generate token. Please try again.';
+    if (err.response?.data?.isClosed) {
+      setFormError(err.response.data.message);
+    } else {
+      setFormError(errorMsg);
     }
-    setFormError('');
-    setSubmitting(true);
-    try {
-      const { data } = await API.post('/tokens/generate', {
-        clinicId: bookingClinic._id,
-        doctorId: bookingDoctor._id,
-        patientId,
-        patientName,
-        age: form.age ? parseInt(form.age) : undefined,
-        gender: form.gender,
-        symptoms: form.symptoms.trim(),
-        consultationType: form.consultationType,
-      });
-      setReceipt(data);
-      setBookingDoctor(null);
-      setBookingClinic(null);
-      setOpen(false);
-      setSelectedClinic(null);
-      setQuery('');
-    } catch (err) {
-      setFormError(err?.response?.data?.message || 'Could not generate token. Please try again.');
-    }
-    setSubmitting(false);
-  };
+  }
+  setSubmitting(false);
+};
 
   const clinicResults = results.filter((r) => r.type === 'clinic');
   const doctorResults = results.filter((r) => r.type === 'doctor');

@@ -264,41 +264,97 @@ export default function PatientTelemedicine() {
   };
 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSubmitting(true);
-
-    if (!form.doctorId) {
-      setError('Please select a doctor');
-      setSubmitting(false);
-      return;
+// ── Update checkClinicOpen function ──
+const checkClinicOpen = async (doctorId) => {
+  try {
+    // First get the doctor's clinic
+    const doctor = doctors.find(d => d._id === doctorId);
+    if (!doctor) {
+      setError('Doctor not found. Please try again.');
+      return false;
     }
-
-    try {
-      // ── FIX: Don't send patientId from frontend ──
-      // The backend will use req.user.id to find the patient
-      const clinicId = getEffectiveClinicId();
-      const response = await API.post('/telemedicine/request', {
-        // Remove patientId - let backend derive it from the logged-in user
-        doctorId: form.doctorId,
-        symptoms: form.symptoms,
-        preferredTime: form.preferredTime || null,
-        urgency: form.urgency,
-        clinicId: clinicId,
-      });
-
-      if (response.data.success) {
-        setShowRequestForm(false);
-        setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
-        loadRequests();
-        alert('✅ Telemedicine request sent successfully! The doctor will be notified.');
+    
+    // If doctor has no clinicId (separate doctor), allow booking
+    if (!doctor.clinicId) {
+      return true;
+    }
+    
+    const { data } = await API.get(`/clinics/check-open?clinicId=${doctor.clinicId}`);
+    
+    if (data.success) {
+      if (!data.todayHours) {
+        setError('The doctor\'s clinic has not set their operating hours yet. Please contact the clinic directly.');
+        return false;
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send request');
+      
+      if (!data.isOpen) {
+        const hours = data.todayHours;
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[new Date().getDay()];
+        
+        let message = `🏥 The doctor's clinic is currently closed.`;
+        if (hours && !hours.isOpen) {
+          message = `🏥 The doctor's clinic is closed on ${dayName}.`;
+        } else if (hours && hours.open && hours.close) {
+          message = `🏥 The doctor's clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
+        }
+        setError(message);
+        return false;
+      }
+      return true;
     }
+    return true;
+  } catch (err) {
+    console.error('Failed to check clinic status:', err);
+    // Allow booking if check fails (fallback)
+    return true;
+  }
+};
+
+// ── Update handleSubmit ──
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setSubmitting(true);
+
+  if (!form.doctorId) {
+    setError('Please select a doctor');
     setSubmitting(false);
-  };
+    return;
+  }
+
+  // ── Check if clinic is open ──
+  const isOpen = await checkClinicOpen(form.doctorId);
+  if (!isOpen) {
+    setSubmitting(false);
+    return;
+  }
+
+  try {
+    const response = await API.post('/telemedicine/request', {
+      doctorId: form.doctorId,
+      symptoms: form.symptoms,
+      preferredTime: form.preferredTime || null,
+      urgency: form.urgency,
+      clinicId: getEffectiveClinicId(),
+    });
+
+    if (response.data.success) {
+      setShowRequestForm(false);
+      setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
+      loadRequests();
+      toast.success('✅ Telemedicine request sent successfully! The doctor will be notified.');
+    }
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || 'Failed to send request';
+    if (err.response?.data?.isClosed) {
+      setError(err.response.data.message);
+    } else {
+      setError(errorMsg);
+    }
+  }
+  setSubmitting(false);
+};
 
   const handleCancel = async (id) => {
     if (!window.confirm('Cancel this request?')) return;

@@ -249,4 +249,143 @@ router.post('/activate-plan', auth, async (req, res) => {
   }
 });
 
+// ── GET /api/clinics/timings ──
+router.get('/timings', auth, async (req, res) => {
+  try {
+    const clinicId = req.user.clinicId;
+    if (!clinicId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No clinic associated with this account' 
+      });
+    }
+
+    const clinic = await Clinic.findById(clinicId).select('openingHours name type');
+    if (!clinic) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Clinic not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      openingHours: clinic.openingHours,
+      clinicName: clinic.name,
+      clinicType: clinic.type,
+    });
+  } catch (err) {
+    console.error('Get clinic timings error:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message || 'Failed to get clinic timings' 
+    });
+  }
+});
+
+// ── PUT /api/clinics/timings ──
+router.put('/timings', auth, async (req, res) => {
+  try {
+    const clinicId = req.user.clinicId;
+    if (!clinicId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No clinic associated with this account' 
+      });
+    }
+
+    const { openingHours } = req.body;
+
+    if (!openingHours) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Opening hours are required' 
+      });
+    }
+
+    // Validate that all days are present
+    const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const hasAllDays = requiredDays.every(day => openingHours[day]);
+    
+    if (!hasAllDays) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All 7 days must have opening hours defined' 
+      });
+    }
+
+    const clinic = await Clinic.findByIdAndUpdate(
+      clinicId,
+      { openingHours },
+      { new: true, runValidators: true }
+    );
+
+    if (!clinic) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Clinic not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Clinic timings updated successfully',
+      clinic: {
+        id: clinic._id,
+        name: clinic.name,
+        openingHours: clinic.openingHours,
+      }
+    });
+  } catch (err) {
+    console.error('Update clinic timings error:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message || 'Failed to update clinic timings' 
+    });
+  }
+});
+
+
+
+// ── GET /api/clinics/check-open ──
+router.get('/check-open', auth, async (req, res) => {
+  try {
+    // Get clinicId from query param (for patients) or from user (for staff)
+    const clinicId = req.query.clinicId || req.user?.clinicId;
+    
+    if (!clinicId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Clinic ID is required' 
+      });
+    }
+
+    const clinic = await Clinic.findById(clinicId).select('openingHours name');
+    if (!clinic) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Clinic not found' 
+      });
+    }
+
+    const now = new Date();
+    const isOpen = clinic.isOpenAt(now);
+    const todayHours = clinic.getTodayHours();
+
+    res.json({
+      success: true,
+      isOpen,
+      todayHours,
+      clinicName: clinic.name,
+      currentTime: now.toISOString(),
+    });
+  } catch (err) {
+    console.error('Check open error:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message || 'Failed to check clinic status' 
+    });
+  }
+});
+
 export default router;

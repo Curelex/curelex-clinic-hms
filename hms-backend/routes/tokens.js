@@ -100,7 +100,6 @@ async function createPatientFromToken({ clinicId, doctorId, name, phone, email, 
   return patient;
 }
 
-// ── POST /api/tokens/generate ────────────────────────────────────────────────
 router.post('/generate', auth, async (req, res) => {
   try {
     const clinicId = resolveClinicId(req);
@@ -132,8 +131,58 @@ router.post('/generate', auth, async (req, res) => {
 
     const date = todayStr();
 
+    // ── STEP 1: Check if clinic exists and is open ──
+    const clinic = await Clinic.findById(effectiveClinicId);
+    if (!clinic) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Clinic not found' 
+      });
+    }
+
+    // ── STEP 2: Check if clinic has opening hours set ──
+    const hasTimings = clinic.openingHours && 
+      ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        .every(day => clinic.openingHours[day] && clinic.openingHours[day].open && clinic.openingHours[day].close);
+
+    if (hasTimings) {
+      const now = new Date();
+      const isOpen = clinic.isOpenAt(now);
+      
+      if (!isOpen) {
+        const todayHours = clinic.getTodayHours();
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[now.getDay()];
+        
+        let message = `Clinic is currently closed.`;
+        let detailedMessage = '';
+        
+        if (todayHours && !todayHours.isOpen) {
+          message = `Clinic is closed on ${dayName}.`;
+          detailedMessage = `Please visit on another day.`;
+        } else if (todayHours && todayHours.open && todayHours.close) {
+          message = `Clinic is currently closed.`;
+          detailedMessage = `Operating hours today: ${todayHours.open} - ${todayHours.close}.`;
+        } else {
+          detailedMessage = `Please check back during operating hours.`;
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message,
+          detailedMessage,
+          isClosed: true,
+          todayHours,
+          dayName,
+        });
+      }
+    }
+
+    // ── STEP 3: Validate doctor ──
     const doctor = await User.findById(doctorId).select('consultationFee telemedicineFee name department clinicId');
-    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
 
     // Verify doctor belongs to the same clinic
     if (doctor.clinicId && String(doctor.clinicId) !== String(effectiveClinicId)) {
@@ -142,6 +191,7 @@ router.post('/generate', auth, async (req, res) => {
 
     let patientDoc = null;
 
+    // ── STEP 4: Find or create patient ──
     if (patientId) {
       patientDoc = await Patient.findById(patientId);
       if (!patientDoc) {
@@ -195,10 +245,7 @@ router.post('/generate', auth, async (req, res) => {
       }
     }
 
-    // ── CHECK FOR ACTIVE TOKEN ──
-    // A patient can only have one active token at a time
-    // Active statuses: 'Waiting', 'Called', 'Pending', 'Active' (if you use it)
-    // Also check for tokens that are not 'Done' or 'Skipped' or 'Cancelled'
+    // ── STEP 5: Check for active token ──
     const activeStatuses = ['Waiting', 'Called', 'Pending', 'Active'];
     
     // Check for ANY active token regardless of doctor
@@ -223,7 +270,6 @@ router.post('/generate', auth, async (req, res) => {
     }
 
     // Also check if patient has any token from today that is not completed
-    // This is an additional safety check
     const todayToken = await Token.findOne({
       clinicId: effectiveClinicId,
       patient: patientDoc._id,
@@ -245,7 +291,7 @@ router.post('/generate', auth, async (req, res) => {
       });
     }
 
-    // Get today's tokens for this clinic and doctor
+    // ── STEP 6: Generate token number ──
     const last = await Token.findOne({
       clinicId: effectiveClinicId,
       doctor: doctorId,
@@ -256,6 +302,7 @@ router.post('/generate', auth, async (req, res) => {
 
     const isPatientBooking = req.user?.role === 'patient';
 
+    // ── STEP 7: Create token ──
     const token = await Token.create({
       clinicId: effectiveClinicId,
       tokenNumber,
