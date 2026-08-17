@@ -7,6 +7,8 @@ import Feedback from '../models/Feedback.js';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
+import Billing from '../models/Billing.js';
+import Sale from '../ims/src/models/Sale.js';
 
 // ── GET /api/clinics - Fetch / search registered clinics ──────────────────
 // Query: ?search=xyz  → case-insensitive partial match on clinic name
@@ -384,6 +386,186 @@ router.get('/check-open', auth, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: err.message || 'Failed to check clinic status' 
+    });
+  }
+});
+
+// ── GET /api/clinics/revenue-report ──
+router.get('/revenue-report', auth, async (req, res) => {
+  try {
+    const clinicId = req.user.clinicId || req.query.clinicId;
+    if (!clinicId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Clinic ID is required' 
+      });
+    }
+
+    const { fromDate, toDate } = req.query;
+    
+    // Build date filter
+    const dateFilter = {};
+    if (fromDate) {
+      dateFilter.$gte = new Date(fromDate);
+      dateFilter.$gte.setHours(0, 0, 0, 0);
+    }
+    if (toDate) {
+      dateFilter.$lte = new Date(toDate);
+      dateFilter.$lte.setHours(23, 59, 59, 999);
+    }
+
+    // ── Get billing revenue ──
+    const billingFilter = { clinicId, paymentStatus: 'Paid' };
+    if (fromDate || toDate) {
+      billingFilter.createdAt = dateFilter;
+    }
+    
+    const billingRevenue = await Billing.aggregate([
+      { $match: billingFilter },
+      { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } }
+    ]);
+
+    // ── Get pending bills ──
+    const pendingFilter = { clinicId, paymentStatus: { $in: ['Pending', 'Partial'] } };
+    if (fromDate || toDate) {
+      pendingFilter.createdAt = dateFilter;
+    }
+    
+    const pendingRevenue = await Billing.aggregate([
+      { $match: pendingFilter },
+      { 
+        $group: { 
+          _id: null, 
+          total: { $sum: { $subtract: ['$totalAmount', '$paidAmount'] } },
+          count: { $sum: 1 }
+        } 
+      }
+    ]);
+
+    // ── Get revenue by doctor ──
+    const doctorRevenue = await Billing.aggregate([
+      { $match: billingFilter },
+      { 
+        $group: { 
+          _id: '$generatedBy', 
+          total: { $sum: '$totalAmount' },
+          count: { $sum: 1 }
+        } 
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'doctor'
+        }
+      },
+      { $unwind: { path: '$doctor', preserveNullAndEmptyArrays: true } }
+    ]);
+
+    // ── Get daily revenue breakdown ──
+    const dailyRevenue = await Billing.aggregate([
+      { $match: billingFilter },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' }
+          },
+          total: { $sum: '$totalAmount' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+    ]);
+
+    // ── Try to get pharmacy revenue from IMS (optional, fail gracefully) ──
+    let pharmacyRevenue = 0;
+    let pharmacyOrders = 0;
+    let pharmacistBreakdown = [];
+    let imsError = null;
+
+    try {
+  // Query IMS sales directly from the same database
+  const imsFilter = { 
+    clinicId: clinicId,
+    status: 'completed'
+  };
+  if (fromDate || toDate) {
+    imsFilter.createdAt = dateFilter;
+  }
+  
+  const imsSales = await Sale.find(imsFilter);
+  
+  pharmacyRevenue = imsSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+  pharmacyOrders = imsSales.length;
+  
+  // Get pharmacist breakdown
+  const pharmacistMap = {};
+  imsSales.forEach(sale => {
+    const pharmacistId = sale.pharmacistId || sale.createdBy || 'unknown';
+    if (!pharmacistMap[pharmacistId]) {
+      pharmacistMap[pharmacistId] = {
+        pharmacistId,
+        name: sale.pharmacistName || sale.createdByName || 'Unknown',
+        sales: 0,
+        orders: 0
+      };
+    }
+    pharmacistMap[pharmacistId].sales += sale.total || 0;
+    pharmacistMap[pharmacistId].orders += 1;
+  });
+  pharmacistBreakdown = Object.values(pharmacistMap);
+  
+} catch (err) {
+  console.warn('Could not fetch IMS data:', err.message);
+}
+
+    // ── Build response ──
+    const response = {
+      success: true,
+      data: {
+        period: { 
+          from: fromDate || null, 
+          to: toDate || null 
+        },
+        summary: {
+          totalRevenue: (billingRevenue[0]?.total || 0) + pharmacyRevenue,
+          billingRevenue: billingRevenue[0]?.total || 0,
+          pharmacyRevenue: pharmacyRevenue,
+          pendingRevenue: pendingRevenue[0]?.total || 0,
+          totalOrders: (billingRevenue[0]?.count || 0) + pharmacyOrders,
+          billingOrders: billingRevenue[0]?.count || 0,
+          pharmacyOrders: pharmacyOrders,
+        },
+        byDoctor: doctorRevenue.map(d => ({
+          doctorId: d._id,
+          doctorName: d.doctor?.name || 'Unknown',
+          revenue: d.total || 0,
+          count: d.count || 0
+        })),
+        byPharmacist: pharmacistBreakdown,
+        daily: dailyRevenue.map(d => ({
+          date: `${d._id.year}-${String(d._id.month).padStart(2, '0')}-${String(d._id.day).padStart(2, '0')}`,
+          revenue: d.total || 0,
+          count: d.count || 0
+        })),
+        pending: {
+          total: pendingRevenue[0]?.total || 0,
+          count: pendingRevenue[0]?.count || 0
+        },
+        imsStatus: imsError ? 'unavailable' : 'connected'
+      }
+    };
+
+    res.json(response);
+
+  } catch (err) {
+    console.error('Revenue report error:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message 
     });
   }
 });
