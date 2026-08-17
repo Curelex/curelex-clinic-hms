@@ -195,7 +195,7 @@ export function useClinicAdmin() {
         if (!clinicId) {
           throw new Error('No clinic ID found');
         }
-        const response = await API.get('/reports/revenue', {
+        const response = await API.get('/clinics/revenue-report', {
           params: {
             clinicId,
             fromDate,

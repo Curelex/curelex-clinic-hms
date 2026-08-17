@@ -109,7 +109,7 @@ export default function Patients() {
   useEffect(() => { fetchPatients(); }, [search, page]);       // eslint-disable-line
   useEffect(() => { fetchAdmissions(); }, []);                 // eslint-disable-line
   useEffect(() => {
-  API.get('/auth/available-doctors')
+  API.get('/auth/clinic-doctors')
     .then(r => setDoctors(r.data.doctors));  // note: response shape is { doctors: [...] }
 }, [clinicId]);                                           // eslint-disable-line
 

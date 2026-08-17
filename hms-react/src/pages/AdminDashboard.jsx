@@ -1507,7 +1507,8 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
     try {
       const token = session?.token || localStorage.getItem('clinic_token') || '';
       const res = await getRevenueReport(fromDate, toDate);
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `IMS error: ${res.status}`); }
+      
+      // if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `IMS error: ${res.status}`); }
       setImsData(res);
     } catch (e) { setImsError(e.message); }
     finally { setImsLoading(false); }

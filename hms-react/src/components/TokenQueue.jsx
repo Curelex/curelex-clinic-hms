@@ -68,13 +68,13 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
       const [tokensRes, summaryRes, doctorsRes, patientsRes] = await Promise.all([
         API.get(`/tokens/today?clinicId=${effectiveClinicId}`),
         API.get(`/tokens/summary?clinicId=${effectiveClinicId}`),
-        API.get('/auth/users'),
+        API.get('/auth/clinic-doctors'),
         API.get(`/patients?limit=200&clinicId=${effectiveClinicId}`),
       ]);
 
       setTokens(tokensRes.data.tokens || []);
       setSummary(summaryRes.data.summary || []);
-      setDoctors(doctorsRes.data.filter(u => u.role === 'doctor' || u.role === 'separate_doctor'));
+      setDoctors(doctorsRes.data.doctors);
       setPatients(patientsRes.data.patients || []);
     } catch (err) {
       console.error('Failed to fetch tokens:', err);

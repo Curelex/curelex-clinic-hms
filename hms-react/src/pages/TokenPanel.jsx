@@ -231,7 +231,8 @@ export default function TokenPanel() {
   });
 
   useEffect(() => {
-    API.get('/auth/users').then(r => setDoctors(r.data.filter(u => u.role === 'doctor')));
+    // API.get('/auth/clinic-doctors').then(r=>{console.log('1', r)});
+    API.get('/auth/clinic-doctors').then(r => setDoctors(r.data.doctors));
     fetchPatients();
   }, []);
 

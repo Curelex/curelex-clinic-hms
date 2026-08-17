@@ -77,7 +77,7 @@ export default function ClinicPrescriptions({ clinicId, activePlan, onRefresh })
 
   const loadDoctors = async () => {
     try {
-      const { data } = await API.get(`/auth/users?clinicId=${effectiveClinicId}`);
+      const { data } = await API.get('/auth/clinic-doctors');
       const doctorsList = data.filter(u => u.role === 'doctor' || u.role === 'separate_doctor');
       setDoctors(doctorsList);
       if (doctorsList.length > 0) {

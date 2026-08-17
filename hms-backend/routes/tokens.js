@@ -8,6 +8,7 @@ import Token from '../models/Token.js';
 import User from '../models/User.js';
 import Patient from '../models/Patient.js';
 import FollowUp from '../models/FollowUp.js';
+import Clinic from '../models/Clinic.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
