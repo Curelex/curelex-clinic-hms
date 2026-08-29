@@ -80,7 +80,7 @@ export const useRazorpayPayment = () => {
   /**
    * Open Razorpay checkout
    */
-  const openCheckout = useCallback(async ({
+ const openCheckout = useCallback(async ({
     orderId,
     amount,
     currency = 'INR',
@@ -92,6 +92,24 @@ export const useRazorpayPayment = () => {
     onClose,
   }) => {
     try {
+      // — Mock mode: no real Razorpay keys configured yet, skip real checkout —
+      if (paymentData?.mock) {
+        console.log('[Razorpay MOCK MODE] Simulating successful payment');
+        const mockVerifyResult = {
+          success: true,
+          mock: true,
+          orderId: paymentData.orderId,
+        };
+        if (onSuccess) {
+          onSuccess(mockVerifyResult, {
+            razorpayOrderId: paymentData.orderId,
+            razorpayPaymentId: 'pay_mock_' + Date.now(),
+            razorpaySignature: 'mock_signature',
+          });
+        }
+        return null;
+      }
+
       // Load Razorpay script
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {

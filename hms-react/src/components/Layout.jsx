@@ -193,12 +193,17 @@ export default function Layout() {
       if (existingImsToken) {
         try {
           const payload = JSON.parse(atob(existingImsToken.split('.')[1]));
-          if (payload.exp * 1000 > Date.now()) {
+          const currentUserId = String(user?._id || user?.id || '');
+          const tokenUserId = String(payload.id || '');
+          if (payload.exp * 1000 > Date.now() && tokenUserId === currentUserId && currentUserId !== '') {
             window.location.href = targetPath;
             return;
           }
+          // Stale/mismatched token — clear it before requesting a fresh one
+          localStorage.removeItem('ims_token');
         } catch (e) {
           // Invalid token, fall through to SSO
+          localStorage.removeItem('ims_token');
         }
       }
       const { data } = await API.post('/auth/sso-token');
