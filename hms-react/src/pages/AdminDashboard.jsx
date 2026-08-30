@@ -2556,7 +2556,17 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
     const planConfig = getPlanConfig('clinic', activePlan || 'free');
     const permissions = ['dashboard', 'pharmacy'];
     if (planConfig.features.prescriptions) permissions.push('prescriptions');
-    if (planConfig.features.inventory) permissions.push('inventory'); // only Pro
+    if (planConfig.features.inventory) {
+      permissions.push(
+        'inventory', // only Pro
+        'suppliers.read', 'suppliers.write',
+        'products.read', 'products.write',
+        'purchases.read', 'purchases.write',
+        'inventory.adjust',
+        'sales.read', 'sales.create', 'sales.invoice',
+        'customers.read', 'customers.write'
+      );
+    }
 
     const newPharmacist = await onAdd({
       role: 'pharmacist',
