@@ -438,7 +438,7 @@ export default function PlanSelection({ onDone }) {
         transition:'opacity 0.18s',
         opacity: isCurrentPlan ? 0.7 : 1,
       }}
-      onClick={() => choosePlan(p.key)}
+      
     >
       {isCurrentPlan ? '✓ Already Have This Plan' : `Choose ${p.name} →`}
     </button>

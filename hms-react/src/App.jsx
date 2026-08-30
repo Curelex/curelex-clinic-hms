@@ -193,9 +193,9 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If choosing plan, show plan selection inline (for the overlay)
-  if (choosingPlan) {
-    return <PlanSelection onDone={() => setChoosingPlan(false)} />;
+  const needsPlan = !activePlan || activePlan === 'free' || activePlan === 'none';
+  if (needsPlan) {
+    return <Navigate to="/plans" replace />;
   }
 
   return React.cloneElement(children, { 
