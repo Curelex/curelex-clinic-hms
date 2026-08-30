@@ -2553,36 +2553,36 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
     setBusy(true);
     setErr('');
     try {
-      // ── Step 1: Create pharmacist in HMS ──
-      const newPharmacist = await onAdd({
-        role: 'pharmacist',
-        ...form,
-        permissions: ['dashboard', 'pharmacy', 'prescriptions', 'inventory']
+    const planConfig = getPlanConfig('clinic', activePlan || 'free');
+    const permissions = ['dashboard', 'pharmacy'];
+    if (planConfig.features.prescriptions) permissions.push('prescriptions');
+    if (planConfig.features.inventory) permissions.push('inventory'); // only Pro
+
+    const newPharmacist = await onAdd({
+      role: 'pharmacist',
+      ...form,
+      permissions,
+    });
+
+    try {
+      await registerPharmacistInIMS({
+        fullName: form.name,
+        email: form.email,
+        password: form.password,
       });
-
-      // ── Step 2: Register pharmacist in IMS (if available) ──
-      try {
-        await registerPharmacistInIMS({
-          fullName: form.name,
-          email: form.email,
-          password: form.password
-        });
-        console.log('✅ Pharmacist registered in IMS');
-      } catch (imsErr) {
-        console.warn('⚠️ IMS registration failed, but pharmacist was created in HMS:', imsErr);
-        // Don't fail the whole operation - pharmacist is already in HMS
-      }
-
-      setForm({ name: '', email: '', phone: '', password: '' });
-      setShow(false);
-      // Refresh the list
-      if (onRefresh) onRefresh();
-    } catch (e) {
-      setErr(e.message || 'Failed to add pharmacist');
-    } finally {
-      setBusy(false);
+    } catch (imsErr) {
+      console.warn('⚠️ IMS registration failed, but pharmacist was created in HMS:', imsErr);
     }
+
+    setForm({ name: '', email: '', phone: '', password: '' });
+    setShow(false);
+    if (onRefresh) onRefresh();
+  } catch (e) {
+    setErr(e.message || 'Failed to add pharmacist');
+  } finally {
+    setBusy(false);
   }
+}
 
   async function removePharmacist(id) {
     if (!window.confirm('Remove this pharmacist?')) return;

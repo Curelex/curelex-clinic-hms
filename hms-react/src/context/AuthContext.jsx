@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import API from '../utils/api';
 import { useSocket, resetSocket } from '../hooks/useSocket';
-
+import { getPlanConfig } from '../utils/planConfig';
 // ── Role → nav section permissions ───────────────────────────────────────────
 const ROLE_PERMISSIONS = {
   super_admin: [
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
   const [doctorStatus,   setDoctorStatus]   = useState('offline');
   const [onlineDoctors,  setOnlineDoctors]  = useState([]);
   const [clinicType, setClinicType] = useState(null);
-  const [activePlan, setActivePlan] = useState('lite');
+  const [activePlan, setActivePlan] = useState(null);
 
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
@@ -352,6 +352,16 @@ const login = async (email, password) => {
       }
     }
 
+    // ── Set activePlan explicitly — never leave it at a stale/default value ──
+    if (data.user?.activePlan) {
+      setActivePlan(data.user.activePlan);
+    } else if (data.clinic?.plan) {
+      setActivePlan(data.clinic.plan);
+    } else {
+      // New clinics start with no plan — this is what should trigger /plans
+      setActivePlan('free');
+    }
+
     return { success: true, user: data.user, clinicType: data.clinicType };
   } catch (err) {
     console.error('❌ Register error:', err);
@@ -425,17 +435,23 @@ const login = async (email, password) => {
     setOnlineDoctors([]);
   };
 
-  // ── Permission check ─────────────────────────────────────────────────────
   const hasPerm = (key) => {
-    if (!user) return false;
-    const role = user.role?.toLowerCase();
-    if (role === 'super_admin') return true;
-    if (key === 'telemedicine') return role === 'doctor' || role === 'separate_doctor';
-    if (role === 'admin') return true;
-    const roleNavPerms = ROLE_PERMISSIONS[role];
-    if (roleNavPerms) return roleNavPerms.includes(key);
-    return Array.isArray(user.permissions) && user.permissions.includes(key);
-  };
+  if (!user) return false;
+  const role = user.role?.toLowerCase();
+  if (role === 'super_admin') return true;
+  if (key === 'telemedicine') return role === 'doctor' || role === 'separate_doctor';
+  if (role === 'admin') return true;
+
+  // ── Gate inventory access for clinic pharmacists by plan ──
+  if (role === 'pharmacist' && key === 'inventory' && clinicType === 'clinic') {
+    const config = getPlanConfig('clinic', activePlan);
+    return !!config.features?.inventory; // only true on 'pro'
+  }
+
+  const roleNavPerms = ROLE_PERMISSIONS[role];
+  if (roleNavPerms) return roleNavPerms.includes(key);
+  return Array.isArray(user.permissions) && user.permissions.includes(key);
+};
 
   // ── Helper methods ───────────────────────────────────────────────────────
   const isPatient      = () => user?.role === 'patient';

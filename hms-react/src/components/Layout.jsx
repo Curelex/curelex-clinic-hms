@@ -101,6 +101,27 @@ const ROLE_META = {
   separate_doctor: { label: 'Solo Doctor', color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
 };
 
+// ── Sub-items that require a specific plan feature (null = always visible once pharmacy is on) ──
+const IMS_SUBITEM_FEATURE_MAP = {
+  '/dashboard/pharmacy/dashboard': null,
+  '/dashboard/pharmacy/products': 'inventory',
+  '/dashboard/pharmacy/inventory': 'inventory',
+  '/dashboard/pharmacy/sales': null,
+  '/dashboard/pharmacy/purchases': 'inventory',
+  '/dashboard/pharmacy/customers': null,
+  '/dashboard/pharmacy/suppliers': 'inventory',
+  '/dashboard/pharmacy/reports': 'reports',
+  '/dashboard/pharmacy/all-patients': null,
+};
+
+const HOSPITAL_ONLY_PATHS = [
+  '/dashboard/staff',
+  '/dashboard/tasks',
+  '/dashboard/room-settings',
+  '/dashboard/icu',
+  '/dashboard/ot',
+];
+
 export default function Layout() {
   const { user, logout, hasPerm, clinicType, activePlan } = useAuth();
   const [taskCount, setTaskCount] = useState(0);
@@ -218,23 +239,23 @@ export default function Layout() {
     label: user?.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.15)',
   };
 
-  // ── Get Clinic Navigation Items (Permission-based) ──
   const getClinicNavItems = () => {
-    const visibleSections = CLINIC_NAV_SECTIONS.map(section => ({
-      ...section,
-      items: section.items.filter(item => {
-        // Hide telemedicine from admin (but NOT super_admin)
-        if (item.perm === 'telemedicine' && isAdmin && !isSuperAdmin) return false;
+  const visibleSections = CLINIC_NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => {
+      // Hide hospital-only nav items entirely for clinics
+      if (HOSPITAL_ONLY_PATHS.includes(item.path)) return false;
 
-        // Hide tokens, emergency, patients, and tasks from separate_doctor
-        if (user?.role === 'separate_doctor' && (item.label === 'Token Queue' || item.label === 'Emergency Dept' || item.label === 'Patients' || item.label === 'Task Allocation')) return false;
+      if (item.perm === 'telemedicine' && isAdmin && !isSuperAdmin) return false;
 
-        return hasPerm(item.perm);
-      }),
-    })).filter(s => s.items.length > 0);
+      if (user?.role === 'separate_doctor' && (item.label === 'Token Queue' || item.label === 'Emergency Dept' || item.label === 'Patients' || item.label === 'Task Allocation')) return false;
 
-    return visibleSections;
-  };
+      return hasPerm(item.perm);
+    }),
+  })).filter(s => s.items.length > 0);
+
+  return visibleSections;
+};
 
   // ── Get Hospital Navigation Items (Plan-based, using the same routed items as clinic) ──
   const getHospitalNavItems = () => {
@@ -260,21 +281,33 @@ export default function Layout() {
     return visibleSections;
   };
 
-  // ── Get IMS Sections ──
   const getImsSections = () => {
-    if (!hasPerm('pharmacy')) return [];
+  if (!hasPerm('pharmacy')) return [];
 
-    // For hospitals, pharmacy is also gated by plan
-    if (isHospital) {
-      const planKey = activePlan || 'free';
-      if (!isSectionVisible('hospital', planKey, 'pharmacy')) return [];
-    }
+  const type = isHospital ? 'hospital' : 'clinic';
+  const planKey = activePlan || 'free';
 
-    return IMS_SECTIONS.map(section => ({
-      ...section,
-      items: section.items.filter(item => hasPerm(item.perm)),
-    })).filter(s => s.items.length > 0);
-  };
+  // Gate the whole pharmacy module by plan, for both clinic and hospital
+  if (!isFeatureVisible(type, planKey, 'pharmacy')) return [];
+
+  return IMS_SECTIONS.map(section => ({
+    ...section,
+    section: isHospital ? section.section : 'PHARMACY', // don't brand it "IMS" for clinics
+    items: section.items
+      .filter(item => hasPerm(item.perm))
+      .map(item => {
+        if (!item.subItems) return item;
+        return {
+          ...item,
+          subItems: item.subItems.filter(sub => {
+            const requiredFeature = IMS_SUBITEM_FEATURE_MAP[sub.path];
+            if (!requiredFeature) return true;
+            return isFeatureVisible(type, planKey, requiredFeature);
+          }),
+        };
+      }),
+  })).filter(s => s.items.length > 0);
+};
 
   // ── Select nav sections based on clinic type ──
   let navSections = [];
