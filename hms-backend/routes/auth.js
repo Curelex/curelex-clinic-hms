@@ -573,7 +573,7 @@ router.get('/all-users', auth, roleCheck('super_admin'), async (req, res) => {
 router.post('/users', auth, roleCheck('admin', 'receptionist'), async (req, res) => {
   try {
     const { name, email, password, role, department, phone, permissions, consultationFee, clinicId } = req.body;
-
+    console.log(req.body);
     if (!password) {
       return res.status(400).json({ message: 'Password is required' });
     }
