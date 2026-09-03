@@ -132,19 +132,31 @@ export default function Login() {
           </button>
         </form>
 
-        {loginType === 'hospital' && (
-          <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: '#64748b' }}>
+        {(loginType === 'hospital' || loginType === 'doctor') && (
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: 18,
+              fontSize: 13,
+              color: '#64748b'
+            }}
+          >
             Don't have an account?{' '}
+
             <Link
               to="/Register"
-              state={{ accountType: 'admin' }}
+              state={{
+                accountType: loginType === 'hospital' ? 'admin' : 'doctor'
+              }}
               style={{
                 color: '#0f4c81',
                 fontWeight: 600,
                 textDecoration: 'none'
               }}
             >
-              Register Hospital
+              {loginType === 'hospital'
+                ? 'Register Hospital'
+                : 'Register as Solo Doctor'}
             </Link>
           </div>
         )}

@@ -103,37 +103,57 @@ export default function Register() {
 
         <form onSubmit={handleSubmit}>
 
-          <div className="form-group" style={{ marginBottom: 20 }}>
-            <label className="form-label">Account Type *</label>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, accountType: 'admin' })}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 8,
-                  border: form.accountType === 'admin' ? '2px solid #0f4c81' : '1px solid #cbd5e1',
-                  background: form.accountType === 'admin' ? '#eff6ff' : '#fff',
-                  color: form.accountType === 'admin' ? '#0f4c81' : '#475569',
-                  fontWeight: 600, cursor: 'pointer'
-                }}
-              >
-                Hospital Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, accountType: 'separate_doctor' })}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 8,
-                  border: form.accountType === 'separate_doctor' ? '2px solid #0f4c81' : '1px solid #cbd5e1',
-                  background: form.accountType === 'separate_doctor' ? '#eff6ff' : '#fff',
-                  color: form.accountType === 'separate_doctor' ? '#0f4c81' : '#475569',
-                  fontWeight: 600, cursor: 'pointer'
-                }}
-              >
-                Solo Doctor
-              </button>
+          {!location.state?.accountType && (
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label className="form-label">Account Type *</label>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, accountType: 'admin' })}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: 8,
+                    border: form.accountType === 'admin'
+                      ? '2px solid #0f4c81'
+                      : '1px solid #cbd5e1',
+                    background: form.accountType === 'admin' ? '#eff6ff' : '#fff',
+                    color: form.accountType === 'admin' ? '#0f4c81' : '#475569',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Clinic Admin
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm({ ...form, accountType: 'separate_doctor' })
+                  }
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: 8,
+                    border: form.accountType === 'separate_doctor'
+                      ? '2px solid #0f4c81'
+                      : '1px solid #cbd5e1',
+                    background: form.accountType === 'separate_doctor'
+                      ? '#eff6ff'
+                      : '#fff',
+                    color: form.accountType === 'separate_doctor'
+                      ? '#0f4c81'
+                      : '#475569',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Solo Doctor
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {form.accountType === 'admin' && (
             <div className="form-group">
