@@ -28,14 +28,14 @@ export default function FollowUpModal({ token, clinicId, onClose, onSuccess }) {
     setLoading(true);
     setError("");
     try {
-      await api.post("/patient-records/follow-up", {
-        tokenId:     token._id,
-        patientId: token.patientId?._id || token.patient?._id || token.patientId,
-        patientCode: token.patientCode || token.patientId?.patientId || "",
-        doctorId:    token.doctorId?._id  || token.doctor?._id || token.doctorId,
-        clinicId,
-        date,
-        note,
+      // ── Writes to the same FollowUp collection the /dashboard/followups
+      // list page reads from (via GET /api/tokens), so entries created here
+      // show up there immediately. Previously posted to
+      // /patient-records/follow-up, which is a separate PatientRecord
+      // subdocument the list page never reads.
+      await api.patch(`/tokens/${token._id}/follow-up`, {
+        followUpDate: date,
+        followUpNote: note,
       });
       onSuccess();
     } catch (err) {

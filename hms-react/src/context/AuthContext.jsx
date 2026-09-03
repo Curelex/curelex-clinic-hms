@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import API from '../utils/api';
 import { useSocket, resetSocket } from '../hooks/useSocket';
 import { getPlanConfig } from '../utils/planConfig';
@@ -21,7 +21,7 @@ const ROLE_PERMISSIONS = {
     'dashboard', 'patients', 'ipd',
   ],
   receptionist: [
-    'dashboard', 'patients', 'billing', 'tokens',
+    'dashboard', 'patients', 'billing', 'tokens', 'followups'
   ],
   pharmacist: [
     'dashboard', 'pharmacy', 'inventory',
@@ -37,10 +37,11 @@ const ROLE_PERMISSIONS = {
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user,               setUser]               = useState(null);
-  const [patient,            setPatient]            = useState(null);
-  const [loading,            setLoading]            = useState(false);
-  const [authReady,          setAuthReady]          = useState(false);
+  // ── ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP LEVEL ──
+  const [user, setUser] = useState(null);
+  const [patient, setPatient] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [superAdminClinicId, setSuperAdminClinicId] = useState(
     () => sessionStorage.getItem('sa_clinicId') || null
   );
@@ -50,61 +51,61 @@ export const AuthProvider = ({ children }) => {
 
   // ── Socket Integration ──
   const { socket, isConnected, emit, on, off } = useSocket();
-  const [doctorStatus,   setDoctorStatus]   = useState('offline');
-  const [onlineDoctors,  setOnlineDoctors]  = useState([]);
+  const [doctorStatus, setDoctorStatus] = useState('offline');
+  const [onlineDoctors, setOnlineDoctors] = useState([]);
   const [clinicType, setClinicType] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
 
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
 
+  // ── Load profile on mount ──────────────────────────────────────────────
   useEffect(() => {
-  const token = localStorage.getItem('hms_token');
-  if (!token) {
-    setAuthReady(true);
-    return;
-  }
-  API.get('/auth/profile')
-    .then(async ({ data }) => {
-      console.log('📋 Profile loaded:', data);
-      setUser(data.user || data);
-      if (data.patient) setPatient(data.patient);
-      if (data.clinicType) setClinicType(data.clinicType);
-
-      // ── Restore activePlan — check every shape the API might send it in ──
-      if (data.activePlan) {
-        setActivePlan(data.activePlan);
-      } else if (data.user?.activePlan) {
-        setActivePlan(data.user.activePlan);
-      } else if (data.clinic?.plan) {
-        setActivePlan(data.clinic.plan);
-      } else if (data.clinicType === 'hospital') {
-        try {
-          const clinicRes = await API.get('/clinics/me');
-          setActivePlan(clinicRes.data?.plan || 'free');
-        } catch (err) {
-          console.error('Failed to fetch clinic plan on profile restore:', err);
-          setActivePlan('free');
-        }
-      }
-    })
-    .catch((err) => {
-      console.error('Failed to load profile:', err);
-      localStorage.removeItem('hms_token');
-      localStorage.removeItem('user');
-      setUser(null);
-      setPatient(null);
-    })
-    .finally(() => {
+    const token = localStorage.getItem('hms_token');
+    if (!token) {
       setAuthReady(true);
-    });
-}, []);
+      return;
+    }
+    API.get('/auth/profile')
+      .then(async ({ data }) => {
+        console.log('📋 Profile loaded:', data);
+        setUser(data.user || data);
+        if (data.patient) setPatient(data.patient);
+        if (data.clinicType) setClinicType(data.clinicType);
+
+        if (data.activePlan) {
+          setActivePlan(data.activePlan);
+        } else if (data.user?.activePlan) {
+          setActivePlan(data.user.activePlan);
+        } else if (data.clinic?.plan) {
+          setActivePlan(data.clinic.plan);
+        } else if (data.clinicType === 'hospital') {
+          try {
+            const clinicRes = await API.get('/clinics/me');
+            setActivePlan(clinicRes.data?.plan || 'free');
+          } catch (err) {
+            console.error('Failed to fetch clinic plan on profile restore:', err);
+            setActivePlan('free');
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load profile:', err);
+        localStorage.removeItem('hms_token');
+        localStorage.removeItem('user');
+        setUser(null);
+        setPatient(null);
+      })
+      .finally(() => {
+        setAuthReady(true);
+      });
+  }, []);
 
   // ── Setup socket events when user is loaded ──────────────────────────────
   useEffect(() => {
     if (!user || !socket || user.role === 'super_admin') return;
 
-    const userId   = user._id || user.id;
+    const userId = user._id || user.id;
     const clinicId = user.clinicId || patient?.clinicId || user.clinic || null;
 
     console.log('🔌 Socket setup for user:', { userId, role: user.role, clinicId });
@@ -112,23 +113,13 @@ export const AuthProvider = ({ children }) => {
     const registerWithServer = () => {
       if (user.role === 'doctor' || user.role === 'separate_doctor') {
         console.log('🩺 Registering doctor with socket:', userId);
-        // Join the socket room and register, but do NOT set status to online.
-        // The doctor must manually click "Go Online" — status stays 'offline' on login.
         socket.emit('doctor:join', userId);
         socket.emit('doctor:register-socket', { doctorId: userId });
-        // Intentionally NOT emitting doctor:status here — doctor starts offline.
       }
 
       if (user.role === 'patient') {
-        // FIX: Always join personal patient room using userId — this is what
-        // receives targeted events (payment, status, meeting links).
-        // clinicId mismatch was causing the old guard to bail out early,
-        // so the patient never joined ANY room and saw 0 online doctors.
         console.log('🧑‍⚕️ Registering patient with socket:', { patientId: userId, clinicId });
         socket.emit('patient:join-clinic', { clinicId, patientId: userId });
-
-        // FIX: Fetch ALL online doctors — no clinicId filter needed since
-        // the server now returns all online doctors regardless of clinic.
         socket.emit('doctor:get-online', {}, (doctors) => {
           setOnlineDoctors(doctors || []);
         });
@@ -160,70 +151,57 @@ export const AuthProvider = ({ children }) => {
     };
 
     socket.on('doctor:status-change', handleDoctorStatusChange);
-    socket.on('doctor:online-list',   handleOnlineList);
+    socket.on('doctor:online-list', handleOnlineList);
 
     return () => {
-      socket.off('connect',              registerWithServer);
+      socket.off('connect', registerWithServer);
       socket.off('doctor:status-change', handleDoctorStatusChange);
-      socket.off('doctor:online-list',   handleOnlineList);
+      socket.off('doctor:online-list', handleOnlineList);
     };
   }, [user, patient, socket]);
 
+  // ── ALL CALLBACKS MUST BE DEFINED BEFORE ANY CONDITIONAL RETURN ──
+  
   const checkClinicTimings = useCallback(async () => {
-  try {
-    const response = await API.get('/clinics/timings');
-    if (response.data.success) {
-      const { openingHours, clinicName, clinicType } = response.data;
-      
-     // Check if timings are properly configured.
-// A closed day is valid without open/close times.
-const days = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday'
-];
+    try {
+      const response = await API.get('/clinics/timings');
+      if (response.data.success) {
+        const { openingHours, clinicName, clinicType } = response.data;
 
-const hasTimings =
-  openingHours &&
-  days.every(day => {
-    const dayData = openingHours[day];
+        const days = [
+          'monday', 'tuesday', 'wednesday', 'thursday',
+          'friday', 'saturday', 'sunday'
+        ];
 
-    if (!dayData) return false;
+        const hasTimings =
+          openingHours &&
+          days.every(day => {
+            const dayData = openingHours[day];
+            if (!dayData) return false;
+            if (dayData.isOpen === false) return true;
+            return (
+              dayData.isOpen === true &&
+              typeof dayData.open === 'string' &&
+              dayData.open.trim() !== '' &&
+              typeof dayData.close === 'string' &&
+              dayData.close.trim() !== ''
+            );
+          });
 
-    // Closed day is valid
-    if (dayData.isOpen === false) {
-      return true;
+        return {
+          hasTimings,
+          openingHours,
+          clinicName,
+          clinicType
+        };
+      }
+      return { hasTimings: false };
+    } catch (err) {
+      console.error('Failed to check clinic timings:', err);
+      return { hasTimings: false };
     }
+  }, []);
 
-    // Open day must have both opening and closing times
-    return (
-      dayData.isOpen === true &&
-      typeof dayData.open === 'string' &&
-      dayData.open.trim() !== '' &&
-      typeof dayData.close === 'string' &&
-      dayData.close.trim() !== ''
-    );
-  });
-      
-      return {
-        hasTimings,
-        openingHours,
-        clinicName,
-        clinicType
-      };
-    }
-    return { hasTimings: false };
-  } catch (err) {
-    console.error('Failed to check clinic timings:', err);
-    return { hasTimings: false };
-  }
-}, []);
-
-  // ── Doctor status management ─────────────────────────────────────────────
   const setDoctorOnline = useCallback((status) => {
     if (!user || (user.role !== 'doctor' && user.role !== 'separate_doctor')) return;
     const doctorId = user._id || user.id;
@@ -232,15 +210,13 @@ const hasTimings =
     emit('doctor:status', { doctorId, status, clinicId: user.clinicId || null });
   }, [user, emit]);
 
-  // ── Check if a specific doctor is online ────────────────────────────────
   const isDoctorOnline = useCallback((doctorId) => {
     if (!doctorId) return false;
     const id = String(doctorId);
     return onlineDoctors.some(d => String(d.doctorId) === id);
   }, [onlineDoctors]);
 
-  // ── Super admin clinic impersonation ────────────────────────────────────
-  const setSuperAdminClinic = (clinicId, clinicName = '') => {
+  const setSuperAdminClinic = useCallback((clinicId, clinicName = '') => {
     if (clinicId) {
       sessionStorage.setItem('sa_clinicId', clinicId);
       sessionStorage.setItem('sa_clinicName', clinicName);
@@ -250,153 +226,137 @@ const hasTimings =
     }
     setSuperAdminClinicId(clinicId || null);
     setSuperAdminClinicName(clinicName || null);
-  };
+  }, []);
 
-  const getEffectiveClinicId = () => {
+  const getEffectiveClinicId = useCallback(() => {
     if (user?.role === 'super_admin') return superAdminClinicId || null;
     return user?.clinicId || patient?.clinicId || user?.clinic || null;
-  };
+  }, [user, patient, superAdminClinicId]);
 
-  // ── Login ────────────────────────────────────────────────────────────────
-const login = async (email, password) => {
-  setLoading(true);
-  try {
-    const { data } = await API.post('/auth/login', { email, password });
-    console.log('✅ LOGIN SUCCESS:', data.user);
+  const login = useCallback(async (email, password) => {
+    setLoading(true);
+    try {
+      const { data } = await API.post('/auth/login', { email, password });
+      console.log('✅ LOGIN SUCCESS:', data.user);
 
-    localStorage.setItem('hms_token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('hms_token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
 
-    resetSocket();
+      resetSocket();
 
-    setUser(data.user);
-    if (data.patient) {
-      setPatient(data.patient);
-      localStorage.setItem('patient', JSON.stringify(data.patient));
-    }
-    if (data.user?.activePlan) {
-  setActivePlan(data.user.activePlan);
-} else if (data.clinic?.plan) {
-  setActivePlan(data.clinic.plan);
-}
-    
-    // Set clinic type from response
-    if (data.clinicType) {
-      setClinicType(data.clinicType);
-    } else if (data.user?.clinicId) {
-      // If clinic type not in response, fetch it
-      try {
-        // const clinicRes = await API.get(`/clinics/${data.user.clinicId}`);
-        const clinicRes = await API.get('/clinics/me');
-        if (clinicRes.data?.type) {
-          setClinicType(clinicRes.data.type);
+      setUser(data.user);
+      if (data.patient) {
+        setPatient(data.patient);
+        localStorage.setItem('patient', JSON.stringify(data.patient));
+      }
+
+      if (data.clinicType) {
+        setClinicType(data.clinicType);
+      } else if (data.user?.clinicId) {
+        try {
+          const clinicRes = await API.get('/clinics/me');
+          if (clinicRes.data?.type) {
+            setClinicType(clinicRes.data.type);
+          }
+          if (clinicRes.data?.plan) {
+            setActivePlan(clinicRes.data.plan);
+          } else {
+            setActivePlan('free');
+          }
+        } catch (err) {
+          console.error('Failed to fetch clinic type:', err);
         }
-        if (clinicRes.data?.plan) {
-          setActivePlan(clinicRes.data.plan);
-        } else {
-          // If no plan, set to 'free'
-          setActivePlan('free');
-        }
-      } catch (err) {
-        console.error('Failed to fetch clinic type:', err);
-      } 
-    }
-    else {
+      } else {
         setActivePlan('free');
       }
 
       if (data.user?.activePlan) {
-      setActivePlan(data.user.activePlan);
-    } else if (data.clinic?.plan) {
-      setActivePlan(data.clinic.plan);
-    }
-
-    const clinicType = data.clinicType || data.user?.clinicType;
-    const plan = data.clinic?.plan || data.user?.activePlan || 'free';
-
-    if (clinicType === 'hospital' && (plan === 'free' || !plan || plan === 'none')) {
-      // Store that user needs to select a plan
-      sessionStorage.setItem('needsPlanSelection', 'true');
-    }
-
-
-    return { success: true, user: data.user, patient: data.patient };
-  } catch (err) {
-    console.error('❌ Login error:', err);
-    return {
-      success: false,
-      message: err.response?.data?.message || 'Login failed',
-    };
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const register = async (formData) => {
-  setLoading(true);
-  try {
-    const { data } = await API.post('/auth/register', formData);
-    localStorage.setItem('hms_token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    resetSocket();
-    setUser(data.user);
-
-    if (data.clinicType) {
-      setClinicType(data.clinicType);
-    } else {
-      try {
-        const clinicRes = await API.get('/clinics/me');
-        if (clinicRes.data?.type) setClinicType(clinicRes.data.type);
-      } catch (err) {
-        console.error('Failed to fetch clinic type after register:', err);
+        setActivePlan(data.user.activePlan);
+      } else if (data.clinic?.plan) {
+        setActivePlan(data.clinic.plan);
       }
+
+      const clinicType = data.clinicType || data.user?.clinicType;
+      const plan = data.clinic?.plan || data.user?.activePlan || 'free';
+
+      if (clinicType === 'hospital' && (plan === 'free' || !plan || plan === 'none')) {
+        sessionStorage.setItem('needsPlanSelection', 'true');
+      }
+
+      return { success: true, user: data.user, patient: data.patient };
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Login failed',
+      };
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    // ── Set activePlan explicitly — never leave it at a stale/default value ──
-    if (data.user?.activePlan) {
-      setActivePlan(data.user.activePlan);
-    } else if (data.clinic?.plan) {
-      setActivePlan(data.clinic.plan);
-    } else {
-      // New clinics start with no plan — this is what should trigger /plans
-      setActivePlan('free');
+  const register = useCallback(async (formData) => {
+    setLoading(true);
+    try {
+      const { data } = await API.post('/auth/register', formData);
+      localStorage.setItem('hms_token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      resetSocket();
+      setUser(data.user);
+
+      if (data.clinicType) {
+        setClinicType(data.clinicType);
+      } else {
+        try {
+          const clinicRes = await API.get('/clinics/me');
+          if (clinicRes.data?.type) setClinicType(clinicRes.data.type);
+        } catch (err) {
+          console.error('Failed to fetch clinic type after register:', err);
+        }
+      }
+
+      if (data.user?.activePlan) {
+        setActivePlan(data.user.activePlan);
+      } else if (data.clinic?.plan) {
+        setActivePlan(data.clinic.plan);
+      } else {
+        setActivePlan('free');
+      }
+
+      return { success: true, user: data.user, clinicType: data.clinicType };
+    } catch (err) {
+      console.error('❌ Register error:', err);
+      return { success: false, message: err.response?.data?.message || 'Registration failed' };
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    return { success: true, user: data.user, clinicType: data.clinicType };
-  } catch (err) {
-    console.error('❌ Register error:', err);
-    return { success: false, message: err.response?.data?.message || 'Registration failed' };
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // ── Patient Registration ─────────────────────────────────────────────────
-  const registerPatient = async (formData) => {
+  const registerPatient = useCallback(async (formData) => {
     setLoading(true);
     try {
       const patientData = {
-        name:                 formData.name,
-        email:                formData.email,
-        password:             formData.password,
-        phone:                formData.phone || '',
-        dob:                  formData.dob || null,
-        age:                  formData.age || null,
-        gender:               formData.gender || null,
-        bloodGroup:           formData.bloodGroup || null,
-        address:              formData.address || '',
-        city:                 formData.city || '',
-        state:                formData.state || '',
-        pincode:              formData.pincode || '',
-        emergencyContact:     formData.emergencyContact || '',
-        emergencyName:        formData.emergencyName || '',
-        emergencyRelation:    formData.emergencyRelation || '',
-        allergies:            formData.allergies || '',
-        chronicConditions:    formData.chronicConditions || '',
-        currentMedications:   formData.currentMedications || '',
-        medicalHistory:       formData.medicalHistory || '',
-        notes:                formData.notes || '',
-        assignedDoctor:       formData.assignedDoctor || null,
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone || '',
+        dob: formData.dob || null,
+        age: formData.age || null,
+        gender: formData.gender || null,
+        bloodGroup: formData.bloodGroup || null,
+        address: formData.address || '',
+        city: formData.city || '',
+        state: formData.state || '',
+        pincode: formData.pincode || '',
+        emergencyContact: formData.emergencyContact || '',
+        emergencyName: formData.emergencyName || '',
+        emergencyRelation: formData.emergencyRelation || '',
+        allergies: formData.allergies || '',
+        chronicConditions: formData.chronicConditions || '',
+        currentMedications: formData.currentMedications || '',
+        medicalHistory: formData.medicalHistory || '',
+        notes: formData.notes || '',
+        assignedDoctor: formData.assignedDoctor || null,
       };
 
       const { data } = await API.post('/auth/register-patient', patientData);
@@ -410,11 +370,9 @@ const login = async (email, password) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  
-  // ── Logout ───────────────────────────────────────────────────────────────
-  const logout = () => {
+  const logout = useCallback(() => {
     if (user?.role === 'doctor' || user?.role === 'separate_doctor') {
       const doctorId = user._id || user.id;
       console.log(`🔄 Logging out doctor ${doctorId}`);
@@ -433,90 +391,62 @@ const login = async (email, password) => {
     setUser(null);
     setPatient(null);
     setOnlineDoctors([]);
-  };
+  }, [user, emit]);
 
-  const hasPerm = (key) => {
-  if (!user) return false;
-  const role = user.role?.toLowerCase();
-  if (role === 'super_admin') return true;
-  if (key === 'telemedicine') return role === 'doctor' || role === 'separate_doctor';
-  if (role === 'admin') return true;
+  const hasPerm = useCallback((key) => {
+    if (!user) return false;
+    const role = user.role?.toLowerCase();
+    if (role === 'super_admin') return true;
+    if (key === 'telemedicine') return role === 'doctor' || role === 'separate_doctor';
+    if (role === 'admin') return true;
+    const roleNavPerms = ROLE_PERMISSIONS[role];
+    if (roleNavPerms) return roleNavPerms.includes(key);
+    return Array.isArray(user.permissions) && user.permissions.includes(key);
+  }, [user]);
 
-  // ── Gate inventory access for clinic pharmacists by plan ──
-  if (role === 'pharmacist' && key === 'inventory' && clinicType === 'clinic') {
-    const config = getPlanConfig('clinic', activePlan);
-    return !!config.features?.inventory; // only true on 'pro'
-  }
+  const isPatient = useCallback(() => user?.role === 'patient', [user]);
+  const isDoctor = useCallback(() => user?.role?.toLowerCase() === 'doctor', [user]);
+  const isAdmin = useCallback(() => user?.role?.toLowerCase() === 'admin', [user]);
+  const isSuperAdmin = useCallback(() => user?.role?.toLowerCase() === 'super_admin', [user]);
+  const isStaff = useCallback(() => user && user?.role !== 'patient', [user]);
+  const getUserId = useCallback(() => user?.id || user?._id || null, [user]);
+  const getUserName = useCallback(() => user?.name || 'User', [user]);
+  const getUserEmail = useCallback(() => user?.email || '', [user]);
+  const getUserRole = useCallback(() => user?.role || null, [user]);
+  const isAuthenticated = useCallback(() => !!user, [user]);
+  const getPatientData = useCallback(() => patient || null, [patient]);
 
-  const roleNavPerms = ROLE_PERMISSIONS[role];
-  if (roleNavPerms) return roleNavPerms.includes(key);
-  return Array.isArray(user.permissions) && user.permissions.includes(key);
-};
+  const updateUserData = useCallback((updatedFields) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
-  // ── Helper methods ───────────────────────────────────────────────────────
-  const isPatient      = () => user?.role === 'patient';
-  const isDoctor       = () => user?.role?.toLowerCase() === 'doctor';
-  const isAdmin        = () => user?.role?.toLowerCase() === 'admin';
-  const isSuperAdmin   = () => user?.role?.toLowerCase() === 'super_admin';
-  const isStaff        = () => user && user?.role !== 'patient';
-  const getUserId      = () => user?.id || user?._id || null;
-  const getUserName    = () => user?.name || 'User';
-  const getUserEmail   = () => user?.email || '';
-  const getUserRole    = () => user?.role || null;
-  const isAuthenticated = () => !!user;
-  const getPatientData = () => patient || null;
-
-  if (!authReady) return null;
-
-  const value = {
-    user,
-    patient,
-    login,
-    register,
-    logout,
-    loading,
-    authReady,
-    hasPerm,
-    clinicType,
-    checkClinicTimings,
-    activePlan,
-    isPatient,
-    isDoctor,
-    isAdmin,
-    isSuperAdmin,
-    isStaff,
-    getUserId,
-    getUserName,
-    getUserEmail,
-    getUserRole,
-    isAuthenticated,
-    getPatientData,
-
+  // ── IMPORTANT: All useMemo calls must come BEFORE any conditional returns ──
+  const value = useMemo(() => ({
+    user, patient, login, register, logout, loading, authReady, hasPerm,
+    clinicType, checkClinicTimings, activePlan,
+    isPatient, isDoctor, isAdmin, isSuperAdmin, isStaff,
+    getUserId, getUserName, getUserEmail, getUserRole, isAuthenticated, getPatientData,
     registerPatient,
+    superAdminClinicId, superAdminClinicName, setSuperAdminClinic, getEffectiveClinicId,
+    updateUserData,
+    socket, isConnected, doctorStatus, setDoctorOnline, onlineDoctors, isDoctorOnline,
+    emit, on, off,
+  }), [
+    user, patient, loading, authReady, clinicType, activePlan,
+    hasPerm, checkClinicTimings, isPatient, isDoctor, isAdmin, isSuperAdmin, isStaff,
+    getUserId, getUserName, getUserEmail, getUserRole, isAuthenticated, getPatientData,
+    registerPatient, superAdminClinicId, superAdminClinicName, setSuperAdminClinic,
+    getEffectiveClinicId, updateUserData, socket, isConnected, doctorStatus,
+    setDoctorOnline, onlineDoctors, isDoctorOnline, emit, on, off, login, register, logout,
+  ]);
 
-    superAdminClinicId,
-    superAdminClinicName,
-    setSuperAdminClinic,
-    getEffectiveClinicId,
-    updateUserData: (updatedFields) => {
-      setUser(prev => {
-        if (!prev) return null;
-        const updated = { ...prev, ...updatedFields };
-        localStorage.setItem('user', JSON.stringify(updated));
-        return updated;
-      });
-    },
- 
-    socket,
-    isConnected,
-    doctorStatus,
-    setDoctorOnline,
-    onlineDoctors,
-    isDoctorOnline,
-    emit,
-    on,
-    off,
-  };
+  // ── CONDITIONAL RETURN MUST COME AFTER ALL HOOKS ──
+  if (!authReady) return null;
 
   return (
     <AuthContext.Provider value={value}>

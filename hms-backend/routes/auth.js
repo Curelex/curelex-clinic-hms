@@ -523,7 +523,7 @@ router.put('/me', auth, async (req, res) => {
 });
 
 // ── List Staff (admin only) ───────────────────────────────────────────────
-router.get('/users', auth, roleCheck('admin'), async (req, res) => {
+router.get('/users', auth, roleCheck('admin', 'receptionist'), async (req, res) => {
   try {
     // For super_admin, if they have a clinic selected via header, filter by it
     let filter = { role: { $ne: 'patient' } };
