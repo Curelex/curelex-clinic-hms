@@ -233,19 +233,15 @@ const Home = () => {
   const handleStaffSelect = () => {
     setShowRoleModal(false);
     document.title = 'Curelex Doctors';
-    navigate('/Register', {
-      state: {
-        accountType: "separate_doctor"
-      },
-    });
+    navigate('/login');
   };
   const handleHospitalSelect = () => {
     setShowRoleModal(false);
     document.title = 'Curelex HMS';
-    navigate('/Register', {
+    navigate('/login', {
       state: {
-        accountType: "separate_doctor"
-      },
+        loginType: 'hospital'
+      }
     });
   };
 
