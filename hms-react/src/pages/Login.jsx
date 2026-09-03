@@ -1,8 +1,8 @@
 // hms-react/src/pages/Login.jsx
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import curelexLogo from "../../assets/logo.png";
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -10,6 +10,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const loginType = location.state?.loginType;
 
   // ── Redirect after login based on role ──────────────────────────────────
   const redirectByRole = (role) => {
@@ -130,18 +132,35 @@ export default function Login() {
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: '#64748b' }}>
-          Don't have an account?{' '}
-          <Link to="/register" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none' }}>
-            Create Account
-          </Link>
-        </div>
+        {(loginType === 'hospital' || loginType === 'doctor') && (
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: 18,
+              fontSize: 13,
+              color: '#64748b'
+            }}
+          >
+            Don't have an account?{' '}
 
-        <div style={{ textAlign: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
-          <Link to="/patient-login" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none', fontSize: 13 }}>
-            👤 Patient Login
-          </Link>
-        </div>
+            <Link
+              to="/Register"
+              state={{
+                accountType: loginType === 'hospital' ? 'admin' : 'doctor'
+              }}
+              style={{
+                color: '#0f4c81',
+                fontWeight: 600,
+                textDecoration: 'none'
+              }}
+            >
+              {loginType === 'hospital'
+                ? 'Register Hospital'
+                : 'Register as Solo Doctor'}
+            </Link>
+          </div>
+        )}
+
       </div>
     </div>
   );

@@ -99,6 +99,21 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
       });
     }
 
+    // ── Default IMS permissions per role, used only if none provided ──────────
+    const DEFAULT_ROLE_PERMISSIONS = {
+      pharmacist: [
+        'dashboard', 'pharmacy', 'inventory',
+        'suppliers.read', 'suppliers.write',
+        'products.read', 'products.write',
+        'purchases.read', 'purchases.write',
+        'inventory.adjust',
+        'sales.read', 'sales.create', 'sales.invoice',
+        'customers.read', 'customers.write',
+      ],
+    };
+
+    const defaultPermissions = DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'];
+
     const userData = {
       clinicId,
       name,
@@ -107,7 +122,7 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
       role,
       phone: phone || '',
       department: department || '',
-      permissions: permissions || ['dashboard'],
+      permissions: permissions || defaultPermissions,
       isActive: true,
     };
 

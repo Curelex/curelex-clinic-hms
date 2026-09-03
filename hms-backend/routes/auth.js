@@ -174,7 +174,15 @@ router.post('/register', async (req, res) => {
       separate_doctor: ['dashboard', 'patients', 'telemedicine'],
       nurse:           ['dashboard', 'patients', 'ipd'],
       receptionist:    ['dashboard', 'patients', 'billing', 'tokens'],
-      pharmacist:      ['dashboard', 'pharmacy', 'inventory'],
+      pharmacist:      [
+        'dashboard', 'pharmacy', 'inventory',
+        'suppliers.read', 'suppliers.write',
+        'products.read', 'products.write',
+        'purchases.read', 'purchases.write',
+        'inventory.adjust',
+        'sales.read', 'sales.create', 'sales.invoice',
+        'customers.read', 'customers.write',
+      ],
       lab_technician:  ['dashboard', 'patients', 'lab'],
     };
 
