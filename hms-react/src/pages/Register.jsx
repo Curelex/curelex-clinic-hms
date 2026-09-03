@@ -21,7 +21,7 @@ export default function Register() {
     confirmPassword: '',
     department: '',
     phone: '',
-    address : ''
+    address: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,8 +46,8 @@ export default function Register() {
     }
     if (form.accountType === 'admin' && !form.clinicName.trim()) return setError('Clinic / Hospital name is required');
     if (form.accountType === 'admin' && !form.address.trim()) {
-    return setError('Clinic/Hospital address is required');
-  }
+      return setError('Clinic/Hospital address is required');
+    }
 
     setLoading(true);
     try {
@@ -117,7 +117,7 @@ export default function Register() {
                   fontWeight: 600, cursor: 'pointer'
                 }}
               >
-                Clinic Admin
+                Hospital Admin
               </button>
               <button
                 type="button"
@@ -151,25 +151,25 @@ export default function Register() {
                 This creates a new isolated clinic workspace.
               </div>
             </div>
-            
+
           )}
           {form.accountType === 'admin' && (
             <div className="form-group">
               <label className="form-label">Clinic / Hospital Address *</label>
-      <input
-        className="form-control"
-        name="address"
-        type="text"
-        placeholder="Street, City, State, PIN Code"
-        value={form.address}
-        onChange={handleChange}
-        required
-      />
-      <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-        This address will appear on all bills and prescriptions.
-      </div>
+              <input
+                className="form-control"
+                name="address"
+                type="text"
+                placeholder="Street, City, State, PIN Code"
+                value={form.address}
+                onChange={handleChange}
+                required
+              />
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                This address will appear on all bills and prescriptions.
+              </div>
             </div>
-            
+
           )}
 
           <div className="form-group">
@@ -299,7 +299,17 @@ export default function Register() {
 
           <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#64748b' }}>
             Already have an account?{' '}
-            <Link to="/login" style={{ color: '#0f4c81', fontWeight: 600, textDecoration: 'none' }}>Sign In</Link>
+            <Link
+              to="/login"
+              state={form.accountType === 'admin' ? { loginType: 'hospital' } : undefined}
+              style={{
+                color: '#0f4c81',
+                fontWeight: 600,
+                textDecoration: 'none'
+              }}
+            >
+              Sign In
+            </Link>
           </div>
         </form>
       </div>
