@@ -1,4 +1,5 @@
 // hooks/useClinicAdmin.js
+import { useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
@@ -42,205 +43,212 @@ function tokenToPatient(t) {
 }
 
 export function useClinicAdmin() {
-  const { user, logout, getEffectiveClinicId, clinicType } = useAuth();
+  const { user, logout, getEffectiveClinicId, clinicType, activePlan } = useAuth();
 
-  // Helper to get clinic ID
-  const getClinicId = () => {
+  // ── Helper to get clinic ID ──
+  const getClinicId = useCallback(() => {
     return getEffectiveClinicId() || user?.clinicId;
-  };
+  }, [getEffectiveClinicId, user?.clinicId]);
 
-  // Helper to handle API errors
-  const handleApiError = (error, defaultMessage) => {
+  // ── Helper to handle API errors ──
+  const handleApiError = useCallback((error, defaultMessage) => {
     console.error(error);
     const message = error.response?.data?.message || error.message || defaultMessage;
     throw new Error(message);
-  };
+  }, []);
+
+  // ── Clinic Management ──
+  const refreshClinic = useCallback(async () => {
+    try {
+      const clinicId = getClinicId();
+      if (!clinicId) {
+        throw new Error('No clinic ID found');
+      }
+      const response = await API.get(`/clinics/me`);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, 'Failed to refresh clinic data');
+    }
+  }, [getClinicId, handleApiError]);
+
+  const saveClinic = useCallback(async (updates) => {
+    try {
+      const clinicId = getClinicId();
+      if (!clinicId) {
+        throw new Error('No clinic ID found');
+      }
+      const response = await API.put('/clinics/me', updates);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, 'Failed to save clinic data');
+    }
+  }, [getClinicId, handleApiError]);
+
+  // ── User Management ──
+  const getUsers = useCallback(async () => {
+    try {
+      const clinicId = getClinicId();
+      const params = clinicId ? { clinicId } : {};
+      const response = await API.get('/auth/users', { params });
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, 'Failed to fetch users');
+    }
+  }, [getClinicId, handleApiError]);
+
+  const addUser = useCallback(async (data) => {
+    try {
+      const clinicId = getClinicId();
+      if (!clinicId && data.role !== 'separate_doctor') {
+        throw new Error('No clinic ID found');
+      }
+      const response = await API.post('/auth/users', {
+        ...data,
+        clinicId: data.clinicId || clinicId
+      });
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, 'Failed to add user');
+    }
+  }, [getClinicId, handleApiError]);
+
+  const updateUser = useCallback(async (id, data) => {
+    try {
+      const clinicId = getClinicId();
+      const response = await API.put(`/auth/users/${id}`, {
+        ...data,
+        clinicId: data.clinicId || clinicId
+      });
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, 'Failed to update user');
+    }
+  }, [getClinicId, handleApiError]);
+
+  const deleteUser = useCallback(async (id) => {
+    try {
+      const clinicId = getClinicId();
+      await API.delete(`/auth/users/${id}`, {
+        data: { clinicId }
+      });
+      return true;
+    } catch (error) {
+      return handleApiError(error, 'Failed to delete user');
+    }
+  }, [getClinicId, handleApiError]);
+
+  const updateTokenLimit = useCallback(async (doctorId, limit) => {
+    try {
+      const response = await API.put(`/auth/users/${doctorId}`, {
+        dailyTokenLimit: limit
+      });
+      return response.data;
+    } catch (error) {
+      return handleApiError(error, 'Failed to update token limit');
+    }
+  }, [handleApiError]);
+
+  // ── Patient Management ──
+  const getPatients = useCallback(async () => {
+    try {
+      const clinicId = getClinicId();
+      const params = clinicId ? { clinicId } : {};
+      const response = await API.get('/tokens', { params });
+      return (response.data.tokens || []).map(tokenToPatient);
+    } catch (error) {
+      return handleApiError(error, 'Failed to fetch patients');
+    }
+  }, [getClinicId, handleApiError]);
+
+  const updatePatientStatus = useCallback(async (id, status) => {
+    try {
+      const response = await API.patch(`/tokens/${id}/status`, {
+        status: STATUS_TO_TOKEN[status] || 'Waiting'
+      });
+      return tokenToPatient(response.data.token);
+    } catch (error) {
+      return handleApiError(error, 'Failed to update patient status');
+    }
+  }, [handleApiError]);
+
+  const updateFollowUp = useCallback(async (id, followUpDate, followUpNote) => {
+    try {
+      const response = await API.patch(`/tokens/${id}/follow-up`, {
+        followUpDate,
+        followUpNote
+      });
+      return tokenToPatient(response.data);
+    } catch (error) {
+      return handleApiError(error, 'Failed to update follow-up');
+    }
+  }, [handleApiError]);
+
+  // ── Revenue Management ──
+  const getRevenueReport = useCallback(async (fromDate, toDate) => {
+    try {
+      const clinicId = getClinicId();
+      if (!clinicId) {
+        throw new Error('No clinic ID found');
+      }
+      const response = await API.get('/clinics/revenue-report', {
+        params: {
+          clinicId,
+          fromDate,
+          toDate,
+          clinicType
+        }
+      });
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.warn('Revenue report endpoint not implemented yet');
+        return {
+          totalSales: 0,
+          totalProfit: 0,
+          totalOrders: 0,
+          pharmacists: []
+        };
+      }
+      return handleApiError(error, 'Failed to fetch revenue report');
+    }
+  }, [getClinicId, clinicType, handleApiError]);
+
+  // ── Helper to check if user is clinic admin ──
+  const isClinicAdmin = useCallback(() => {
+    return user?.role === 'admin' && clinicType === 'clinic';
+  }, [user?.role, clinicType]);
+
+  // ── Helper to check if user is hospital admin ──
+  const isHospitalAdmin = useCallback(() => {
+    return user?.role === 'admin' && clinicType === 'hospital';
+  }, [user?.role, clinicType]);
+
+  // ── Get clinic type ──
+  const getClinicType = useCallback(() => {
+    return clinicType;
+  }, [clinicType]);
 
   return {
     session: user,
     logout,
-    activePlan: user?.activePlan || 'lite',
-    clinicType, // Add clinic type to return
+    activePlan: activePlan || 'free', 
+    clinicType,
 
-    // ── Clinic Management ──
-    refreshClinic: async () => {
-      try {
-        const clinicId = getClinicId();
-        if (!clinicId) {
-          throw new Error('No clinic ID found');
-        }
-        const response = await API.get(`/clinics/me`);
-        return response.data;
-      } catch (error) {
-        return handleApiError(error, 'Failed to refresh clinic data');
-      }
-    },
+    refreshClinic,
+    saveClinic,
+    getUsers,
+    addUser,
+    updateUser,
+    deleteUser,
+    updateTokenLimit,
+    getPatients,
+    updatePatientStatus,
+    updateFollowUp,
+    getRevenueReport,
 
-    saveClinic: async (updates) => {
-      try {
-        const clinicId = getClinicId();
-        if (!clinicId) {
-          throw new Error('No clinic ID found');
-        }
-        const response = await API.put('/clinics/me', updates);
-        return response.data;
-      } catch (error) {
-        return handleApiError(error, 'Failed to save clinic data');
-      }
-    },
-
-    // ── User Management ──
-    getUsers: async () => {
-      try {
-        const clinicId = getClinicId();
-        const params = clinicId ? { clinicId } : {};
-        const response = await API.get('/auth/users', { params });
-        return response.data;
-      } catch (error) {
-        return handleApiError(error, 'Failed to fetch users');
-      }
-    },
-
-    addUser: async (data) => {
-      try {
-        const clinicId = getClinicId();
-        if (!clinicId && data.role !== 'separate_doctor') {
-          throw new Error('No clinic ID found');
-        }
-        const response = await API.post('/auth/users', {
-          ...data,
-          clinicId: data.clinicId || clinicId
-        });
-        return response.data;
-      } catch (error) {
-        return handleApiError(error, 'Failed to add user');
-      }
-    },
-
-    updateUser: async (id, data) => {
-      try {
-        const clinicId = getClinicId();
-        const response = await API.put(`/auth/users/${id}`, {
-          ...data,
-          clinicId: data.clinicId || clinicId
-        });
-        return response.data;
-      } catch (error) {
-        return handleApiError(error, 'Failed to update user');
-      }
-    },
-
-    deleteUser: async (id) => {
-      try {
-        const clinicId = getClinicId();
-        await API.delete(`/auth/users/${id}`, {
-          data: { clinicId }
-        });
-        return true;
-      } catch (error) {
-        return handleApiError(error, 'Failed to delete user');
-      }
-    },
-
-    updateTokenLimit: async (doctorId, limit) => {
-      try {
-        const response = await API.put(`/auth/users/${doctorId}`, {
-          dailyTokenLimit: limit
-        });
-        return response.data;
-      } catch (error) {
-        return handleApiError(error, 'Failed to update token limit');
-      }
-    },
-
-    // ── Patient Management ──
-    getPatients: async () => {
-      try {
-        const clinicId = getClinicId();
-        const params = clinicId ? { clinicId } : {};
-        const response = await API.get('/tokens', { params });
-        return (response.data.tokens || []).map(tokenToPatient);
-      } catch (error) {
-        return handleApiError(error, 'Failed to fetch patients');
-      }
-    },
-
-    updatePatientStatus: async (id, status) => {
-      try {
-        const response = await API.patch(`/tokens/${id}/status`, {
-          status: STATUS_TO_TOKEN[status] || 'Waiting'
-        });
-        return tokenToPatient(response.data.token);
-      } catch (error) {
-        return handleApiError(error, 'Failed to update patient status');
-      }
-    },
-
-    updateFollowUp: async (id, followUpDate, followUpNote) => {
-      try {
-        const response = await API.patch(`/tokens/${id}/follow-up`, {
-          followUpDate,
-          followUpNote
-        });
-        return tokenToPatient(response.data);
-      } catch (error) {
-        return handleApiError(error, 'Failed to update follow-up');
-      }
-    },
-
-    // ── Revenue Management ──
-    getRevenueReport: async (fromDate, toDate) => {
-      try {
-        const clinicId = getClinicId();
-        if (!clinicId) {
-          throw new Error('No clinic ID found');
-        }
-        const response = await API.get('/clinics/revenue-report', {
-          params: {
-            clinicId,
-            fromDate,
-            toDate,
-            clinicType: clinicType // Include clinic type for filtering
-          }
-        });
-        return response.data;
-      } catch (error) {
-        // If endpoint doesn't exist yet, return mock data
-        if (error.response?.status === 404) {
-          console.warn('Revenue report endpoint not implemented yet');
-          return {
-            totalSales: 0,
-            totalProfit: 0,
-            totalOrders: 0,
-            pharmacists: []
-          };
-        }
-        return handleApiError(error, 'Failed to fetch revenue report');
-      }
-    },
-
-    // ── Helper to check if user is clinic admin ──
-    isClinicAdmin: () => {
-      return user?.role === 'admin' && clinicType === 'clinic';
-    },
-
-    // ── Helper to check if user is hospital admin ──
-    isHospitalAdmin: () => {
-      return user?.role === 'admin' && clinicType === 'hospital';
-    },
-
-    // ── Get clinic type ──
-    getClinicType: () => {
-      return clinicType;
-    },
-
-    // ── Check if feature is available based on clinic type ──
-    isFeatureAvailable: (feature) => {
-      const features = {
-        clinic: ['patients', 'billing', 'tokens', 'staff', 'prescriptions', 'pharmacy'],
-        hospital: ['patients', 'billing', 'tokens', 'staff', 'prescriptions', 'pharmacy', 'ipd', 'lab', 'inventory', 'room-settings', 'emergency']
-      };
-      return (features[clinicType] || []).includes(feature);
-    }
+    isClinicAdmin,
+    isHospitalAdmin,
+    getClinicType,
+    
   };
 }

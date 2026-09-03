@@ -48,6 +48,7 @@ import HospitalPlanSelection from './pages/HospitalPlanSelection';
 import ICUManagement from './pages/ICUManagement';
 
 import OTManagement from './pages/OTManagement';
+import FollowUps from './pages/FollowUps';
 // import ResetPassword from './pages/ResetPassword';
 
 
@@ -331,6 +332,7 @@ function App() {
             <Route path="doctor-bank-details" element={<PrivateRoute><DoctorBankDetails /></PrivateRoute>} />
             <Route path="icu" element={<PermRoute permKey="ipd"><ICUManagement /></PermRoute>} />
             <Route path="ot-management" element={<PermRoute permKey="ot"><OTManagement /></PermRoute>} />
+            <Route path="followups" element={<PermRoute permKey="followups"><FollowUps /></PermRoute>} />
           </Route>
 
           {/* ── Patient Routes ───────────────────────────────────── */}

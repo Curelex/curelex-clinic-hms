@@ -18,18 +18,19 @@ const CLINIC_NAV_SECTIONS = [
     ],
   },
   {
-    section: 'SERVICES',
-    items: [
-      { path: '/dashboard/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd', sectionKey: 'ipd' },
-      { path: '/dashboard/billing', label: 'Billing', icon: '💳', perm: 'billing', sectionKey: 'billing' },
-      { path: '/dashboard/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing', sectionKey: 'billing' },
-      { path: '/dashboard/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab', sectionKey: 'lab' },
-      { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients', sectionKey: 'tokens' },
-      { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients', sectionKey: 'emergency' },
-      { path: '/dashboard/prescriptions', label: 'Prescriptions', icon: '📋', perm: 'prescriptions', sectionKey: 'prescriptions' },
-      { path: '/dashboard/telemedicine', label: 'Telemedicine', icon: '📹', perm: 'telemedicine', sectionKey: 'telemedicine' },
-    ],
-  },
+  section: 'SERVICES',
+  items: [
+    { path: '/dashboard/ipd', label: 'IPD / Admitted', icon: '🏥', perm: 'ipd', sectionKey: 'ipd' },
+    { path: '/dashboard/billing', label: 'Billing', icon: '💳', perm: 'billing', sectionKey: 'billing' },
+    { path: '/dashboard/billing-requests', label: 'Lab Bills', icon: '🧾', perm: 'billing', sectionKey: 'billing' },
+    { path: '/dashboard/lab', label: 'Lab Tests', icon: '🧪', perm: 'lab', sectionKey: 'lab' },
+    { path: '/dashboard/tokens', label: 'Token Queue', icon: '🎫', perm: 'patients', sectionKey: 'tokens' },
+    { path: '/dashboard/followups', label: 'Follow-ups', icon: '📅', perm: 'followups', sectionKey: 'followUps' }, // ← new
+    { path: '/dashboard/emergency', label: 'Emergency Dept', icon: '🚨', perm: 'patients', sectionKey: 'emergency' },
+    { path: '/dashboard/prescriptions', label: 'Prescriptions', icon: '📋', perm: 'prescriptions', sectionKey: 'prescriptions' },
+    { path: '/dashboard/telemedicine', label: 'Telemedicine', icon: '📹', perm: 'telemedicine', sectionKey: 'telemedicine' },
+  ],
+},
   {
     section: 'MANAGEMENT',
     items: [
@@ -239,12 +240,14 @@ export default function Layout() {
     label: user?.role, color: '#94a3b8', bg: 'rgba(148,163,184,0.15)',
   };
 
-  const getClinicNavItems = () => {
+ const getClinicNavItems = () => {
+  const planKey = activePlan || 'free';
+
   const visibleSections = CLINIC_NAV_SECTIONS.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      // Hide hospital-only nav items entirely for clinics
-      if (HOSPITAL_ONLY_PATHS.includes(item.path)) return false;
+      // Plan gates which sections exist for clinics — same treatment hospitals already get
+      if (!isSectionVisible('clinic', planKey, item.sectionKey)) return false;
 
       if (item.perm === 'telemedicine' && isAdmin && !isSuperAdmin) return false;
 

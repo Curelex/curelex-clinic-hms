@@ -1907,7 +1907,7 @@ function DoctorDetailModal({ doc, patients, onClose, onUpdateTokenLimit }) {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>Consultation Fee</div>
-          <div style={{ color: '#f9ca24', fontWeight: 800, fontSize: 20 }}>Rs. {doc.fee || 0}</div>
+          <div style={{ color: '#f9ca24', fontWeight: 800, fontSize: 20 }}>Rs. {doc.consultationFee || 0}</div>
         </div>
       </div>
       <div style={{ marginBottom: 16 }}><TokenLimitEditor doc={doc} onSave={onUpdateTokenLimit} /></div>
@@ -2011,7 +2011,7 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
     phone: '',
     email: '',
     password: '',
-    fee: '',
+    consultationFee: '',
     schedule: defaultSchedule()
   });
 
@@ -2081,8 +2081,8 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
     setBusy(true);
     setErr('');
     try {
-      await onAdd({ role: 'doctor', ...form, fee: parseFloat(form.fee) || 0 });
-      setForm({ name: '', specialist: '', phone: '', email: '', password: '', fee: '', schedule: defaultSchedule() });
+      await onAdd({ role: 'doctor', ...form, consultationFee: parseFloat(form.consultationFee) || 0 });
+      setForm({ name: '', specialist: '', phone: '', email: '', password: '', consultationFee: '', schedule: defaultSchedule() });
       setShow(false);
     } catch (e) {
       setErr(e.message);
@@ -2225,8 +2225,8 @@ function DoctorManagement({ doctors, patients, onAdd, onDelete, onUpdateTokenLim
               <Input
                 label="Consultation Fee (Rs.)"
                 type="number"
-                value={form.fee}
-                onChange={(e) => f('fee', e.target.value)}
+                value={form.consultationFee}
+                onChange={(e) => f('consultationFee', e.target.value)}
                 placeholder="500"
                 onKeyDown={handleEnterKey}
               />
@@ -2283,7 +2283,7 @@ function DoctorCard({ doc, onRemove, onClick, onEdit, onUpdateTokenLimit }) {
       <div style={{ display: 'grid', gap: 6, fontSize: 13 }}>
         {doc.phone && <div style={{ color: 'var(--text-muted)' }}>📞 {doc.phone}</div>}
         {doc.email && <div style={{ color: 'var(--text-muted)' }}>✉️ {doc.email}</div>}
-        {doc.fee && <div style={{ color: 'var(--text-muted)' }}>💰 Rs. {doc.fee} per consultation</div>}
+        {doc.fee && <div style={{ color: 'var(--text-muted)' }}>💰 Rs. {doc.consultationFee} per consultation</div>}
         <TokenLimitEditor doc={doc} onSave={onUpdateTokenLimit} />
         <ScheduleDisplay schedule={doc.schedule} />
       </div>
@@ -3424,7 +3424,7 @@ function EditDoctorModal({ doctor, onClose, onSave }) {
     specialist: doctor.specialist || '',
     phone: doctor.phone || '',
     email: doctor.email || '',
-    fee: doctor.fee || '',
+    consultationFee: doctor.consultationFee || '',
     schedule: doctor.schedule && doctor.schedule.length === 7 ? doctor.schedule : defaultSchedule(),
   });
   const [busy, setBusy] = useState(false);
@@ -3446,7 +3446,7 @@ function EditDoctorModal({ doctor, onClose, onSave }) {
         specialist: form.specialist,
         phone: form.phone,
         email: form.email,
-        fee: parseFloat(form.fee) || 0,
+        consultationFee: parseFloat(form.consultationFee) || 0,
         schedule: form.schedule,
       });
       onClose();
@@ -3533,8 +3533,8 @@ function EditDoctorModal({ doctor, onClose, onSave }) {
               <input
                 style={inputStyle}
                 type="number"
-                value={form.fee}
-                onChange={(e) => f('fee', e.target.value)}
+                value={form.consultationFee}
+                onChange={(e) => f('consultationFee', e.target.value)}
                 placeholder="500"
               />
             </div>
