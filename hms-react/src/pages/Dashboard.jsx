@@ -591,86 +591,86 @@ export default function Dashboard() {
 
   const { stats: imsStats, loading: imsLoading, refresh: refreshIMS } = useIMSAnalytics(clinicId);
 
-  
+
 
   useEffect(() => {
-  const checkTimings = async () => {
-    // Only check for hospital admins
-    if (user?.role === 'admin' && isHospitalUser) {
-      try {
-        const response = await API.get('/clinics/timings');
+    const checkTimings = async () => {
+      // Only check for hospital admins
+      if (user?.role === 'admin' && isHospitalUser) {
+        try {
+          const response = await API.get('/clinics/timings');
 
-        if (response.data.success) {
-          console.log(response.data);
+          if (response.data.success) {
+            console.log(response.data);
 
-          const {
-            openingHours,
-            clinicName: name
-          } = response.data;
+            const {
+              openingHours,
+              clinicName: name
+            } = response.data;
 
-          setClinicName(name || 'Hospital');
+            setClinicName(name || 'Hospital');
 
-          const days = [
-            'monday',
-            'tuesday',
-            'wednesday',
-            'thursday',
-            'friday',
-            'saturday',
-            'sunday'
-          ];
+            const days = [
+              'monday',
+              'tuesday',
+              'wednesday',
+              'thursday',
+              'friday',
+              'saturday',
+              'sunday'
+            ];
 
-          // Timings are valid when:
-          // 1. Every day exists
-          // 2. Closed days are allowed without open/close times
-          // 3. Open days must have both open and close times
-          const hasTimings =
-            openingHours &&
-            days.every(day => {
-              const dayData = openingHours[day];
+            // Timings are valid when:
+            // 1. Every day exists
+            // 2. Closed days are allowed without open/close times
+            // 3. Open days must have both open and close times
+            const hasTimings =
+              openingHours &&
+              days.every(day => {
+                const dayData = openingHours[day];
 
-              if (!dayData) {
-                return false;
-              }
+                if (!dayData) {
+                  return false;
+                }
 
-              // Closed day is valid
-              if (dayData.isOpen === false) {
-                return true;
-              }
+                // Closed day is valid
+                if (dayData.isOpen === false) {
+                  return true;
+                }
 
-              // Open day must have valid opening and closing times
-              return (
-                dayData.isOpen === true &&
-                typeof dayData.open === 'string' &&
-                dayData.open.trim() !== '' &&
-                typeof dayData.close === 'string' &&
-                dayData.close.trim() !== ''
-              );
-            });
+                // Open day must have valid opening and closing times
+                return (
+                  dayData.isOpen === true &&
+                  typeof dayData.open === 'string' &&
+                  dayData.open.trim() !== '' &&
+                  typeof dayData.close === 'string' &&
+                  dayData.close.trim() !== ''
+                );
+              });
 
-          console.log('Opening Hours:', openingHours);
-          console.log('Has Timings:', hasTimings);
+            console.log('Opening Hours:', openingHours);
+            console.log('Has Timings:', hasTimings);
 
-          if (!hasTimings) {
-            setShowTimingsModal(true);
-            setClinicTimingsData(openingHours);
-          } else {
-            // Timings already configured → don't show popup
-            setShowTimingsModal(false);
+            if (!hasTimings) {
+              setShowTimingsModal(true);
+              setClinicTimingsData(openingHours);
+            } else {
+              // Timings already configured → don't show popup
+              setShowTimingsModal(false);
+            }
           }
+        } catch (err) {
+          console.error('Failed to check hospital timings:', err);
         }
-      } catch (err) {
-        console.error('Failed to check hospital timings:', err);
       }
+
+      setTimingsChecked(true);
+    };
+
+    if (user && !timingsChecked) {
+      checkTimings();
     }
-
-    setTimingsChecked(true);
-  };
-
-  if (user && !timingsChecked) {
-    checkTimings();
-  }
-}, [user, isHospitalUser, timingsChecked]);
+  }, [user, isHospitalUser, timingsChecked]);
 
   useEffect(() => {
     // If user is a clinic admin, redirect to clinic dashboard
@@ -702,10 +702,10 @@ export default function Dashboard() {
   useEffect(() => {
     console.log('📊 Fetching dashboard stats for clinic:', clinicId);
     API.get(`/dashboard/stats?clinicId=${clinicId}`)
-      .then(r => { 
+      .then(r => {
         console.log('📊 Stats received:', r.data);
-        setStats(r.data); 
-        setLoading(false); 
+        setStats(r.data);
+        setLoading(false);
       })
       .catch(err => {
         console.error('❌ Failed to fetch stats:', err);
@@ -746,7 +746,7 @@ export default function Dashboard() {
         <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
         <div style={{ fontSize: 18, color: '#dc2626', marginBottom: 8 }}>Error Loading Dashboard</div>
         <div style={{ color: '#64748b' }}>{error}</div>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           style={{ marginTop: 16, padding: '10px 24px', background: '#0f4c81', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
         >
@@ -1151,8 +1151,8 @@ export default function Dashboard() {
             <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', margin: 0 }}>
               📦 Pharmacy & Inventory Analytics
             </h3>
-            <button 
-              onClick={refreshIMS} 
+            <button
+              onClick={refreshIMS}
               style={{
                 padding: '4px 12px',
                 borderRadius: 6,
@@ -1165,7 +1165,7 @@ export default function Dashboard() {
               🔄 Refresh
             </button>
           </div>
-          
+
           {imsLoading ? (
             <div className="card" style={{ padding: 20, textAlign: 'center', color: '#94a3b8' }}>
               Loading inventory data...
@@ -1374,18 +1374,18 @@ export default function Dashboard() {
       )}
 
       {showTimingsModal && (
-  <ClinicTimingsModal
-    isOpen={showTimingsModal}
-    onClose={() => setShowTimingsModal(false)}
-    onSave={(timings) => {
-      setShowTimingsModal(false);
-      setTimingsChecked(true);
-    }}
-    clinicType="hospital"
-    clinicName={clinicName || 'Hospital'}
-    initialTimings={clinicTimingsData}
-  />
-)}
+        <ClinicTimingsModal
+          isOpen={showTimingsModal}
+          onClose={() => setShowTimingsModal(false)}
+          onSave={(timings) => {
+            setShowTimingsModal(false);
+            setTimingsChecked(true);
+          }}
+          clinicType="hospital"
+          clinicName={clinicName || 'Hospital'}
+          initialTimings={clinicTimingsData}
+        />
+      )}
     </div>
   );
 }
