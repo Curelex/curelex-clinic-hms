@@ -773,15 +773,16 @@ export default function Dashboard() {
 
   const showTokenQueue = hasPerm('patients') && user?.role !== 'separate_doctor' && isHospitalUser;
   const showInventoryAlerts = hasPerm('inventory') || hasPerm('pharmacy');
-  const showRoomSummary = hasPerm('ipd') || hasPerm('admin');
+  const showRoomSummary = isHospitalUser && (hasPerm('ipd') || hasPerm('admin'));
 
   // ── Check if features are available based on plan ──
   const planKey = activePlan || 'free';
-  const showBilling = isFeatureVisible('hospital', planKey, 'billing');
-  const showIPD = isFeatureVisible('hospital', planKey, 'ipd');
-  const showEmergency = isFeatureVisible('hospital', planKey, 'emergency');
-  const showLab = isFeatureVisible('hospital', planKey, 'lab');
-  const showTasks = isFeatureVisible('hospital', planKey, 'tasks');
+const effectiveType = clinicType || 'hospital'; // fallback for safety
+const showBilling = isFeatureVisible(effectiveType, planKey, 'billing');
+const showIPD = isFeatureVisible(effectiveType, planKey, 'ipd');
+const showEmergency = isFeatureVisible(effectiveType, planKey, 'emergency');
+const showLab = isFeatureVisible(effectiveType, planKey, 'lab');
+const showTasks = isFeatureVisible(effectiveType, planKey, 'tasks');
 
   // ── Show plan upgrade banner if needed ──
   const showPlanBanner = isHospitalUser && (planKey === 'free' || planKey === 'none');
@@ -941,10 +942,12 @@ export default function Dashboard() {
                 Welcome Back,
                 <br />
                 <span style={{ color: "#7c3aed" }}>
-                  {user?.role === "super_admin"
-                    ? "Super Admin"
-                    : isHospitalUser ? "Hospital Admin" : "Admin"}
-                </span>
+  {user?.role === "super_admin"
+    ? "Super Admin"
+    : user?.role === "admin"
+      ? (isHospitalUser ? "Hospital Admin" : "Admin")
+      : (user?.name || "User")}
+</span>
               </>
             )}
           </h1>

@@ -332,9 +332,9 @@ export default function Layout() {
   // ── Build final sections with doctor and super admin sections ──
   let finalSections = navSections;
 
-  if (isDoctor) {
-    finalSections = [...finalSections, ...DOCTOR_SECTIONS];
-  }
+  if (isDoctor && (isHospital || user?.role?.toLowerCase() === 'separate_doctor')) {
+  finalSections = [...finalSections, ...DOCTOR_SECTIONS];
+}
 
   if (isSuperAdmin) {
     finalSections = [...finalSections, ...SUPER_ADMIN_SECTIONS];

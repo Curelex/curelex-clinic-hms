@@ -15,7 +15,7 @@ const ROLE_PERMISSIONS = {
     'pharmacy', 'lab', 'inventory', 'staff', 'room-settings', 'prescriptions',
   ],
   doctor: [
-    'dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine',
+    'dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine', 'followups'
   ],
   nurse: [
     'dashboard', 'patients', 'ipd',
