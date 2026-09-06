@@ -47,9 +47,9 @@ const PATIENT_STATUS = {
 };
 
 const PAYMENT_STATUS_COLORS = {
-  paid:    { bg: '#dcfce7', text: '#166534' },
+  paid: { bg: '#dcfce7', text: '#166534' },
   pending: { bg: '#fef3c7', text: '#92400e' },
-  failed:  { bg: '#fee2e2', text: '#991b1b' },
+  failed: { bg: '#fee2e2', text: '#991b1b' },
 };
 
 // Statuses the patient is still allowed to self-cancel from.
@@ -72,27 +72,27 @@ export default function PatientAppointments() {
   }, []);
 
   const [appointments, setAppointments] = useState([]);
-  const [clinics, setClinics]           = useState([]);
-  const [doctors, setDoctors]           = useState([]);
+  const [clinics, setClinics] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [doctorsLoading, setDoctorsLoading] = useState(false);
-  const [loading, setLoading]           = useState(true);
-  const [showModal, setShowModal]       = useState(false);
-  const [step, setStep]                 = useState(STEP_DETAILS);
-  const [submitting, setSubmitting]     = useState(false);
-  const [formError, setFormError]       = useState('');
-  const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [step, setStep] = useState(STEP_DETAILS);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
 
-  const [payMethod, setPayMethod]   = useState('card');
-  const [paying, setPaying]         = useState(false);
-  const [payError, setPayError]     = useState('');
+  const [payMethod, setPayMethod] = useState('card');
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv]       = useState('');
-  const [upiId, setUpiId]           = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [upiId, setUpiId] = useState('');
 
-  const patientId   = patient?._id || patient?.id || user?.id || user?._id;
+  const patientId = patient?._id || patient?.id || user?.id || user?._id;
   const patientName = patient?.name || user?.name || '';
   const patientEmail = patient?.email || user?.email || '';
 
@@ -107,8 +107,8 @@ export default function PatientAppointments() {
   });
 
   useEffect(() => {
-    if (!user)       { navigate('/patient-login'); return; }
-    if (!isPatient()) { navigate('/');             return; }
+    if (!user) { navigate('/patient-login'); return; }
+    if (!isPatient()) { navigate('/'); return; }
     loadAppointments();
     loadClinics();
   }, [user]);
@@ -139,6 +139,7 @@ export default function PatientAppointments() {
     try {
       const res = await API.get(`/patient-portal/doctors/${clinicId}`);
       if (res.data.success) setDoctors(res.data.doctors || []);
+      else setDoctors([]);
     } catch (err) {
       console.error('Error loading doctors:', err);
       setDoctors([]);
@@ -147,47 +148,47 @@ export default function PatientAppointments() {
   }
 
   const checkClinicOpen = async (clinicId) => {
-  if (!clinicId) {
-    setPayError('Clinic not selected. Please select a clinic first.');
-    return false;
-  }
+    if (!clinicId) {
+      setPayError('Clinic not selected. Please select a clinic first.');
+      return false;
+    }
 
-  try {
-    const { data } = await API.get(`/clinics/check-open?clinicId=${clinicId}`);
-    
-    if (data.success) {
-      // Check if timings exist
-      if (!data.todayHours) {
-        setPayError('This clinic has not set their operating hours yet. Please contact the clinic directly.');
-        return false;
-      }
-      
-      if (!data.isOpen) {
-        const hours = data.todayHours;
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayName = dayNames[new Date().getDay()];
-        
-        let message = `🏥 This clinic is currently closed.`;
-        if (hours && !hours.isOpen) {
-          message = `🏥 This clinic is closed on ${dayName}.`;
-        } else if (hours && hours.open && hours.close) {
-          message = `🏥 This clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
-        } else {
-          message = `🏥 This clinic is currently closed.`;
+    try {
+      const { data } = await API.get(`/clinics/check-open?clinicId=${clinicId}`);
+
+      if (data.success) {
+        // Check if timings exist
+        if (!data.todayHours) {
+          setPayError('This clinic has not set their operating hours yet. Please contact the clinic directly.');
+          return false;
         }
-        setPayError(message);
-        return false;
+
+        if (!data.isOpen) {
+          const hours = data.todayHours;
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const dayName = dayNames[new Date().getDay()];
+
+          let message = `🏥 This clinic is currently closed.`;
+          if (hours && !hours.isOpen) {
+            message = `🏥 This clinic is closed on ${dayName}.`;
+          } else if (hours && hours.open && hours.close) {
+            message = `🏥 This clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
+          } else {
+            message = `🏥 This clinic is currently closed.`;
+          }
+          setPayError(message);
+          return false;
+        }
+        return true;
       }
       return true;
+    } catch (err) {
+      console.error('Failed to check clinic status:', err);
+      // If the API fails, allow booking but show a warning
+      setPayError('⚠️ Could not verify clinic hours. Please confirm with the clinic.');
+      return true; // Allow booking if check fails (fallback)
     }
-    return true;
-  } catch (err) {
-    console.error('Failed to check clinic status:', err);
-    // If the API fails, allow booking but show a warning
-    setPayError('⚠️ Could not verify clinic hours. Please confirm with the clinic.');
-    return true; // Allow booking if check fails (fallback)
-  }
-};
+  };
 
   const handleLogout = () => { logout(); navigate('/patient-login'); };
   const goTo = (path) => { setSidebarOpen(false); setUserDropdown(false); navigate(path); };
@@ -247,80 +248,80 @@ export default function PatientAppointments() {
   };
 
   const handleConfirmPayment = async () => {
-  setPayError('');
-  
-  // Validate payment method
-  if (payMethod === 'card') {
-    if (!cardNumber || !cardExpiry || !cardCvv) {
-      setPayError('Please fill in all card details.');
+    setPayError('');
+
+    // Validate payment method
+    if (payMethod === 'card') {
+      if (!cardNumber || !cardExpiry || !cardCvv) {
+        setPayError('Please fill in all card details.');
+        return;
+      }
+    } else if (payMethod === 'upi') {
+      if (!upiId) {
+        setPayError('Please enter your UPI ID.');
+        return;
+      }
+    }
+
+    // ── NEW: Check if clinic is open BEFORE processing payment ──
+    if (!form.clinicId) {
+      setPayError('Please select a clinic first.');
       return;
     }
-  } else if (payMethod === 'upi') {
-    if (!upiId) { 
-      setPayError('Please enter your UPI ID.'); 
-      return; 
-    }
-  }
 
-  // ── NEW: Check if clinic is open BEFORE processing payment ──
-  if (!form.clinicId) {
-    setPayError('Please select a clinic first.');
-    return;
-  }
-
-  const isOpen = await checkClinicOpen(form.clinicId);
-  if (!isOpen) {
-    // Error message is already set in checkClinicOpen
-    setPaying(false);
-    return;
-  }
-
-  setPaying(true);
-  try {
-    // Mock payment
-    const payRes = await API.post(`/patient-portal/payments/mock`, {
-      doctorId: form.doctorId,
-      amount: selectedDoctor?.consultationFee || 0,
-      method: payMethod,
-    });
-
-    if (!payRes.data.success) {
-      setPayError('Payment failed. Please try again.');
+    const isOpen = await checkClinicOpen(form.clinicId);
+    if (!isOpen) {
+      // Error message is already set in checkClinicOpen
       setPaying(false);
       return;
     }
 
-    const { paymentStatus, transactionId, paidAt } = payRes.data.payment;
+    setPaying(true);
+    try {
+      // Mock payment
+      const payRes = await API.post(`/patient-portal/payments/mock`, {
+        doctorId: form.doctorId,
+        amount: selectedDoctor?.consultationFee || 0,
+        method: payMethod,
+      });
 
-    setSubmitting(true);
-    const res = await API.post(`/patient-portal/${patientId}/appointments`, {
-      name: form.name,
-      age: form.age,
-      gender: form.gender,
-      symptoms: form.symptoms,
-      clinicId: form.clinicId,
-      doctorId: form.doctorId,
-      consultationType: form.consultationType,
-      paymentStatus,
-      transactionId,
-      paidAt,
-      method: payMethod,
-    });
+      if (!payRes.data.success) {
+        setPayError('Payment failed. Please try again.');
+        setPaying(false);
+        return;
+      }
 
-    if (res.data.success) {
-      setShowModal(false);
-      loadAppointments();
-      toast.success('Appointment booked successfully!');
-    } else {
-      setPayError(res.data.message || 'Could not create token after payment.');
+      const { paymentStatus, transactionId, paidAt } = payRes.data.payment;
+
+      setSubmitting(true);
+      const res = await API.post(`/patient-portal/${patientId}/appointments`, {
+        name: form.name,
+        age: form.age,
+        gender: form.gender,
+        symptoms: form.symptoms,
+        clinicId: form.clinicId,
+        doctorId: form.doctorId,
+        consultationType: form.consultationType,
+        paymentStatus,
+        transactionId,
+        paidAt,
+        method: payMethod,
+      });
+
+      if (res.data.success) {
+        setShowModal(false);
+        loadAppointments();
+        toast.success('Appointment booked successfully!');
+      } else {
+        setPayError(res.data.message || 'Could not create token after payment.');
+      }
+    } catch (err) {
+      console.error('Booking error:', err);
+      setPayError(err.response?.data?.message || 'Payment could not be completed. Please try again.');
     }
-  } catch (err) {
-    console.error('Booking error:', err);
-    setPayError(err.response?.data?.message || 'Payment could not be completed. Please try again.');
-  }
-  setPaying(false);
-  setSubmitting(false);
-};
+    setPaying(false);
+    setSubmitting(false);
+  };
 
   // ── Cancel an appointment (patient-initiated) ─────────────────────────
   const handleCancelAppointment = async (tokenId) => {
@@ -382,12 +383,12 @@ export default function PatientAppointments() {
                   </div>
                   <div className="pd-user-dropdown__divider" />
                   {[
-                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
-                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
-                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
-                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
-                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
-                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                    { icon: 'fa-user-circle', label: 'Profile', path: '/patient-profile' },
+                    { icon: 'fa-calendar-check', label: 'Appointments', path: '/patient-appointments' },
+                    { icon: 'fa-procedures', label: 'Hospital Admission', path: '/patient-admission' },
+                    { icon: 'fa-video', label: 'Telemedicine', path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open', label: 'My Documents', path: '/patient-documents' },
                   ].map(item => (
                     <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
                       <i className={`fas ${item.icon}`} /> {item.label}
@@ -807,9 +808,9 @@ export default function PatientAppointments() {
                   borderRadius: 10, padding: 14, marginBottom: 18,
                 }}>
                   {[
-                    ['Doctor',         `Dr. ${selectedDoctor?.name}`],
+                    ['Doctor', `Dr. ${selectedDoctor?.name}`],
                     ['Specialization', selectedDoctor?.department || 'General'],
-                    ['Consultation',   form.consultationType],
+                    ['Consultation', form.consultationType],
                   ].map(([label, val]) => (
                     <div key={label} style={{
                       display: 'flex', justifyContent: 'space-between',

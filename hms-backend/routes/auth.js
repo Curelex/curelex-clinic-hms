@@ -857,39 +857,76 @@ router.get('/separate-doctors/approved', auth, async (req, res) => {
   }
 });
 
-// ── Get available doctors (all doctors) ──
+// ── Get available doctors (separate doctors + hospital-employed doctors only — excludes clinic doctors) ──
 router.get('/available-doctors', auth, async (req, res) => {
   try {
+    const {
+      page = 1,
+      limit = 20,
+      excludeZeroFee = 'true',
+    } = req.query;
+
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, Number(limit) || 20));
+
+    // ── Step 1: find clinicIds that belong to hospitals (not clinics) ──
+    const hospitalClinics = await Clinic.find({ type: 'hospital' }).select('_id').lean();
+    const hospitalClinicIds = hospitalClinics.map(c => c._id);
+
+    // ── Step 2: doctors are either separate_doctor (no clinic at all)
+    // or role:'doctor' whose clinicId belongs to a hospital ──
+    const baseFilter = {
+      isActive: true,
+      $or: [
+        { role: 'separate_doctor' },
+        { role: 'doctor', clinicId: { $in: hospitalClinicIds } },
+      ],
+    };
+
+    if (excludeZeroFee !== 'false') {
+      baseFilter.$and = [
+        {
+          $or: [
+            { consultationFee: { $gt: 0 } },
+            { telemedicineFee: { $gt: 0 } },
+          ],
+        },
+      ];
+    }
+
+    const total = await User.countDocuments(baseFilter);
+
     const doctors = await User.find(
-      { 
-        role: { $in: ['doctor', 'separate_doctor'] }, 
-        isActive: true 
-      },
-      'name department consultationFee telemedicineFee phone email avatar bankDetails clinicId'
-    ).sort({ name: 1 }).lean();
+      baseFilter,
+      'name department consultationFee telemedicineFee phone email avatar bankDetails clinicId role'
+    )
+      .sort({ name: 1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .lean();
 
     // Enrich with DoctorProfile and Feedback data
     const doctorIds = doctors.map(d => d._id);
-    
+
     const profiles = await DoctorProfile.find(
       { userId: { $in: doctorIds } },
       'userId photoUrl specialization'
     ).lean();
-    
+
     const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
-    
+
     const Feedback = mongoose.model('Feedback');
     const feedbackStats = await Feedback.aggregate([
       { $match: { doctorId: { $in: doctorIds } } },
-      { 
-        $group: { 
-          _id: "$doctorId", 
-          averageRating: { $avg: "$doctorRating" }, 
-          totalRatings: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: "$doctorId",
+          averageRating: { $avg: "$doctorRating" },
+          totalRatings: { $sum: 1 }
+        }
       }
     ]);
-    
+
     const feedbackMap = new Map();
     feedbackStats.forEach(f => {
       feedbackMap.set(String(f._id), {
@@ -901,7 +938,7 @@ router.get('/available-doctors', auth, async (req, res) => {
     const enrichedDoctors = doctors.map(doc => {
       const profile = profileMap.get(String(doc._id));
       const feedback = feedbackMap.get(String(doc._id));
-      
+
       return {
         ...doc,
         photoUrl: profile?.photoUrl || doc.avatar || '',
@@ -911,7 +948,13 @@ router.get('/available-doctors', auth, async (req, res) => {
       };
     });
 
-    res.json({ success: true, doctors: enrichedDoctors });
+    res.json({
+      success: true,
+      doctors: enrichedDoctors,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
+    });
   } catch (err) {
     console.error('Error fetching available doctors:', err);
     res.status(500).json({ success: false, message: err.message });
