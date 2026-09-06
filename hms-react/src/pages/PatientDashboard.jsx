@@ -50,7 +50,7 @@ function StarRating({ rating, reviews = 0 }) {
 // ── Top Rated Card ──
 function TopRatedCard({ item, type, onSelect }) {
   const isMobile = useIsMobile();
-  
+
   const getIcon = () => {
     if (type === 'clinic') return '🏥';
     if (type === 'hospital') return '🏨';
@@ -143,7 +143,6 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [admission, setAdmission] = useState(null);
-  const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
@@ -193,32 +192,32 @@ export default function PatientDashboard() {
     loadTopRated();
   }, [user]);
 
-// ── Load Top Rated Data ──
-async function loadTopRated() {
-  setLoadingTopRated(true);
-  try {
-    // Fetch all clinics with ratings
-    const ratingsRes = await API.get('/feedback/clinic/ratings/all');
-    const allClinics = ratingsRes.data.clinics || [];
+  // ── Load Top Rated Data ──
+  async function loadTopRated() {
+    setLoadingTopRated(true);
+    try {
+      // Fetch all clinics with ratings
+      const ratingsRes = await API.get('/feedback/clinic/ratings/all');
+      const allClinics = ratingsRes.data.clinics || [];
 
-    // Separate clinics and hospitals using the type field
-    const clinics = allClinics.filter(c => c.type === 'clinic');
-    const hospitals = allClinics.filter(c => c.type === 'hospital');
+      // Separate clinics and hospitals using the type field
+      const clinics = allClinics.filter(c => c.type === 'clinic');
+      const hospitals = allClinics.filter(c => c.type === 'hospital');
 
-    setTopClinics(clinics.slice(0, 5));
-    setTopHospitals(hospitals.slice(0, 5));
+      setTopClinics(clinics.slice(0, 5));
+      setTopHospitals(hospitals.slice(0, 5));
 
-    // ── ✅ FIX: Fetch approved separate doctors only ──
-    const separateDoctorsRes = await API.get('/auth/separate-doctors/approved');
-    const separateDoctors = separateDoctorsRes.data.doctors || [];
+      // ── ✅ FIX: Fetch approved separate doctors only ──
+      const separateDoctorsRes = await API.get('/auth/separate-doctors/approved');
+      const separateDoctors = separateDoctorsRes.data.doctors || [];
 
-    setTopSeparateDoctors(separateDoctors.slice(0, 5));
+      setTopSeparateDoctors(separateDoctors.slice(0, 5));
 
-  } catch (err) {
-    console.error('Error loading top rated data:', err);
+    } catch (err) {
+      console.error('Error loading top rated data:', err);
+    }
+    setLoadingTopRated(false);
   }
-  setLoadingTopRated(false);
-}
 
   // ── Handle item selection ──
   const handleItemSelect = (item, type) => {
@@ -259,15 +258,7 @@ async function loadTopRated() {
         setAdmission(admRes.data.success && admRes.data.admitted ? admRes.data.admission : null);
       } catch { console.log('Admission status not available'); }
 
-      try {
-        const docRes = await API.get('/auth/available-doctors');
-  if (docRes.data.success) {
-    
-    const allDoctors = docRes.data.doctors || [];
-    
-    setDoctors(allDoctors);
-  }
-      } catch { console.log('Doctors not available'); }
+
     } catch (error) { console.error('Error loading dashboard:', error); }
     setLoading(false);
   }
@@ -591,8 +582,8 @@ async function loadTopRated() {
                 <h3 style={sectionTitleStyle}>
                   <span>🏥</span> Top Rated Clinics
                 </h3>
-                <button 
-                  onClick={() => navigate('/patient-appointments')} 
+                <button
+                  onClick={() => navigate('/patient-appointments')}
                   style={viewAllStyle}
                 >
                   View All →
@@ -631,8 +622,8 @@ async function loadTopRated() {
                 <h3 style={sectionTitleStyle}>
                   <span>🏨</span> Top Rated Hospitals
                 </h3>
-                <button 
-                  onClick={() => navigate('/patient-appointments')} 
+                <button
+                  onClick={() => navigate('/patient-appointments')}
                   style={viewAllStyle}
                 >
                   View All →
@@ -671,8 +662,8 @@ async function loadTopRated() {
                 <h3 style={sectionTitleStyle}>
                   <span>👨‍⚕️</span> Top Rated Independent Doctors
                 </h3>
-                <button 
-                  onClick={() => navigate('/patient-telemedicine')} 
+                <button
+                  onClick={() => navigate('/patient-telemedicine')}
                   style={viewAllStyle}
                 >
                   View All →
@@ -894,152 +885,7 @@ async function loadTopRated() {
               </div>
             </div>
 
-            {/* ── Available Doctors ── */}
-            <div style={{ marginTop: 28 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a2236' }}>Available Doctors</h3>
-                <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                    <span style={{ color: '#374151', fontWeight: 500 }}>{doctors.filter(d => isDoctorOnline?.(d._id)).length} online</span>
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
-                    <span style={{ color: '#6b7a99', fontWeight: 500 }}>{doctors.filter(d => !isDoctorOnline?.(d._id)).length} offline</span>
-                  </span>
-                </div>
-              </div>
-              {doctors.length === 0 ? (
-                <div className="pd-card"><div className="pd-card__body"><div className="pd-empty"><i className="fas fa-user-md" /> No doctors available right now</div></div></div>
-              ) : (
-                <div
-                  style={
-                    isMobile
-                      ? {
-                        display: 'flex',
-                        overflowX: 'auto',
-                        overflowY: 'hidden',
-                        gap: 16,
-                        paddingBottom: 10,
-                        WebkitOverflowScrolling: 'touch',
-                        scrollSnapType: 'x mandatory',
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                      }
-                      : {
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                        gap: 16,
-                      }
-                  }
-                >
-                  {doctors.map((doc) => {
-                    const online = isDoctorOnline?.(doc._id) ?? false;
-                    return (
-                      <div
-                        key={doc._id}
-                        style={{
-                          flex: isMobile ? '0 0 280px' : undefined,
-                          minWidth: isMobile ? 280 : undefined,
-                          scrollSnapAlign: isMobile ? 'start' : undefined,
 
-                          background: '#fff',
-                          borderRadius: 16,
-                          padding: 20,
-                          border: online ? '2px solid #2d6be4' : '1.5px solid #e5e7eb',
-                          boxShadow: online
-                            ? '0 4px 20px rgba(45,107,228,0.10)'
-                            : '0 2px 8px rgba(0,0,0,0.04)',
-                          position: 'relative',
-                          opacity: online ? 1 : 0.65,
-                        }}
-                      >
-                        <span style={{ position: 'absolute', top: 16, right: 16, width: 12, height: 12, borderRadius: '50%', background: online ? '#22c55e' : '#cbd5e1', border: '2px solid #fff', boxShadow: online ? '0 0 0 2px #bbf7d0' : 'none', display: 'inline-block' }} />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-                          <div style={{ width: 56, height: 56, borderRadius: '50%', background: online ? '#dbeafe' : '#f1f5f9', color: online ? '#2d6be4' : '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, flexShrink: 0 }}>
-                            {(doc.name || 'D')[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 15, color: online ? '#1a2236' : '#94a3b8' }}>Dr. {doc.name}</div>
-                            {doc.department && <div style={{ fontSize: 13, color: '#6b7a99', marginTop: 2 }}>{doc.department}</div>}
-                          </div>
-                        </div>
-                        {online ? (
-                          <>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                              <span style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>✓ Verified</span>
-                              <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Online Now
-                              </span>
-                            </div>
-                            <div style={{ fontSize: 13, color: '#6b7a99', marginBottom: 14 }}><i className="fas fa-clock" style={{ marginRight: 5 }} /> ~5 min wait</div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div>
-                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Appointment Fee</div>
-                                <div style={{ fontSize: 20, fontWeight: 700, color: '#1a2236' }}>₹{doc.consultationFee || 299}</div>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Telemedicine Fee</div>
-                                <div style={{ fontSize: 20, fontWeight: 700, color: '#1a2236' }}>₹{doc.telemedicineFee || 299}</div>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <button
-                                onClick={() =>
-                                  navigate('/patient-telemedicine', {
-                                    state: { preSelectDoctor: doc._id },
-                                  })
-                                }
-                                style={{
-                                  width: '100%',
-                                  marginTop: 16,
-                                  background: 'linear-gradient(135deg, #2d6be4, #1e40af)',
-                                  color: '#fff',
-                                  border: 'none',
-                                  borderRadius: 12,
-                                  padding: '12px 18px',
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: 8,
-                                  fontFamily: 'inherit',
-                                  boxShadow: '0 4px 12px rgba(45,107,228,0.25)',
-                                  transition: 'all 0.2s ease',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(-2px)';
-                                  e.currentTarget.style.boxShadow =
-                                    '0 8px 18px rgba(45,107,228,0.35)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(0)';
-                                  e.currentTarget.style.boxShadow =
-                                    '0 4px 12px rgba(45,107,228,0.25)';
-                                }}
-                              >
-                                <i className="fas fa-video" style={{ fontSize: 14 }} />
-                                Consult Now
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1', display: 'inline-block' }} />
-                              <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>Offline</span>
-                            </div>
-                            <div style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>Currently unavailable for consultations</div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
             {/* ── CONSULT TOP DOCTORS SECTION ── */}
             <div style={{ marginTop: 40, padding: isMobile ? '20px 16px' : '28px 24px', background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)', borderRadius: 20, border: '1px solid #e2e8f0' }}>

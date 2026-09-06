@@ -192,19 +192,18 @@ export default function PatientTelemedicine() {
 
   const loadDoctors = async () => {
     try {
-      const { data } = await API.get('/auth/available-doctors');
-      console.log('🩺 DOCTORS API RESPONSE:', data); // 👈 ADD THIS
+      const { data } = await API.get('/auth/separate-doctors/approved');
+
+      console.log('🩺 APPROVED INDEPENDENT DOCTORS:', data);
+
       if (data.success) {
         setDoctors(data.doctors || []);
-        console.log('🩺 DOCTORS SET:', data.doctors); // 👈 AND THIS
       } else {
-        console.warn('🩺 data.success is false or missing:', data);
-        // Try setting directly in case your API doesn't use {success, doctors} shape
-        if (Array.isArray(data)) setDoctors(data);
-        if (Array.isArray(data.data)) setDoctors(data.data);
+        setDoctors([]);
       }
     } catch (err) {
-      console.error('❌ Failed to load doctors:', err);
+      console.error('❌ Failed to load approved independent doctors:', err);
+      setDoctors([]);
     }
   };
 
@@ -264,97 +263,97 @@ export default function PatientTelemedicine() {
   };
 
 
-// ── Update checkClinicOpen function ──
-const checkClinicOpen = async (doctorId) => {
-  try {
-    // First get the doctor's clinic
-    const doctor = doctors.find(d => d._id === doctorId);
-    if (!doctor) {
-      setError('Doctor not found. Please try again.');
-      return false;
-    }
-    
-    // If doctor has no clinicId (separate doctor), allow booking
-    if (!doctor.clinicId) {
-      return true;
-    }
-    
-    const { data } = await API.get(`/clinics/check-open?clinicId=${doctor.clinicId}`);
-    
-    if (data.success) {
-      if (!data.todayHours) {
-        setError('The doctor\'s clinic has not set their operating hours yet. Please contact the clinic directly.');
+  // ── Update checkClinicOpen function ──
+  const checkClinicOpen = async (doctorId) => {
+    try {
+      // First get the doctor's clinic
+      const doctor = doctors.find(d => d._id === doctorId);
+      if (!doctor) {
+        setError('Doctor not found. Please try again.');
         return false;
       }
-      
-      if (!data.isOpen) {
-        const hours = data.todayHours;
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayName = dayNames[new Date().getDay()];
-        
-        let message = `🏥 The doctor's clinic is currently closed.`;
-        if (hours && !hours.isOpen) {
-          message = `🏥 The doctor's clinic is closed on ${dayName}.`;
-        } else if (hours && hours.open && hours.close) {
-          message = `🏥 The doctor's clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
+
+      // If doctor has no clinicId (separate doctor), allow booking
+      if (!doctor.clinicId) {
+        return true;
+      }
+
+      const { data } = await API.get(`/clinics/check-open?clinicId=${doctor.clinicId}`);
+
+      if (data.success) {
+        if (!data.todayHours) {
+          setError('The doctor\'s clinic has not set their operating hours yet. Please contact the clinic directly.');
+          return false;
         }
-        setError(message);
-        return false;
+
+        if (!data.isOpen) {
+          const hours = data.todayHours;
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const dayName = dayNames[new Date().getDay()];
+
+          let message = `🏥 The doctor's clinic is currently closed.`;
+          if (hours && !hours.isOpen) {
+            message = `🏥 The doctor's clinic is closed on ${dayName}.`;
+          } else if (hours && hours.open && hours.close) {
+            message = `🏥 The doctor's clinic is currently closed. Operating hours today: ${hours.open} - ${hours.close}.`;
+          }
+          setError(message);
+          return false;
+        }
+        return true;
       }
       return true;
+    } catch (err) {
+      console.error('Failed to check clinic status:', err);
+      // Allow booking if check fails (fallback)
+      return true;
     }
-    return true;
-  } catch (err) {
-    console.error('Failed to check clinic status:', err);
-    // Allow booking if check fails (fallback)
-    return true;
-  }
-};
+  };
 
-// ── Update handleSubmit ──
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSubmitting(true);
+  // ── Update handleSubmit ──
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
 
-  if (!form.doctorId) {
-    setError('Please select a doctor');
+    if (!form.doctorId) {
+      setError('Please select a doctor');
+      setSubmitting(false);
+      return;
+    }
+
+    // ── Check if clinic is open ──
+    const isOpen = await checkClinicOpen(form.doctorId);
+    if (!isOpen) {
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const response = await API.post('/telemedicine/request', {
+        doctorId: form.doctorId,
+        symptoms: form.symptoms,
+        preferredTime: form.preferredTime || null,
+        urgency: form.urgency,
+        clinicId: getEffectiveClinicId(),
+      });
+
+      if (response.data.success) {
+        setShowRequestForm(false);
+        setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
+        loadRequests();
+        toast.success('✅ Telemedicine request sent successfully! The doctor will be notified.');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to send request';
+      if (err.response?.data?.isClosed) {
+        setError(err.response.data.message);
+      } else {
+        setError(errorMsg);
+      }
+    }
     setSubmitting(false);
-    return;
-  }
-
-  // ── Check if clinic is open ──
-  const isOpen = await checkClinicOpen(form.doctorId);
-  if (!isOpen) {
-    setSubmitting(false);
-    return;
-  }
-
-  try {
-    const response = await API.post('/telemedicine/request', {
-      doctorId: form.doctorId,
-      symptoms: form.symptoms,
-      preferredTime: form.preferredTime || null,
-      urgency: form.urgency,
-      clinicId: getEffectiveClinicId(),
-    });
-
-    if (response.data.success) {
-      setShowRequestForm(false);
-      setForm({ doctorId: '', symptoms: '', preferredTime: '', urgency: 'normal' });
-      loadRequests();
-      toast.success('✅ Telemedicine request sent successfully! The doctor will be notified.');
-    }
-  } catch (err) {
-    const errorMsg = err.response?.data?.message || 'Failed to send request';
-    if (err.response?.data?.isClosed) {
-      setError(err.response.data.message);
-    } else {
-      setError(errorMsg);
-    }
-  }
-  setSubmitting(false);
-};
+  };
 
   const handleCancel = async (id) => {
     if (!window.confirm('Cancel this request?')) return;
@@ -457,12 +456,12 @@ const handleSubmit = async (e) => {
                   </div>
                   <div className="pd-user-dropdown__divider" />
                   {[
-                    { icon: 'fa-user-circle',            label: 'Profile',             path: '/patient-profile' },
-                    { icon: 'fa-calendar-check',         label: 'Appointments',        path: '/patient-appointments' },
-                    { icon: 'fa-procedures',             label: 'Hospital Admission',  path: '/patient-admission' },
-                    { icon: 'fa-video',                  label: 'Telemedicine',        path: '/patient-telemedicine' },
-                    { icon: 'fa-prescription-bottle-alt',label: 'Prescriptions',       path: '/patient-prescriptions' },
-                    { icon: 'fa-folder-open',            label: 'My Documents',        path: '/patient-documents' },
+                    { icon: 'fa-user-circle', label: 'Profile', path: '/patient-profile' },
+                    { icon: 'fa-calendar-check', label: 'Appointments', path: '/patient-appointments' },
+                    { icon: 'fa-procedures', label: 'Hospital Admission', path: '/patient-admission' },
+                    { icon: 'fa-video', label: 'Telemedicine', path: '/patient-telemedicine' },
+                    { icon: 'fa-prescription-bottle-alt', label: 'Prescriptions', path: '/patient-prescriptions' },
+                    { icon: 'fa-folder-open', label: 'My Documents', path: '/patient-documents' },
                   ].map(item => (
                     <button key={item.path} className="pd-user-dropdown__item" onClick={() => goTo(item.path)}>
                       <i className={`fas ${item.icon}`} /> {item.label}
@@ -773,189 +772,189 @@ const handleSubmit = async (e) => {
                 </div>
               </div>
             )}
-{/* ── Available Doctors Cards ── */}
-{doctors.length > 0 && (
-  <div style={{ marginBottom: 24 }}>
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      flexWrap: 'wrap',
-      gap: 12,
-      marginBottom: 12,
-    }}>
-      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', margin: 0 }}>
-        👨‍⚕️ Available Doctors
-      </h3>
+            {/* ──  Independent Doctors Cards ── */}
+            {doctors.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 12,
+                }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a2236', margin: 0 }}>
+                    👨‍⚕️ Independent Doctors
+                  </h3>
 
-      {/* ── Filters: Specialty + Online/Offline ── */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <select
-          value={filterSpecialty}
-          onChange={(e) => setFilterSpecialty(e.target.value)}
-          style={{
-            padding: '7px 12px',
-            borderRadius: 8,
-            border: '1px solid #d1d5db',
-            fontSize: 13,
-            fontWeight: 600,
-            color: '#374151',
-            background: '#fff',
-            cursor: 'pointer',
-          }}
-        >
-          <option value="all">🩺 All Specialties</option>
-          {specialties.map(sp => (
-            <option key={sp} value={sp}>{sp}</option>
-          ))}
-        </select>
+                  {/* ── Filters: Specialty + Online/Offline ── */}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <select
+                      value={filterSpecialty}
+                      onChange={(e) => setFilterSpecialty(e.target.value)}
+                      style={{
+                        padding: '7px 12px',
+                        borderRadius: 8,
+                        border: '1px solid #d1d5db',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#374151',
+                        background: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="all">🩺 All Specialties</option>
+                      {specialties.map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
 
-        <select
-          value={filterStatusOnline}
-          onChange={(e) => setFilterStatusOnline(e.target.value)}
-          style={{
-            padding: '7px 12px',
-            borderRadius: 8,
-            border: '1px solid #d1d5db',
-            fontSize: 13,
-            fontWeight: 600,
-            color: '#374151',
-            background: '#fff',
-            cursor: 'pointer',
-          }}
-        >
-          <option value="all">All Status</option>
-          <option value="online">🟢 Online</option>
-          <option value="offline">🔴 Offline</option>
-        </select>
-      </div>
-    </div>
-
-    {filteredDoctors.length === 0 ? (
-      <div style={{
-        padding: '24px',
-        textAlign: 'center',
-        color: '#94a3b8',
-        background: '#f8fafc',
-        borderRadius: 12,
-        fontSize: 14,
-      }}>
-        No doctors match the selected filters.
-      </div>
-    ) : (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-      gap: 16,
-    }}>
-      {filteredDoctors.map(doc => {
-        const isOnline = isDoctorOnline(doc._id);
-        return (
-          <div key={doc._id} style={{
-            background: '#fff',
-            borderRadius: 12,
-            padding: '16px 18px',
-            border: `1.5px solid ${isOnline ? '#22c55e' : '#e5e7eb'}`,
-            boxShadow: isOnline ? '0 2px 12px rgba(34,197,94,0.10)' : '0 1px 4px rgba(0,0,0,0.06)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}>
-            {/* Avatar + name row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 46, height: 46, borderRadius: '50%',
-                background: isOnline ? '#d1fae5' : '#f1f5f9',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 700,
-                color: isOnline ? '#16a34a' : '#94a3b8',
-                flexShrink: 0,
-                overflow: 'hidden',
-              }}>
-                {doc.photoUrl ? (
-                  <img
-                    src={doc.photoUrl}
-                    alt={doc.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                ) : (
-                  doc.name?.charAt(0).toUpperCase()
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Dr. {doc.name}
+                    <select
+                      value={filterStatusOnline}
+                      onChange={(e) => setFilterStatusOnline(e.target.value)}
+                      style={{
+                        padding: '7px 12px',
+                        borderRadius: 8,
+                        border: '1px solid #d1d5db',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: '#374151',
+                        background: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="all">All Status</option>
+                      <option value="online">🟢 Online</option>
+                      <option value="offline">🔴 Offline</option>
+                    </select>
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: '#6b7a99' }}>
-                  {doc.department || doc.specialization || 'General'}
-                </div>
-                {doc.averageRating > 0 ? (
-                  <div 
-                    onClick={() => openDoctorFeedback(doc)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '12px', color: '#f59e0b', cursor: 'pointer' }}
-                    title="View Feedback"
-                  >
-                    <i className="fas fa-star" />
-                    <span style={{ fontWeight: 600, color: '#374151' }}>{doc.averageRating}</span>
-                    <span style={{ color: '#94a3b8' }}>({doc.totalRatings})</span>
+
+                {filteredDoctors.length === 0 ? (
+                  <div style={{
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: '#94a3b8',
+                    background: '#f8fafc',
+                    borderRadius: 12,
+                    fontSize: 14,
+                  }}>
+                    No doctors match the selected filters.
                   </div>
                 ) : (
-                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
-                    No ratings yet
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                    gap: 16,
+                  }}>
+                    {filteredDoctors.map(doc => {
+                      const isOnline = isDoctorOnline(doc._id);
+                      return (
+                        <div key={doc._id} style={{
+                          background: '#fff',
+                          borderRadius: 12,
+                          padding: '16px 18px',
+                          border: `1.5px solid ${isOnline ? '#22c55e' : '#e5e7eb'}`,
+                          boxShadow: isOnline ? '0 2px 12px rgba(34,197,94,0.10)' : '0 1px 4px rgba(0,0,0,0.06)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                        }}>
+                          {/* Avatar + name row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{
+                              width: 46, height: 46, borderRadius: '50%',
+                              background: isOnline ? '#d1fae5' : '#f1f5f9',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 20, fontWeight: 700,
+                              color: isOnline ? '#16a34a' : '#94a3b8',
+                              flexShrink: 0,
+                              overflow: 'hidden',
+                            }}>
+                              {doc.photoUrl ? (
+                                <img
+                                  src={doc.photoUrl}
+                                  alt={doc.name}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              ) : (
+                                doc.name?.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                Dr. {doc.name}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#6b7a99' }}>
+                                {doc.department || doc.specialization || 'General'}
+                              </div>
+                              {doc.averageRating > 0 ? (
+                                <div
+                                  onClick={() => openDoctorFeedback(doc)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '12px', color: '#f59e0b', cursor: 'pointer' }}
+                                  title="View Feedback"
+                                >
+                                  <i className="fas fa-star" />
+                                  <span style={{ fontWeight: 600, color: '#374151' }}>{doc.averageRating}</span>
+                                  <span style={{ color: '#94a3b8' }}>({doc.totalRatings})</span>
+                                </div>
+                              ) : (
+                                <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                                  No ratings yet
+                                </div>
+                              )}
+                            </div>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
+                              background: isOnline ? '#d1fae5' : '#f1f5f9',
+                              color: isOnline ? '#16a34a' : '#94a3b8',
+                              flexShrink: 0,
+                            }}>
+                              {isOnline ? '🟢 Online' : '🔴 Offline'}
+                            </span>
+                          </div>
+
+                          {/* Fee row */}
+                          <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            background: '#f8fafc', borderRadius: 8, padding: '8px 12px',
+                          }}>
+                            <span style={{ fontSize: 12, color: '#64748b' }}>Consultation Fee</span>
+                            <span style={{ fontWeight: 700, fontSize: 16, color: '#0f4c81' }}>
+                              {doc.telemedicineFee > 0 ? `₹${doc.telemedicineFee}` : 'Free'}
+                            </span>
+                          </div>
+
+                          {/* Consult Now button */}
+                          <button
+                            onClick={() => {
+                              setForm(prev => ({ ...prev, doctorId: doc._id }));
+                              setShowRequestForm(true);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '9px 0',
+                              background: isOnline ? '#2d6be4' : '#94a3b8',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 8,
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: isOnline ? 'pointer' : 'not-allowed',
+                              letterSpacing: 0.3,
+                            }}
+                          >
+                            {isOnline ? '🩺 Consult Now' : '📅 Request Appointment'}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
-                background: isOnline ? '#d1fae5' : '#f1f5f9',
-                color: isOnline ? '#16a34a' : '#94a3b8',
-                flexShrink: 0,
-              }}>
-                {isOnline ? '🟢 Online' : '🔴 Offline'}
-              </span>
-            </div>
-
-            {/* Fee row */}
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: '#f8fafc', borderRadius: 8, padding: '8px 12px',
-            }}>
-              <span style={{ fontSize: 12, color: '#64748b' }}>Consultation Fee</span>
-              <span style={{ fontWeight: 700, fontSize: 16, color: '#0f4c81' }}>
-                {doc.telemedicineFee > 0 ? `₹${doc.telemedicineFee}` : 'Free'}
-              </span>
-            </div>
-
-            {/* Consult Now button */}
-            <button
-              onClick={() => {
-                setForm(prev => ({ ...prev, doctorId: doc._id }));
-                setShowRequestForm(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{
-                width: '100%',
-                padding: '9px 0',
-                background: isOnline ? '#2d6be4' : '#94a3b8',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: isOnline ? 'pointer' : 'not-allowed',
-                letterSpacing: 0.3,
-              }}
-            >
-              {isOnline ? '🩺 Consult Now' : '📅 Request Appointment'}
-            </button>
-          </div>
-        );
-      })}
-    </div>
-    )}
-  </div>
-)}
+            )}
             {/* Requests List */}
             <div className="pd-card">
               <div className="pd-card__body" style={{ padding: requests.length ? 0 : '24px' }}>
@@ -1036,29 +1035,29 @@ const handleSubmit = async (e) => {
                                   )}
 
                                   {req.status === 'payment_pending' && (
-  <PaymentButton
-    type="telemedicine"
-    id={req._id}
-    amount={req.consultationFee * 100}
-    description={`Consultation with Dr. ${req.doctorName}`}
-    onSuccess={(result) => {
-      loadRequests();
-      setStatusUpdate({
-        type: 'payment_success',
-        message: '✅ Payment successful! Consultation confirmed.',
-        meetingLink: result.telemedicine?.meetingLink,
-      });
-    }}
-    onError={(error) => {
-      setStatusUpdate({
-        type: 'error',
-        message: `❌ Payment failed: ${error.message}`,
-      });
-    }}
-    buttonText={`Pay ₹${req.consultationFee}`}
-    variant="primary"
-  />
-)}
+                                    <PaymentButton
+                                      type="telemedicine"
+                                      id={req._id}
+                                      amount={req.consultationFee * 100}
+                                      description={`Consultation with Dr. ${req.doctorName}`}
+                                      onSuccess={(result) => {
+                                        loadRequests();
+                                        setStatusUpdate({
+                                          type: 'payment_success',
+                                          message: '✅ Payment successful! Consultation confirmed.',
+                                          meetingLink: result.telemedicine?.meetingLink,
+                                        });
+                                      }}
+                                      onError={(error) => {
+                                        setStatusUpdate({
+                                          type: 'error',
+                                          message: `❌ Payment failed: ${error.message}`,
+                                        });
+                                      }}
+                                      buttonText={`Pay ₹${req.consultationFee}`}
+                                      variant="primary"
+                                    />
+                                  )}
 
                                   {isPending && req.status !== 'payment_pending' && (
                                     <button className="btn btn-sm btn-danger" onClick={() => handleCancel(req._id)}>
@@ -1116,14 +1115,14 @@ const handleSubmit = async (e) => {
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, color: '#1a2236', fontSize: '18px' }}>Feedback for Dr. {feedbackDoctor.name}</h3>
-              <button 
+              <button
                 onClick={() => setShowFeedbackModal(false)}
                 style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b', lineHeight: 1 }}
               >
                 &times;
               </button>
             </div>
-            
+
             <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
               {doctorFeedbacks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
@@ -1134,7 +1133,7 @@ const handleSubmit = async (e) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {doctorFeedbacks.map((fb, idx) => {
                     const patientName = fb.patientId?.name || 'Anonymous';
-                    
+
                     return (
                       <div key={fb._id || idx} style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
