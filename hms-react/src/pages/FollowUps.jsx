@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import API from '../utils/api';
-import { useAuth } from '../context/AuthContext';
+import { useClinicAdmin } from '../hooks/useClinicAdmin';
 import { Card, Badge, Input, Select, SectionHeader, Empty } from '../components/UI';
 
 export default function FollowUps() {
-  const { user, getEffectiveClinicId } = useAuth();
+  const { getPatients, getUsers, updateFollowUp } = useClinicAdmin();
+
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,43 +14,25 @@ export default function FollowUps() {
     setLoading(true);
     setError(null);
     try {
-      const effectiveClinicId = getEffectiveClinicId();
-      
-      // Fetch patients with follow-ups
-      const patientsResponse = await API.get('/patients', {
-        params: { clinicId: effectiveClinicId }
-      });
-      
-      // Fetch doctors using the dedicated clinic-doctors route
-      const doctorsResponse = await API.get('/auth/clinic-doctors', {
-        params: { clinicId: effectiveClinicId }
-      });
-      
-      const patientsData = patientsResponse.data || [];
-      const doctorsData = doctorsResponse.data?.doctors || [];
-      
+      const [patientsData, usersData] = await Promise.all([
+        getPatients().catch(err => { console.error('Failed to load patients:', err); return []; }),
+        getUsers().catch(err => { console.error('Failed to load users:', err); return []; }),
+      ]);
       setPatients(Array.isArray(patientsData) ? patientsData : []);
-      setDoctors(Array.isArray(doctorsData) ? doctorsData : []);
+      setDoctors(Array.isArray(usersData) ? usersData.filter(u => u?.role === 'doctor') : []);
     } catch (err) {
-      console.error('Failed to load follow-ups:', err);
       setError(err.message || 'Failed to load follow-ups');
     } finally {
       setLoading(false);
     }
-  }, [getEffectiveClinicId]);
+  }, [getPatients, getUsers]); // safe now — useClinicAdmin memoizes these with useCallback
 
   useEffect(() => { load(); }, [load]);
 
   async function handleUpdateFollowUp(patientId, followUpDate, followUpNote) {
-    try {
-      const payload = { followUpDate, followUpNote };
-      const { data } = await API.put(`/patients/${patientId}/follow-up`, payload);
-      setPatients(prev => prev.map(p => p._id === patientId ? data : p));
-      return data;
-    } catch (err) {
-      console.error('Failed to update follow-up:', err);
-      throw new Error(err.response?.data?.message || 'Failed to update follow-up');
-    }
+    const updated = await updateFollowUp(patientId, followUpDate, followUpNote);
+    setPatients(prev => prev.map(p => p._id === patientId ? updated : p));
+    return updated;
   }
 
   if (loading) {
@@ -85,7 +67,7 @@ export default function FollowUps() {
   );
 }
 
-// ── Shared view ──
+// ── Shared view — identical to AdminFollowUps() in AdminDashboard.jsx ──
 function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [doctorFilter, setDoctorFilter] = useState('all');
@@ -96,9 +78,8 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
   const [editNote, setEditNote] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Only show patients with follow-up dates
   const followUpPatients = patients.filter((p) => p.followUpDate);
-  
+
   const filtered = followUpPatients.filter((p) => {
     const matchDoctor = doctorFilter === 'all' || String(p.doctorId) === doctorFilter;
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.phone && p.phone.includes(search));
@@ -110,37 +91,19 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
     return matchDoctor && matchSearch && matchDate;
   }).sort((a, b) => (a.followUpDate || '').localeCompare(b.followUpDate || ''));
 
-  function startEdit(p) { 
-    setEditingId(p._id); 
-    setEditDate(p.followUpDate || ''); 
-    setEditNote(p.followUpNote || ''); 
-  }
-  
-  function cancelEdit() { 
-    setEditingId(null); 
-    setEditDate(''); 
-    setEditNote(''); 
-  }
+  function startEdit(p) { setEditingId(p._id); setEditDate(p.followUpDate || ''); setEditNote(p.followUpNote || ''); }
+  function cancelEdit() { setEditingId(null); setEditDate(''); setEditNote(''); }
 
   async function saveEdit(patientId) {
     setBusy(true);
-    try { 
-      await onUpdateFollowUp(patientId, editDate, editNote); 
-      setEditingId(null); 
-    } catch (e) { 
-      alert(e.message); 
-    } finally { 
-      setBusy(false); 
-    }
+    try { await onUpdateFollowUp(patientId, editDate, editNote); setEditingId(null); }
+    catch (e) { alert(e.message); }
+    finally { setBusy(false); }
   }
 
   async function clearFollowUp(patientId) {
     if (!window.confirm('Clear this follow-up?')) return;
-    try { 
-      await onUpdateFollowUp(patientId, null, ''); 
-    } catch (e) { 
-      alert(e.message); 
-    }
+    try { await onUpdateFollowUp(patientId, null, ''); } catch (e) { alert(e.message); }
   }
 
   function getFollowUpStatus(followUpDate) {
@@ -157,8 +120,6 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
   return (
     <div>
       <SectionHeader title="Follow-ups" subtitle={`${followUpPatients.length} patients with scheduled follow-ups`} />
-      
-      {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Today', value: todayCount, icon: '📅', color: '#00a878', bg: 'rgba(0,184,148,0.08)', border: 'rgba(0,184,148,0.20)', filter: 'today' },
@@ -166,20 +127,8 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
           { label: 'Overdue', value: overdueCount, icon: '⚠️', color: '#e74c3c', bg: 'rgba(231,76,60,0.07)', border: 'rgba(231,76,60,0.18)', filter: 'overdue' },
           { label: 'All', value: followUpPatients.length, icon: '📋', color: '#4a6278', bg: 'rgba(74,98,120,0.06)', border: 'rgba(74,98,120,0.15)', filter: 'all' },
         ].map((s) => (
-          <div 
-            key={s.label} 
-            onClick={() => setDateFilter(s.filter)}
-            style={{ 
-              background: dateFilter === s.filter ? s.bg : '#fff', 
-              border: `1.5px solid ${dateFilter === s.filter ? s.border : 'var(--border, #e4eaf1)'}`, 
-              borderRadius: 12, 
-              padding: '14px 16px', 
-              cursor: 'pointer', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 12 
-            }}
-          >
+          <div key={s.label} onClick={() => setDateFilter(s.filter)}
+            style={{ background: dateFilter === s.filter ? s.bg : '#fff', border: `1.5px solid ${dateFilter === s.filter ? s.border : 'var(--border, #e4eaf1)'}`, borderRadius: 12, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 22 }}>{s.icon}</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 20, color: dateFilter === s.filter ? s.color : 'var(--text, #1a2a3a)', lineHeight: 1 }}>{s.value}</div>
@@ -188,30 +137,13 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
           </div>
         ))}
       </div>
-      
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Input 
-          value={search} 
-          onChange={(e) => setSearch(e.target.value)} 
-          placeholder="Search patient name or phone…" 
-          style={{ flex: '1 1 200px', minWidth: 0 }} 
-        />
-        <Select 
-          value={doctorFilter} 
-          onChange={(e) => setDoctorFilter(e.target.value)} 
-          style={{ flex: '0 0 180px' }}
-        >
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search patient name or phone…" style={{ flex: '1 1 200px', minWidth: 0 }} />
+        <Select value={doctorFilter} onChange={(e) => setDoctorFilter(e.target.value)} style={{ flex: '0 0 180px' }}>
           <option value="all">All Doctors</option>
-          {doctors.map((d) => (
-            <option key={d._id} value={d._id}>
-              {d.name} {d.consultationFee ? `(₹${d.consultationFee})` : ''}
-            </option>
-          ))}
+          {doctors.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
         </Select>
       </div>
-      
-      {/* Table */}
       {filtered.length === 0 ? (
         <Empty icon="📅" title="No follow-ups found" desc="No follow-ups match your filters." />
       ) : (
@@ -229,10 +161,6 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
                 {filtered.map((p, i) => {
                   const st = getFollowUpStatus(p.followUpDate);
                   const isEditing = editingId === p._id;
-                  
-                  // Find doctor name from doctors list or use p.doctorName
-                  const doctorName = p.doctorName || doctors.find(d => String(d._id) === String(p.doctorId))?.name || '—';
-                  
                   return (
                     <tr key={p._id} style={{ borderBottom: '1px solid var(--border)', background: isEditing ? 'rgba(21,101,168,0.03)' : (i % 2 === 0 ? '#fff' : 'var(--surface2, #fafbfc)') }}>
                       <td style={{ padding: '11px 14px' }}>
@@ -240,29 +168,16 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
                         {p.age && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Age {p.age}{p.gender ? ` · ${p.gender}` : ''}</div>}
                       </td>
                       <td style={{ padding: '11px 14px', color: 'var(--text-muted)' }}>{p.phone || '—'}</td>
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ fontWeight: 600, color: '#1565a8' }}>{doctorName}</div>
-                      </td>
+                      <td style={{ padding: '11px 14px' }}><div style={{ fontWeight: 600, color: '#1565a8' }}>{p.doctorName}</div></td>
                       <td style={{ padding: '11px 14px', color: 'var(--text-muted)', fontSize: 12.5 }}>{p.date || '—'}</td>
                       <td style={{ padding: '11px 14px' }}>
                         {isEditing
-                          ? <input 
-                              type="date" 
-                              value={editDate} 
-                              onChange={(e) => setEditDate(e.target.value)} 
-                              style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #1565a8', fontSize: 13 }} 
-                            />
+                          ? <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: 7, border: '1.5px solid #1565a8', fontSize: 13 }} />
                           : <span style={{ fontWeight: 700, color: st?.text }}>{p.followUpDate}</span>}
                       </td>
                       <td style={{ padding: '11px 14px', maxWidth: 160 }}>
                         {isEditing
-                          ? <input 
-                              type="text" 
-                              value={editNote} 
-                              onChange={(e) => setEditNote(e.target.value)} 
-                              placeholder="Note" 
-                              style={{ width: '100%', padding: '4px 8px', borderRadius: 7, border: '1.5px solid #1565a8', fontSize: 13 }} 
-                            />
+                          ? <input type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Note" style={{ width: '100%', padding: '4px 8px', borderRadius: 7, border: '1.5px solid #1565a8', fontSize: 13 }} />
                           : <span style={{ color: p.followUpNote ? 'var(--text)' : 'var(--text-muted)', fontStyle: p.followUpNote ? 'normal' : 'italic', fontSize: 12.5 }}>{p.followUpNote || 'No note'}</span>}
                       </td>
                       <td style={{ padding: '11px 14px' }}>
@@ -271,34 +186,13 @@ function AdminFollowUpsView({ patients, doctors, onUpdateFollowUp }) {
                       <td style={{ padding: '11px 14px' }}>
                         {isEditing ? (
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button 
-                              onClick={() => saveEdit(p._id)} 
-                              disabled={busy} 
-                              style={{ padding: '4px 12px', borderRadius: 7, border: 'none', background: '#00b894', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                            >
-                              {busy ? '…' : '✓ Save'}
-                            </button>
-                            <button 
-                              onClick={cancelEdit} 
-                              style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid #d0dce8', background: '#fff', color: '#4a6278', fontSize: 12, cursor: 'pointer' }}
-                            >
-                              Cancel
-                            </button>
+                            <button onClick={() => saveEdit(p._id)} disabled={busy} style={{ padding: '4px 12px', borderRadius: 7, border: 'none', background: '#00b894', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{busy ? '…' : '✓ Save'}</button>
+                            <button onClick={cancelEdit} style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid #d0dce8', background: '#fff', color: '#4a6278', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button 
-                              onClick={() => startEdit(p)} 
-                              style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(21,101,168,0.25)', background: 'rgba(21,101,168,0.06)', color: '#1565a8', fontSize: 12, cursor: 'pointer' }}
-                            >
-                              ✏️ Edit
-                            </button>
-                            <button 
-                              onClick={() => clearFollowUp(p._id)} 
-                              style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(231,76,60,0.25)', background: 'rgba(231,76,60,0.06)', color: '#e74c3c', fontSize: 12, cursor: 'pointer' }}
-                            >
-                              🗑
-                            </button>
+                            <button onClick={() => startEdit(p)} style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(21,101,168,0.25)', background: 'rgba(21,101,168,0.06)', color: '#1565a8', fontSize: 12, cursor: 'pointer' }}>✏️ Edit</button>
+                            <button onClick={() => clearFollowUp(p._id)} style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(231,76,60,0.25)', background: 'rgba(231,76,60,0.06)', color: '#e74c3c', fontSize: 12, cursor: 'pointer' }}>🗑</button>
                           </div>
                         )}
                       </td>

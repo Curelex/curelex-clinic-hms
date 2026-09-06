@@ -170,10 +170,10 @@ router.post('/register', async (req, res) => {
     }
 
     const ROLE_PERMISSIONS_MAP = {
-      doctor:          ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine'],
+      doctor:          ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine', 'followups'],
       separate_doctor: ['dashboard', 'patients', 'telemedicine'],
       nurse:           ['dashboard', 'patients', 'ipd'],
-      receptionist:    ['dashboard', 'patients', 'billing', 'tokens'],
+      receptionist:    ['dashboard', 'patients', 'billing', 'tokens', 'followups'],
       pharmacist:      [
         'dashboard', 'pharmacy', 'inventory',
         'suppliers.read', 'suppliers.write',
