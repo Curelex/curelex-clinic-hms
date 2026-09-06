@@ -397,6 +397,7 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   const [timingsChecked, setTimingsChecked] = useState(false);
   const [clinicTimingsData, setClinicTimingsData] = useState(null);
   const [clinicName, setClinicName] = useState('');
+  const [timingsRefreshKey, setTimingsRefreshKey] = useState(0);
 
 
   const [notifications, setNotifications] = useState({
@@ -525,71 +526,71 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
   }, [clinicType]);
 
   useEffect(() => {
-  const checkTimings = async () => {
-    // Only check for clinic admins
-    if (user?.role === 'admin' && clinicType === 'clinic') {
-      try {
-        const response = await API.get('/clinics/timings');
+    const checkTimings = async () => {
+      // Only check for clinic admins
+      if (user?.role === 'admin' && clinicType === 'clinic') {
+        try {
+          const response = await API.get('/clinics/timings');
 
-        if (response.data.success) {
-          const { openingHours, clinicName } = response.data;
+          if (response.data.success) {
+            const { openingHours, clinicName } = response.data;
 
-          setClinicName(clinicName || 'Clinic');
+            setClinicName(clinicName || 'Clinic');
 
-          const days = [
-            'monday',
-            'tuesday',
-            'wednesday',
-            'thursday',
-            'friday',
-            'saturday',
-            'sunday'
-          ];
+            const days = [
+              'monday',
+              'tuesday',
+              'wednesday',
+              'thursday',
+              'friday',
+              'saturday',
+              'sunday'
+            ];
 
-          const hasTimings =
-            openingHours &&
-            days.every(day => {
-              const dayData = openingHours[day];
+            const hasTimings =
+              openingHours &&
+              days.every(day => {
+                const dayData = openingHours[day];
 
-              if (!dayData) return false;
+                if (!dayData) return false;
 
-              // Closed day is valid
-              if (dayData.isOpen === false) {
-                return true;
-              }
+                // Closed day is valid
+                if (dayData.isOpen === false) {
+                  return true;
+                }
 
-              // Open day must have valid opening and closing times
-              return (
-                dayData.isOpen === true &&
-                typeof dayData.open === 'string' &&
-                dayData.open.trim() !== '' &&
-                typeof dayData.close === 'string' &&
-                dayData.close.trim() !== ''
-              );
-            });
+                // Open day must have valid opening and closing times
+                return (
+                  dayData.isOpen === true &&
+                  typeof dayData.open === 'string' &&
+                  dayData.open.trim() !== '' &&
+                  typeof dayData.close === 'string' &&
+                  dayData.close.trim() !== ''
+                );
+              });
 
-          console.log('Opening hours:', openingHours);
-          console.log('Has timings:', hasTimings);
+            console.log('Opening hours:', openingHours);
+            console.log('Has timings:', hasTimings);
 
-          if (!hasTimings) {
-            setShowTimingsModal(true);
-            setClinicTimingsData(openingHours);
-          } else {
-            setShowTimingsModal(false);
+            if (!hasTimings) {
+              setShowTimingsModal(true);
+              setClinicTimingsData(openingHours);
+            } else {
+              setShowTimingsModal(false);
+            }
           }
+        } catch (err) {
+          console.error('Failed to check clinic timings:', err);
         }
-      } catch (err) {
-        console.error('Failed to check clinic timings:', err);
       }
+
+      setTimingsChecked(true);
+    };
+
+    if (clinic && !timingsChecked) {
+      checkTimings();
     }
-
-    setTimingsChecked(true);
-  };
-
-  if (clinic && !timingsChecked) {
-    checkTimings();
-  }
-}, [clinic, user, clinicType, timingsChecked]);
+  }, [clinic, user, clinicType, timingsChecked]);
 
   // ── Clinic type check ──
   useEffect(() => {
@@ -801,17 +802,22 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
     <>
       <div style={{ filter: active ? 'none' : 'blur(3px) brightness(0.88)', pointerEvents: active ? 'auto' : 'none', userSelect: active ? 'auto' : 'none', transition: 'filter 0.3s' }}>
         {showTimingsModal && (
-  <ClinicTimingsModal
-    isOpen={showTimingsModal}
-    onClose={() => setShowTimingsModal(false)}
-    onSave={(timings) => {
-      // Update local state if needed
-      setTimingsChecked(true);
-    }}
-    clinicType={clinic?.type || 'clinic'}
-    clinicName={clinic?.name || ''}
-  />
-)}
+          <ClinicTimingsModal
+            isOpen={showTimingsModal}
+            onClose={() => setShowTimingsModal(false)}
+            onSave={(timings) => {
+              setClinicTimingsData(timings);
+              setClinic((prev) => ({
+                ...prev,
+                openingHours: timings,
+              }));
+              setTimingsRefreshKey((prev) => prev + 1);
+              setTimingsChecked(true);
+            }}
+            clinicType={clinic?.type || 'clinic'}
+            clinicName={clinic?.name || ''}
+          />
+        )}
         <DashboardLayout
           title="Admin Dashboard"
           subtitle={`Welcome, ${clinic.owner || 'Admin'}`}
@@ -848,7 +854,26 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
             />
           )}
           {tab === 'followups' && <AdminFollowUps patients={patientList} doctors={doctors} onUpdateFollowUp={handleUpdateFollowUp} />}
-          {tab === 'settings' && <ClinicSettings clinic={clinic} user={user} onSave={handleSaveClinic} />}
+          {tab === 'settings' && (
+            <ClinicSettings
+              clinic={clinic}
+              user={user}
+              onSave={handleSaveClinic}
+              timingsRefreshKey={timingsRefreshKey}
+              onEditTimings={() => {
+                setClinicTimingsData(clinicTimingsData || clinic?.openingHours || null);
+                setShowTimingsModal(true);
+              }}
+              onTimingsSaved={(timings) => {
+                setClinicTimingsData(timings);
+                setClinic((prev) => ({
+                  ...prev,
+                  openingHours: timings,
+                }));
+                setTimingsRefreshKey((prev) => prev + 1);
+              }}
+            />
+          )}
           {tab === 'pharmacists' && canManagePharmacists && <PharmacistManagement pharmacists={pharmacists} onAdd={handleAddUser} onDelete={handleDeleteUser} activePlan={safePlan} />}
           {tab === 'pharmacists' && !canManagePharmacists && (
             <Card style={{ textAlign: 'center', padding: 40 }}>
@@ -877,9 +902,14 @@ export default function AdminDashboard({ onChoosePlan, activePlan: propActivePla
           isOpen={showTimingsModal}
           onClose={() => setShowTimingsModal(false)}
           onSave={(timings) => {
+            setClinicTimingsData(timings);
+            setClinic((prev) => ({
+              ...prev,
+              openingHours: timings,
+            }));
+            setTimingsRefreshKey((prev) => prev + 1);
             setShowTimingsModal(false);
             setTimingsChecked(true);
-            // Optionally refresh clinic data
           }}
           clinicType="clinic"
           clinicName={clinic?.name || 'Clinic'}
@@ -1507,7 +1537,7 @@ function RevenueSection({ patients, doctors, pharmacists, session, getRevenueRep
     try {
       const token = session?.token || localStorage.getItem('clinic_token') || '';
       const res = await getRevenueReport(fromDate, toDate);
-      
+
       // if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `IMS error: ${res.status}`); }
       setImsData(res);
     } catch (e) { setImsError(e.message); }
@@ -2553,46 +2583,46 @@ function PharmacistManagement({ pharmacists, onAdd, onDelete, activePlan, onRefr
     setBusy(true);
     setErr('');
     try {
-    const planConfig = getPlanConfig('clinic', activePlan || 'free');
-    const permissions = ['dashboard', 'pharmacy'];
-    if (planConfig.features.prescriptions) permissions.push('prescriptions');
-    if (planConfig.features.inventory) {
-      permissions.push(
-        'inventory', // only Pro
-        'suppliers.read', 'suppliers.write',
-        'products.read', 'products.write',
-        'purchases.read', 'purchases.write',
-        'inventory.adjust',
-        'sales.read', 'sales.create', 'sales.invoice',
-        'customers.read', 'customers.write'
-      );
-    }
+      const planConfig = getPlanConfig('clinic', activePlan || 'free');
+      const permissions = ['dashboard', 'pharmacy'];
+      if (planConfig.features.prescriptions) permissions.push('prescriptions');
+      if (planConfig.features.inventory) {
+        permissions.push(
+          'inventory', // only Pro
+          'suppliers.read', 'suppliers.write',
+          'products.read', 'products.write',
+          'purchases.read', 'purchases.write',
+          'inventory.adjust',
+          'sales.read', 'sales.create', 'sales.invoice',
+          'customers.read', 'customers.write'
+        );
+      }
 
-    const newPharmacist = await onAdd({
-      role: 'pharmacist',
-      ...form,
-      permissions,
-    });
-
-    try {
-      await registerPharmacistInIMS({
-        fullName: form.name,
-        email: form.email,
-        password: form.password,
+      const newPharmacist = await onAdd({
+        role: 'pharmacist',
+        ...form,
+        permissions,
       });
-    } catch (imsErr) {
-      console.warn('⚠️ IMS registration failed, but pharmacist was created in HMS:', imsErr);
-    }
 
-    setForm({ name: '', email: '', phone: '', password: '' });
-    setShow(false);
-    if (onRefresh) onRefresh();
-  } catch (e) {
-    setErr(e.message || 'Failed to add pharmacist');
-  } finally {
-    setBusy(false);
+      try {
+        await registerPharmacistInIMS({
+          fullName: form.name,
+          email: form.email,
+          password: form.password,
+        });
+      } catch (imsErr) {
+        console.warn('⚠️ IMS registration failed, but pharmacist was created in HMS:', imsErr);
+      }
+
+      setForm({ name: '', email: '', phone: '', password: '' });
+      setShow(false);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      setErr(e.message || 'Failed to add pharmacist');
+    } finally {
+      setBusy(false);
+    }
   }
-}
 
   async function removePharmacist(id) {
     if (!window.confirm('Remove this pharmacist?')) return;
@@ -2975,7 +3005,14 @@ function usePincodeLookup() {
 
 // hms-react/src/pages/AdminDashboard.jsx - Updated Clinic Component
 
-function ClinicSettings({ clinic, user, onSave }) {
+function ClinicSettings({
+  clinic,
+  user,
+  onSave,
+  onEditTimings,
+  onTimingsSaved,
+  timingsRefreshKey
+}) {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: clinic.name || '', owner: clinic.owner || user?.name || '', phone: clinic.phone || '',
@@ -3010,8 +3047,8 @@ function ClinicSettings({ clinic, user, onSave }) {
   }, []);
 
   useEffect(() => {
-  fetchTimings();
-}, []);
+    fetchTimings();
+  }, [timingsRefreshKey]);
 
   useEffect(() => {
     if (!fetchedData || !fetchedData.length) return;
@@ -3026,15 +3063,15 @@ function ClinicSettings({ clinic, user, onSave }) {
   }, [fetchedData]);
 
   const fetchTimings = async () => {
-  try {
-    const response = await API.get('/clinics/timings');
-    if (response.data.success) {
-      setDisplayTimings(response.data.openingHours);
+    try {
+      const response = await API.get('/clinics/timings');
+      if (response.data.success) {
+        setDisplayTimings(response.data.openingHours);
+      }
+    } catch (err) {
+      console.error('Failed to fetch timings:', err);
     }
-  } catch (err) {
-    console.error('Failed to fetch timings:', err);
-  }
-};
+  };
 
   function handlePincodeChange(val) {
     const clean = val.replace(/\D/g, '').slice(0, 6);
@@ -3354,60 +3391,60 @@ function ClinicSettings({ clinic, user, onSave }) {
       </Card>
 
       {displayTimings && (
-  <Card style={{ marginBottom: 20 }}>
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center',
-      marginBottom: 12 
-    }}>
-      <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>⏰ Operating Hours</h3>
-      <button
-        onClick={() => setShowTimingsModal(true)}
-        style={{
-          padding: '6px 16px',
-          borderRadius: '8px',
-          border: '1px solid #2d6be4',
-          background: 'transparent',
-          color: '#2d6be4',
-          fontSize: '13px',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
-        ✏️ Edit
-      </button>
-    </div>
-    <div style={{ 
-      display: 'grid', 
-      gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-      gap: '8px' 
-    }}>
-      {Object.entries(displayTimings).map(([day, data]) => (
-        <div key={day} style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          padding: '6px 12px',
-          borderRadius: '6px',
-          background: data.isOpen ? '#f8fafc' : '#f1f5f9',
-        }}>
-          <span style={{ 
-            fontWeight: data.isOpen ? 600 : 400,
-            color: data.isOpen ? '#1a2236' : '#94a3b8' 
+        <Card style={{ marginBottom: 20 }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12
           }}>
-            {day.charAt(0).toUpperCase() + day.slice(1)}
-          </span>
-          <span style={{
-            fontWeight: 600,
-            color: data.isOpen ? '#16a34a' : '#94a3b8'
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>⏰ Operating Hours</h3>
+            <button
+              onClick={onEditTimings}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '8px',
+                border: '1px solid #2d6be4',
+                background: 'transparent',
+                color: '#2d6be4',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ✏️ Edit
+            </button>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '8px'
           }}>
-            {data.isOpen ? `${data.open} - ${data.close}` : 'Closed'}
-          </span>
-        </div>
-      ))}
-    </div>
-  </Card>
-)}
+            {Object.entries(displayTimings).map(([day, data]) => (
+              <div key={day} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: data.isOpen ? '#f8fafc' : '#f1f5f9',
+              }}>
+                <span style={{
+                  fontWeight: data.isOpen ? 600 : 400,
+                  color: data.isOpen ? '#1a2236' : '#94a3b8'
+                }}>
+                  {day.charAt(0).toUpperCase() + day.slice(1)}
+                </span>
+                <span style={{
+                  fontWeight: 600,
+                  color: data.isOpen ? '#16a34a' : '#94a3b8'
+                }}>
+                  {data.isOpen ? `${data.open} - ${data.close}` : 'Closed'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
