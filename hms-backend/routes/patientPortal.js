@@ -162,10 +162,18 @@ router.get('/:id/appointments', patientAuth, async (req, res) => {
   }
 });
 
-// ── GET /doctors/:clinicId ───────────────────────────────────────────────
+// ── GET /doctors/:clinicId — paginated, in-person clinic booking (clinic doctors included) ──
 router.get('/doctors/:clinicId', patientAuth, async (req, res) => {
   try {
     const { clinicId } = req.params;
+    const {
+      page = 1,
+      limit = 20,
+      excludeZeroFee = 'false', // default: show everyone, including free/unset-fee doctors
+    } = req.query;
+
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, Number(limit) || 20));
 
     let query;
     if (clinicId === 'independent') {
@@ -174,12 +182,30 @@ router.get('/doctors/:clinicId', patientAuth, async (req, res) => {
       query = { clinicId, role: 'doctor', isActive: true };
     }
 
+    if (excludeZeroFee === 'true') {
+      query.$or = [
+        { consultationFee: { $gt: 0 } },
+        { telemedicineFee: { $gt: 0 } },
+      ];
+    }
+
+    const total = await User.countDocuments(query);
+
     const doctors = await User.find(
       query,
       'name department consultationFee telemedicineFee'
-    ).sort({ name: 1 });
+    )
+      .sort({ name: 1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
 
-    res.json({ success: true, doctors });
+    res.json({
+      success: true,
+      doctors,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
