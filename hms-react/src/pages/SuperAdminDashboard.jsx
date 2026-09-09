@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import API from '../utils/api';
 import { getPlanLabel } from '../utils/planConfig';
+import toast from 'react-hot-toast';
 
-const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Consultations', 'Clinic Dashboard', 'Payroll'];
+const TABS = ['Overview', 'Clinics', 'Staff', 'Users', 'Doctor Approvals', 'Consultations', 'Clinic Dashboard', 'Payroll'];
 
 function getClinicPlanInfo(clinic) {
   const planKey = clinic.plan || 'free';
@@ -25,6 +26,333 @@ function getClinicPlanInfo(clinic) {
     daysRemaining: clinic.daysRemaining,
     expiresAt: clinic.planExpiresAt,
   };
+}
+
+// hms-react/src/pages/SuperAdminDashboard.jsx - Add DoctorApprovalsTab component
+
+// ── Doctor Approvals Tab ────────────────────────────────────────────────────
+function DoctorApprovalsTab({ onRefresh }) {
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('pending');
+  const [processing, setProcessing] = useState('');
+
+  const loadProfiles = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await API.get('/auth/doctor-profiles/pending');
+      console.log('📡 Pending doctor profiles:', data);
+      setProfiles(data.profiles || []);
+    } catch (err) {
+      console.error('Failed to load doctor profiles:', err);
+      setError(err.response?.data?.message || 'Failed to load pending approvals');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  const handleApprove = async (id) => {
+    if (!window.confirm('Approve this doctor?')) return;
+    setProcessing(id);
+    try {
+      await API.patch(`/auth/doctor-profiles/${id}/approve`);
+      toast.success('Doctor approved successfully');
+      loadProfiles();
+      onRefresh?.();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to approve');
+    }
+    setProcessing('');
+  };
+
+  const handleReject = async (id) => {
+    const reason = prompt('Enter rejection reason:');
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error('Please provide a rejection reason');
+      return;
+    }
+    setProcessing(id);
+    try {
+      await API.patch(`/auth/doctor-profiles/${id}/reject`, { reason: reason.trim() });
+      toast.success('Doctor rejected');
+      loadProfiles();
+      onRefresh?.();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reject');
+    }
+    setProcessing('');
+  };
+
+  const filtered = profiles.filter(p => {
+    const matchSearch = !search ||
+      p.name?.toLowerCase().includes(search.toLowerCase()) ||
+      p.email?.toLowerCase().includes(search.toLowerCase()) ||
+      p.specialization?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = !filterStatus || p.verificationStatus === filterStatus;
+    return matchSearch && matchStatus;
+  });
+
+  const pendingCount = profiles.filter(p => p.verificationStatus === 'pending').length;
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+        <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+        Loading doctor profiles...
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1a2236' }}>
+            Doctor Approvals
+            {pendingCount > 0 && (
+              <span style={{
+                marginLeft: 10,
+                padding: '2px 10px',
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 700,
+                background: '#fef3c7',
+                color: '#92400e',
+              }}>
+                {pendingCount} pending
+              </span>
+            )}
+          </h3>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>
+            Review and verify solo doctor profiles
+          </p>
+        </div>
+        <button onClick={loadProfiles} style={{ ...smallBtn, color: '#2d6be4', borderColor: '#2d6be4' }}>
+          🔄 Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ ...errorStyle, marginBottom: 16 }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          placeholder="Search by name, email, specialization..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
+        />
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          style={{ ...inputStyle, width: 'auto', padding: '4px 10px' }}
+        >
+          <option value="pending">⏳ Pending</option>
+          <option value="approved">✅ Approved</option>
+          <option value="rejected">❌ Rejected</option>
+          <option value="">All Statuses</option>
+        </select>
+        <span style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+          {filtered.length} doctor{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {profiles.length === 0 ? (
+        <div style={{
+          background: '#fff',
+          borderRadius: 12,
+          border: '1px solid #e5e7eb',
+          padding: '40px 20px',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#1a2236' }}>No pending doctor approvals</div>
+          <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+            All doctor profiles have been reviewed
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {filtered.map(profile => {
+            const statusConfig = {
+              pending: { bg: '#fef3c7', color: '#92400e', label: '⏳ Pending' },
+              approved: { bg: '#dcfce7', color: '#065f46', label: '✅ Approved' },
+              rejected: { bg: '#fee2e2', color: '#991b1b', label: '❌ Rejected' },
+            };
+            const status = statusConfig[profile.verificationStatus] || statusConfig.pending;
+
+            return (
+              <div key={profile._id} style={{
+                background: '#fff',
+                borderRadius: 12,
+                border: '1px solid #e5e7eb',
+                padding: '16px 20px',
+                borderLeft: `4px solid ${profile.verificationStatus === 'pending' ? '#f59e0b' : profile.verificationStatus === 'approved' ? '#10b981' : '#ef4444'}`,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1a2236' }}>
+                        {profile.name}
+                      </h4>
+                      <span style={{
+                        padding: '2px 10px',
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: status.bg,
+                        color: status.color,
+                      }}>
+                        {status.label}
+                      </span>
+                    </div>
+
+                    {/* Details Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                      gap: '4px 16px',
+                      marginTop: 8,
+                    }}>
+                      <div style={{ fontSize: 13, color: '#64748b' }}>
+                        <span style={{ fontWeight: 600 }}>📧</span> {profile.email}
+                      </div>
+                      {profile.mobile && (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          <span style={{ fontWeight: 600 }}>📱</span> {profile.mobile}
+                        </div>
+                      )}
+                      {profile.specialization && (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          <span style={{ fontWeight: 600 }}>🏥</span> {profile.specialization}
+                        </div>
+                      )}
+                      {profile.qualification && (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          <span style={{ fontWeight: 600 }}>🎓</span> {profile.qualification}
+                        </div>
+                      )}
+                      {profile.experience > 0 && (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          <span style={{ fontWeight: 600 }}>⏳</span> {profile.experience} years
+                        </div>
+                      )}
+                      {profile.licenseNumber && (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          <span style={{ fontWeight: 600 }}>📋</span> {profile.licenseNumber}
+                        </div>
+                      )}
+                      {profile.currentInstitute && (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          <span style={{ fontWeight: 600 }}>🏛️</span> {profile.currentInstitute}
+                        </div>
+                      )}
+                      {profile.consultationFee > 0 && (
+                        <div style={{ fontSize: 13, color: '#0f4c81', fontWeight: 600 }}>
+                          💰 ₹{profile.consultationFee}/consultation
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bio */}
+                    {profile.bio && (
+                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>
+                        📝 {profile.bio}
+                      </div>
+                    )}
+
+                    {/* Rejection Reason */}
+                    {profile.rejectionReason && (
+                      <div style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        color: '#dc2626',
+                        background: '#fee2e2',
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        display: 'inline-block',
+                      }}>
+                        Reason: {profile.rejectionReason}
+                      </div>
+                    )}
+
+                    {/* Timestamp */}
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+                      📅 Requested: {new Date(profile.createdAt).toLocaleString()}
+                      {profile.reviewedAt && ` · Reviewed: ${new Date(profile.reviewedAt).toLocaleString()}`}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {profile.verificationStatus === 'pending' && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleApprove(profile._id)}
+                        disabled={processing === profile._id}
+                        style={{
+                          padding: '8px 20px',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: processing === profile._id ? '#94a3b8' : '#10b981',
+                          color: '#fff',
+                          fontWeight: 600,
+                          cursor: processing === profile._id ? 'not-allowed' : 'pointer',
+                          fontSize: 13,
+                          minWidth: 100,
+                        }}
+                      >
+                        {processing === profile._id ? '⏳' : '✅ Approve'}
+                      </button>
+                      <button
+                        onClick={() => handleReject(profile._id)}
+                        disabled={processing === profile._id}
+                        style={{
+                          padding: '8px 20px',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: processing === profile._id ? '#94a3b8' : '#ef4444',
+                          color: '#fff',
+                          fontWeight: 600,
+                          cursor: processing === profile._id ? 'not-allowed' : 'pointer',
+                          fontSize: 13,
+                          minWidth: 100,
+                        }}
+                      >
+                        {processing === profile._id ? '⏳' : '❌ Reject'}
+                      </button>
+                    </div>
+                  )}
+
+                  {profile.verificationStatus === 'approved' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 14, color: '#10b981', fontWeight: 600 }}>✅ Verified</span>
+                    </div>
+                  )}
+
+                  {profile.verificationStatus === 'rejected' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 14, color: '#ef4444', fontWeight: 600 }}>❌ Rejected</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PlanBadge({ clinic, showExpiry = false }) {
@@ -1947,6 +2275,7 @@ export default function SuperAdminDashboard() {
         {activeTab === 'Clinics' && <ClinicsTab clinics={clinics} onRefresh={loadData} />}
         {activeTab === 'Staff' && <StaffTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
         {activeTab === 'Users' && <AllUsersTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
+        {activeTab === 'Doctor Approvals' && <DoctorApprovalsTab onRefresh={loadData} />}
         {activeTab === 'Consultations' && <ConsultationsTab />}
         {activeTab === 'Clinic Dashboard' && <ClinicDashboardTab clinics={clinics} />}
         {activeTab === 'Payroll' && <PayrollTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
