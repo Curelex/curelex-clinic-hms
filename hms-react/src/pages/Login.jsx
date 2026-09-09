@@ -146,7 +146,7 @@ export default function Login() {
             <Link
               to="/Register"
               state={{
-                accountType: loginType === 'hospital' ? 'admin' : 'doctor'
+                accountType: loginType === 'hospital' ? 'admin' : 'separate_doctor'
               }}
               style={{
                 color: '#0f4c81',

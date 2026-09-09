@@ -19,11 +19,14 @@ API.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
+      if (sessionStorage.getItem('logging_out') === '1') {
+        return Promise.reject(err);
+      }
       console.log("401 ERROR:", err.config?.url);
       console.log(err.response);
       localStorage.removeItem('hms_token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = '/';
     }
     return Promise.reject(err);
   }

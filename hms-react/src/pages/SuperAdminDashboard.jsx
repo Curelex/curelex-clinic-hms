@@ -1826,7 +1826,7 @@ export default function SuperAdminDashboard() {
     setLoading(false);
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate('/'); setTimeout(() => sessionStorage.removeItem('logging_out'), 3000); };
 
   if (loading) {
     return (
