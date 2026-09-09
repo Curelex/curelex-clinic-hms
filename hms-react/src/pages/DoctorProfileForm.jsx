@@ -91,7 +91,7 @@ export default function DoctorProfileForm() {
         email: form.email,
         mobile: form.mobile,
         specialization: form.specialization,
-        address: form.address,
+        address: form.address || "Unkonowm",
         licenseNumber: form.licenseNumber,
         experience: form.experience ? Number(form.experience) : 0,
         qualification: form.qualification,
