@@ -64,7 +64,11 @@ export function Stat({ label, value, color = 'var(--primary)', icon }) {
 }
 
 /* ── Input ─────────────────────────────────────────────────── */
-export function Input({ label, type = 'text', value, onChange, placeholder, required, style = {}, disabled,...rest }) {
+export function Input({ label, type = 'text', value, onChange, placeholder, required, style = {}, disabled, ...rest }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, ...style }}>
       {label && (
@@ -72,13 +76,57 @@ export function Input({ label, type = 'text', value, onChange, placeholder, requ
           {label}{required && <span style={{ color: 'var(--danger)', marginLeft: 2 }}>*</span>}
         </label>
       )}
-      <input
-        type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
-        {...rest}
-        style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 14, color: 'var(--text)', background: disabled ? 'var(--surface2)' : 'var(--surface)', transition: 'border .2s', width: '100%', opacity: disabled ? 0.7 : 1, boxSizing: 'border-box' }}
-        onFocus={(e) => !disabled && (e.target.style.borderColor = 'var(--primary)')}
-        onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
-      />
+      <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+        <input
+          type={inputType}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          disabled={disabled}
+          {...rest}
+          style={{
+            border: '1.5px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: isPassword ? '10px 40px 10px 14px' : '10px 14px',
+            fontSize: 14,
+            color: 'var(--text)',
+            background: disabled ? 'var(--surface2)' : 'var(--surface)',
+            transition: 'border .2s',
+            width: '100%',
+            opacity: disabled ? 0.7 : 1,
+            boxSizing: 'border-box'
+          }}
+          onFocus={(e) => !disabled && (e.target.style.borderColor = 'var(--primary)')}
+          onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            style={{
+              position: 'absolute',
+              right: 12,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+              lineHeight: 1,
+              userSelect: 'none',
+              transition: 'transform .15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            <span>{showPassword ? '👁️' : '🙈'}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
