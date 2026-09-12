@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import curelexLogo from "../../assets/logo.png";
+import TurnstileWidget from '../components/TurnstileWidget';
 
 // ── Mobile detection hook ─────────────────────────────────────────────────────
 function useIsMobile() {
@@ -195,6 +196,7 @@ export default function ClinicLogin() {
   //   const [role, setRole] = useState('superadmin');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     email: '',
@@ -229,6 +231,11 @@ export default function ClinicLogin() {
       return;
     }
 
+    if (!captchaToken) {
+      setErr('Please complete the verification challenge.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -244,7 +251,7 @@ export default function ClinicLogin() {
 
       //   navigate('/clinic');
 
-      const result = await login(form.email, form.password);
+      const result = await login(form.email, form.password, captchaToken);
       if (!result.success) {
         setErr(result.message || 'Login failed.');
         return;
@@ -392,6 +399,8 @@ export default function ClinicLogin() {
             Password must contain at least 6 characters, 1 uppercase, 1 lowercase and 1 special character.
           </div>
 
+          <TurnstileWidget onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+          
           {err && (
             <div style={S.alertError}>
               <IcoAlert /> <span>{err}</span>
@@ -399,9 +408,9 @@ export default function ClinicLogin() {
           )}
 
           <button
-            style={{ ...S.btnBase, ...S.btnPrimary }}
+            style={{ ...S.btnBase, ...S.btnPrimary, opacity: (loading || !captchaToken) ? 0.6 : 1, cursor: (loading || !captchaToken) ? 'not-allowed' : 'pointer' }}
             onClick={handleLogin}
-            disabled={loading}
+            disabled={loading || !captchaToken}
           >
             {loading ? (
               <><IcoSpinner /> Signing In…</>

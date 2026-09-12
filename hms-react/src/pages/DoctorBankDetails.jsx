@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 
 export default function DoctorBankDetails() {
-  const { user } = useAuth();
+  const { user, updateUserData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -40,10 +40,9 @@ export default function DoctorBankDetails() {
       const { data } = await API.put('/telemedicine/bank-details', form);
       if (data.success) {
         setSuccess('✅ Bank details updated successfully!');
-        // Update user in localStorage
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        storedUser.bankDetails = data.bankDetails;
-        localStorage.setItem('user', JSON.stringify(storedUser));
+        // Update the live user context (not just localStorage) so pages like
+        // DoctorTelemedicine see the new bankDetails immediately without a reload.
+        updateUserData({ bankDetails: data.bankDetails });
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update bank details');

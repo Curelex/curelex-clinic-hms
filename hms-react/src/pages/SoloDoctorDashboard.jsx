@@ -1069,6 +1069,289 @@ function AvailabilityToggle({ isActive, onToggle }) {
   )
 }
 
+function VideoConsultationsView({ doctor, isActive, toggleActive, showToast }) {
+  const [fee, setFee] = useState('')
+  const [savingFee, setSavingFee] = useState(false)
+  const [loadingFee, setLoadingFee] = useState(true)
+  const [requests, setRequests] = useState([])
+  const [loadingRequests, setLoadingRequests] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [processingId, setProcessingId] = useState(null)
+
+  const loadFee = async () => {
+    try {
+      const { data } = await API.get(`/auth/doctors/${doctor.id}`)
+      const d = data.doctor || data
+      setFee(d.telemedicineFee != null ? String(d.telemedicineFee) : '0')
+    } catch {
+      setFee('0')
+    }
+    setLoadingFee(false)
+  }
+
+  const loadRequests = async () => {
+    setLoadingRequests(true)
+    try {
+      const { data } = await API.get(`/telemedicine/doctor/${doctor.id}`)
+      if (data.success) setRequests(data.requests || [])
+    } catch {
+      showToast('Failed to load telemedicine requests', 'error')
+    }
+    setLoadingRequests(false)
+  }
+
+  useEffect(() => { loadFee(); loadRequests() }, [])
+
+  const saveFee = async () => {
+    setSavingFee(true)
+    try {
+      const { data } = await API.put('/telemedicine/consultation-fee', { telemedicineFee: Number(fee) || 0 })
+      if (data.success) showToast('✅ Telemedicine fee updated', 'success')
+      else showToast(data.message || 'Failed to update fee', 'error')
+    } catch {
+      showToast('Network error — fee not saved', 'error')
+    }
+    setSavingFee(false)
+  }
+
+  const handleApprove = async (id) => {
+    setProcessingId(id)
+    try {
+      const { data } = await API.patch(`/telemedicine/${id}/approve`, {})
+      if (data.success) { showToast('✅ Request approved — patient will be asked to pay', 'success'); loadRequests() }
+      else showToast(data.message || 'Failed to approve', 'error')
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to approve', 'error')
+    }
+    setProcessingId(null)
+  }
+
+  const handleReject = async (id) => {
+    if (!window.confirm('Reject this request?')) return
+    setProcessingId(id)
+    try {
+      const { data } = await API.patch(`/telemedicine/${id}/reject`, { doctorNotes: 'Doctor declined' })
+      if (data.success) { showToast('Request rejected', 'info'); loadRequests() }
+      else showToast(data.message || 'Failed to reject', 'error')
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to reject', 'error')
+    }
+    setProcessingId(null)
+  }
+
+  const handleStart = async (id) => {
+    setProcessingId(id)
+    try {
+      const { data } = await API.patch(`/telemedicine/${id}/start`, {})
+      if (data.success) {
+        showToast('🔴 Meeting started', 'success')
+        loadRequests()
+        if (data.telemedicine?.meetingLink) window.open(data.telemedicine.meetingLink, '_blank')
+      } else showToast(data.message || 'Failed to start meeting', 'error')
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to start meeting', 'error')
+    }
+    setProcessingId(null)
+  }
+
+  const handleEnd = async (id) => {
+    if (!window.confirm('End this meeting?')) return
+    setProcessingId(id)
+    try {
+      const { data } = await API.patch(`/telemedicine/${id}/end`, {})
+      if (data.success) { showToast('✅ Meeting ended', 'success'); loadRequests() }
+      else showToast(data.message || 'Failed to end meeting', 'error')
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to end meeting', 'error')
+    }
+    setProcessingId(null)
+  }
+
+  const STATUS_TABS = [
+    { key: 'all', label: 'All' },
+    { key: 'requested', label: '⏳ Requested' },
+    { key: 'payment_pending', label: '💳 Payment Pending' },
+    { key: 'scheduled', label: '📅 Scheduled' },
+    { key: 'ongoing', label: '🔴 Ongoing' },
+    { key: 'completed', label: '✅ Completed' },
+    { key: 'cancelled', label: '❌ Cancelled' },
+    { key: 'rejected', label: '❌ Rejected' },
+  ]
+
+  const filteredRequests = filter === 'all' ? requests : requests.filter(r => r.status === filter)
+
+  const STATUS_COLORS = {
+    requested: { bg: '#fef3c7', color: '#92400e', label: '⏳ Requested' },
+    payment_pending: { bg: '#fef3c7', color: '#92400e', label: '💳 Payment Pending' },
+    scheduled: { bg: '#dbeafe', color: '#1e40af', label: '📅 Scheduled' },
+    ongoing: { bg: '#f97316', color: '#fff', label: '🔴 Ongoing' },
+    completed: { bg: '#d1fae5', color: '#065f46', label: '✅ Completed' },
+    cancelled: { bg: '#fee2e2', color: '#991b1b', label: '❌ Cancelled' },
+    rejected: { bg: '#fee2e2', color: '#991b1b', label: '❌ Rejected' },
+  }
+
+  return (
+    <div style={{ padding: '0 4px' }}>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
+        background: '#fff', borderRadius: 12, padding: '14px 18px', marginBottom: 18,
+        border: '1px solid #e5e7eb',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            width: 10, height: 10, borderRadius: '50%',
+            background: isActive ? '#10b981' : '#ef4444', display: 'inline-block',
+          }} />
+          <strong style={{ fontSize: 14 }}>{isActive ? 'Online for consultations' : 'Offline'}</strong>
+          <button onClick={toggleActive} style={{
+            padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 700, fontSize: 12,
+            cursor: 'pointer', color: '#fff',
+            background: isActive ? '#ef4444' : '#10b981',
+          }}>
+            {isActive ? 'Go Offline' : 'Go Online'}
+          </button>
+        </div>
+
+        <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Consultation Fee ₹</label>
+          <input
+            type="number"
+            min="0"
+            value={fee}
+            onChange={e => setFee(e.target.value)}
+            disabled={loadingFee}
+            style={{ width: 90, padding: '6px 10px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13 }}
+          />
+          <button onClick={saveFee} disabled={savingFee || loadingFee} style={{
+            padding: '6px 16px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 12,
+            cursor: savingFee ? 'not-allowed' : 'pointer', color: '#fff',
+            background: savingFee ? '#94a3b8' : '#2d6be4',
+          }}>
+            {savingFee ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+        {STATUS_TABS.map(tab => (
+          <button key={tab.key} onClick={() => setFilter(tab.key)} style={{
+            padding: '6px 14px', borderRadius: 20, border: '1px solid ' + (filter === tab.key ? '#2d6be4' : '#e5e7eb'),
+            background: filter === tab.key ? '#2d6be4' : '#fff',
+            color: filter === tab.key ? '#fff' : '#374151',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}>
+            {tab.label} ({tab.key === 'all' ? requests.length : requests.filter(r => r.status === tab.key).length})
+          </button>
+        ))}
+        <button onClick={loadRequests} style={{
+          marginLeft: 'auto', padding: '6px 14px', borderRadius: 20, border: '1px solid #e5e7eb',
+          background: '#fff', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>
+          🔄 Refresh
+        </button>
+      </div>
+
+      {loadingRequests ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading requests...</div>
+      ) : filteredRequests.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb' }}>
+          No telemedicine requests {filter !== 'all' ? `with status "${filter}"` : 'yet'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {filteredRequests.map(req => {
+            const sc = STATUS_COLORS[req.status] || STATUS_COLORS.requested
+            const isProcessing = processingId === req._id
+            return (
+              <div key={req._id} style={{
+                background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb',
+                padding: '14px 18px', display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', flexWrap: 'wrap', gap: 12,
+              }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{req.patientName}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    {req.symptoms || 'No symptoms provided'}
+                    {req.urgency === 'urgent' && <span style={{ marginLeft: 6, color: '#92400e' }}>⚠️ Urgent</span>}
+                    {req.urgency === 'emergency' && <span style={{ marginLeft: 6, color: '#991b1b' }}>🚨 Emergency</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                    ₹{req.consultationFee || 0} · {new Date(req.createdAt).toLocaleString()}
+                  </div>
+                </div>
+
+                <span style={{
+                  padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                  background: sc.bg, color: sc.color, flexShrink: 0,
+                }}>
+                  {sc.label}
+                </span>
+
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  {req.status === 'requested' && (
+                    <>
+                      <button disabled={isProcessing} onClick={() => handleApprove(req._id)} style={{
+                        padding: '7px 16px', borderRadius: 8, border: 'none', background: '#10b981',
+                        color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                      }}>
+                        {isProcessing ? '...' : '✅ Approve'}
+                      </button>
+                      <button disabled={isProcessing} onClick={() => handleReject(req._id)} style={{
+                        padding: '7px 16px', borderRadius: 8, border: 'none', background: '#ef4444',
+                        color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                      }}>
+                        ❌ Reject
+                      </button>
+                    </>
+                  )}
+
+                  {(req.status === 'scheduled' || req.status === 'payment_completed') && (
+                    <button disabled={isProcessing} onClick={() => handleStart(req._id)} style={{
+                      padding: '7px 16px', borderRadius: 8, border: 'none', background: '#2d6be4',
+                      color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                    }}>
+                      {isProcessing ? '...' : '🔴 Start Meeting'}
+                    </button>
+                  )}
+
+                  {req.status === 'ongoing' && (
+                    <>
+                      {req.meetingLink && (
+                        <a href={req.meetingLink} target="_blank" rel="noopener noreferrer" style={{
+                          padding: '7px 16px', borderRadius: 8, background: '#f97316', color: '#fff',
+                          fontWeight: 700, fontSize: 12, textDecoration: 'none',
+                        }}>
+                          🔗 Join
+                        </a>
+                      )}
+                      <button disabled={isProcessing} onClick={() => handleEnd(req._id)} style={{
+                        padding: '7px 16px', borderRadius: 8, border: 'none', background: '#64748b',
+                        color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                      }}>
+                        {isProcessing ? '...' : 'End Meeting'}
+                      </button>
+                    </>
+                  )}
+
+                  {req.status === 'payment_pending' && (
+                    <span style={{ fontSize: 12, color: '#92400e' }}>Waiting for patient payment</span>
+                  )}
+
+                  {req.status === 'completed' && (
+                    <span style={{ fontSize: 12, color: '#64748b' }}>Duration: {req.durationMinutes || 0} min</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Income Mini Cards ──────────────────────────────────────── */
 // ✅ Only Today's Income + Total Income shown here.
 // Consultation Fee is shown in the doctor's profile page instead.
@@ -1512,6 +1795,8 @@ export default function SoloDoctorDashboard() {
 
     fetchFreshProfile()
     loadAllAppointments()
+    loadTelemedicinePatients()
+    loadTelemedicineEarnings()
     loadPrescriptions()
     loadRequests()
 
@@ -1535,6 +1820,61 @@ export default function SoloDoctorDashboard() {
     } catch {
       if (!mountedRef.current) return
       setIsActive(!next); showToast('Network error — status not saved', 'error')
+    }
+  }
+
+  async function loadTelemedicineEarnings() {
+    // Merge real telemedicine earnings (from paid consultations) into the
+    // dashboard's Today's Income / Total Income, alongside in-clinic income.
+    if (!doctor?.id) return
+    try {
+      const { data } = await API.get(`/telemedicine/earnings/${doctor.id}`)
+      if (!mountedRef.current) return
+      if (data?.earnings) {
+        const teleToday = Number(data.earnings.today) || 0
+        const teleTotal = Number(data.earnings.total) || 0
+        setIncome(prev => ({
+          todayIncome: prev.todayIncome + teleToday,
+          totalIncome: prev.totalIncome + teleTotal,
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to load telemedicine earnings:', err)
+    }
+  }
+
+  async function loadTelemedicinePatients() {
+    // Independent of loadAllAppointments so a broken/missing appointments
+    // endpoint never blocks completed telemedicine consultations from
+    // showing up in "My Patients".
+    if (!doctor?.id) return
+    try {
+      const teleRes = await API.get(`/telemedicine/doctor/${doctor.id}?status=completed`)
+      if (!mountedRef.current) return
+      if (teleRes.data?.success) {
+        const teleCompleted = teleRes.data.requests || []
+        setRecentPatients(prev => {
+          const seen = new Map(prev.map(p => [String(p.patientId), p]))
+          teleCompleted.forEach(t => {
+            const pid = t.patientId?._id || t.patientId
+            if (!pid) return
+            const mapped = {
+              patientId: pid,
+              patientName: t.patientName || t.patientId?.name || 'Patient',
+              appointmentTime: t.endedAt || t.scheduledTime || t.createdAt,
+              symptoms: t.symptoms || '',
+              diagnosis: t.doctorNotes || '',
+            }
+            const existing = seen.get(String(pid))
+            if (!existing || new Date(mapped.appointmentTime) > new Date(existing.appointmentTime)) {
+              seen.set(String(pid), mapped)
+            }
+          })
+          return [...seen.values()]
+        })
+      }
+    } catch (teleErr) {
+      console.error('Failed to load telemedicine patients:', teleErr)
     }
   }
 
@@ -1701,7 +2041,8 @@ export default function SoloDoctorDashboard() {
                             else if (item.key === 'home') setActiveNav('home')
                             else if (item.key === 'medicines') setActiveNav('medicines')
                             else if (item.key === 'mytests') setActiveNav('mytests')
-                            else { setActiveNav(item.key); showToast(`${item.label} coming soon!`, 'info') }
+                            else if (item.key === 'video') setActiveNav('video')
+                      else { setActiveNav(item.key); showToast(`${item.label} coming soon!`, 'info') }
                           }}>
                           <i className={`fas ${item.icon}`}></i> {item.label}
                         </button>
@@ -1810,7 +2151,11 @@ export default function SoloDoctorDashboard() {
               <AddTestsPanel doctorId={doctor.id} onBack={() => setActiveNav('home')} />
             )}
 
-            {activeNav !== 'patients' && activeNav !== 'medicines' && activeNav !== 'mytests' && isContentVisible && isActive && (
+            {activeNav === 'video' && isContentVisible && (
+              <VideoConsultationsView doctor={doctor} isActive={isActive} toggleActive={toggleActive} showToast={showToast} />
+            )}
+
+            {activeNav !== 'patients' && activeNav !== 'medicines' && activeNav !== 'mytests' && activeNav !== 'video' && isContentVisible && isActive && (
               <PatientIncomingBanner
                 requests={requests}
                 onAccept={id => respondToRequest(id, 'accepted')}
@@ -1818,7 +2163,7 @@ export default function SoloDoctorDashboard() {
               />
             )}
 
-            {activeNav !== 'patients' && activeNav !== 'medicines' && activeNav !== 'mytests' && isContentVisible && (
+            {activeNav !== 'patients' && activeNav !== 'medicines' && activeNav !== 'mytests' && activeNav !== 'video' && isContentVisible && (
               <div className={`dd-content-area${isActive ? '' : ' inactive'}`}>
                 {!isActive && (
                   <div className="dd-closed-badge">

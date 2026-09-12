@@ -19,7 +19,7 @@ router.post('/add', roleCheck('admin'), medicineController.addMedicine);
 router.get('/all', roleCheck('admin'), medicineController.getMedicines);
 
 // ── Doctor adds their own medicine ──
-router.post('/doctor/add', roleCheck('doctor'), medicineController.addDoctorMedicine);
+router.post('/doctor/add', roleCheck('doctor', 'admin'), medicineController.addDoctorMedicine);
 
 // ── Sync all medicines from inventory ──
 router.post('/sync-all', roleCheck('admin'), medicineController.syncAllMedicinesFromInventory);

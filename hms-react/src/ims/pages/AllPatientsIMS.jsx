@@ -13,6 +13,7 @@ function getTodayIST() {
 
 function authHeader() {
   const token =
+    localStorage.getItem('hms_token')     ||
     localStorage.getItem('clinic_token') ||
     localStorage.getItem('ims_token')     ||
     localStorage.getItem('token')         ||
@@ -431,7 +432,14 @@ export default function AllPatientsIMS({ clinicName }) {
     setLoading(true); setError('');
     try {
       const pData = await apiFetch('/patients');
-      const pats = Array.isArray(pData) ? pData : (pData?.patients || []);
+      const rawPats = Array.isArray(pData) ? pData : (pData?.patients || []);
+      const pats = rawPats.map(p => {
+        if (p.date) return p;
+        const regDate = p.registrationDate || p.createdAt;
+        if (!regDate) return p;
+        const ist = new Date(new Date(regDate).getTime() + 5.5 * 60 * 60 * 1000);
+        return { ...p, date: ist.toISOString().split('T')[0] };
+      });
       setPatients(pats);
 
       const doctorMap = {};

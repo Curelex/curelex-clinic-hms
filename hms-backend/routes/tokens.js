@@ -126,6 +126,8 @@ router.post('/generate', auth, async (req, res) => {
       symptoms,
       consultationType,
       paymentMethod,
+      totalFee,
+      paymentAmount,
     } = req.body;
 
     if (!doctorId) return res.status(400).json({ message: 'doctorId is required' });
@@ -323,10 +325,21 @@ router.post('/generate', auth, async (req, res) => {
       symptoms: symptoms || undefined,
 
       consultationType: consultationType || 'in-person',
-      consultationFee: consultationType === 'online' ? (doctor.telemedicineFee || 0) : (doctor.consultationFee || 0),
+      consultationFee: (totalFee !== undefined && totalFee !== null && totalFee !== '')
+        ? Number(totalFee)
+        : (consultationType === 'online' ? (doctor.telemedicineFee || 0) : (doctor.consultationFee || 0)),
 
       paymentMethod: paymentMethod || null,
-      paymentStatus: 'pending',
+      paymentAmount: Number(paymentAmount) || 0,
+      paymentStatus: (() => {
+        const fee = (totalFee !== undefined && totalFee !== null && totalFee !== '')
+          ? Number(totalFee)
+          : (consultationType === 'online' ? (doctor.telemedicineFee || 0) : (doctor.consultationFee || 0));
+        const paid = Number(paymentAmount) || 0;
+        if (fee > 0 && paid >= fee) return 'paid';
+        if (paid > 0) return 'partial';
+        return 'pending';
+      })(),
     });
 
     await token.populate([

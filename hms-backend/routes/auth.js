@@ -15,6 +15,7 @@ import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
 import Feedback from '../models/Feedback.js';
 import Subscription from '../models/Subscription.js';
+import { verifyTurnstile } from '../utils/turnstile.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -358,7 +359,13 @@ router.post('/register-patient', async (req, res) => {
 // ── UNIFIED LOGIN (Handles both staff and patients) ──────────────────────
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, captchaToken } = req.body;
+
+    // ── Verify Cloudflare Turnstile token ──
+    const turnstileResult = await verifyTurnstile(captchaToken, req.ip);
+    if (!turnstileResult.success) {
+      return res.status(400).json({ message: 'Verification failed. Please try again.' });
+    }
 
     let user = null;
     let patient = null;
@@ -789,22 +796,42 @@ router.put('/change-password', auth, async (req, res) => {
 // ── Get approved & active separate doctors ──
 router.get('/separate-doctors/approved', auth, async (req, res) => {
   try {
-    // Find all separate doctors with active status and approved verification
-    const doctors = await User.find({
-      role: 'separate_doctor',
-      isActive: true,
-      verificationStatus: 'approved'
+    // Two groups of doctors can appear here:
+    //  1. Independent (separate_doctor) doctors — must be Super Admin approved
+    //     via DoctorProfile.verificationStatus.
+    //  2. Hospital-employed (doctor) doctors who have opted into telemedicine —
+    //     already vetted by their hospital, so no separate approval step;
+    //     they qualify simply by having a telemedicineFee set and complete
+    //     bank details (same "setupComplete" condition as their own dashboard).
+    const approvedProfiles = await DoctorProfile.find(
+      { verificationStatus: 'approved' },
+      'userId photoUrl specialization qualification experience bio isAvailable'
+    ).lean();
+    const approvedSeparateDoctorIds = approvedProfiles.map(p => String(p.userId));
+
+    const candidateDoctors = await User.find({
+      role: { $in: ['separate_doctor', 'doctor'] },
     })
-      .select('name department consultationFee telemedicineFee phone email avatar bankDetails')
+      .select('name department consultationFee telemedicineFee phone email avatar bankDetails isAvailable role')
       .sort({ name: 1 })
       .lean();
 
-    // Get DoctorProfile data for these doctors
+    const hasCompleteBankDetails = (bd) =>
+      !!(bd && bd.accountHolderName && bd.accountNumber && bd.bankName && bd.ifscCode);
+
+    const doctors = candidateDoctors.filter(d => {
+      if (d.role === 'separate_doctor') {
+        return approvedSeparateDoctorIds.includes(String(d._id));
+      }
+      // role === 'doctor' (hospital-employed): opted into telemedicine
+      return Number(d.telemedicineFee) > 0 && hasCompleteBankDetails(d.bankDetails);
+    });
+
     const doctorIds = doctors.map(d => d._id);
-    const profiles = await DoctorProfile.find(
-      { userId: { $in: doctorIds } },
-      'userId photoUrl specialization qualification experience bio'
-    ).lean();
+    const profileMap0 = new Map(approvedProfiles.map(p => [String(p.userId), p]));
+    const profiles = doctorIds
+      .map(id => profileMap0.get(String(id)))
+      .filter(Boolean);
 
     const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
 
@@ -843,6 +870,7 @@ router.get('/separate-doctors/approved', auth, async (req, res) => {
         bio: profile?.bio || '',
         averageRating: feedback?.averageRating || 0,
         totalRatings: feedback?.totalRatings || 0,
+        isAvailable: (profile?.isAvailable !== undefined ? profile.isAvailable : doc.isAvailable) !== false,
       };
     });
 
@@ -978,7 +1006,11 @@ router.get('/doctors/:id', auth, async (req, res) => {
       isActive: false,
     });
 
-    res.json({ success: true, doctor: { ...user.toObject(), ...profile.toObject() } });
+    const merged = { ...user.toObject(), ...profile.toObject() };
+    merged.isActive = profile.isAvailable !== undefined ? profile.isAvailable : true;
+    merged.isAvailable = profile.isAvailable !== undefined ? profile.isAvailable : true;
+
+    res.json({ success: true, doctor: merged });
   } catch (err) {
     console.error('Get doctor profile error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -1016,23 +1048,25 @@ router.patch('/doctors/:id/active', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Doctor status not found' });
     }
 
-    const isActive = Boolean(req.body?.isActive);
+    const isAvailable = Boolean(req.body?.isActive);
     const profile = await DoctorProfile.findOneAndUpdate(
       { userId: user._id },
-      { $set: { isActive } },
+      { $set: { isAvailable } },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    user.isActive = isActive;
+    user.isAvailable = isAvailable;
     await user.save();
 
     res.json({
       success: true,
-      isActive,
+      isActive: isAvailable,
+      isAvailable,
       doctor: {
         id: user._id,
         name: user.name,
-        isActive,
+        isActive: isAvailable,
+        isAvailable,
         verificationStatus: profile?.verificationStatus || 'pending',
       },
     });
@@ -1086,7 +1120,7 @@ router.put('/doctors/:id', auth, async (req, res) => {
 router.get('/doctor-profiles/pending', auth, roleCheck('super_admin'), async (req, res) => {
   try {
     const profiles = await DoctorProfile.find({ verificationStatus: 'pending' })
-      .populate('userId', 'name email phone role isActive clinicId')
+      .populate('userId', 'name email phone role isActive clinicId bankDetails telemedicineFee')
       .sort({ createdAt: -1 });
     res.json({ success: true, profiles });
   } catch (err) {

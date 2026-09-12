@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import shriyanshImg from "../../assets/Shriyansh Singh-Photoroom (1).png";
 import amanImg from "../../assets/Aman Maurya-Photoroom.png";
+import divyanshuImg from "../../assets/Divyanshu.png";
 
 const TEAM = [
   {
@@ -15,6 +16,12 @@ const TEAM = [
     role: 'Co-Founder & COO',
     focus: 'Oversees operations and execution.',
     img: amanImg
+  },
+  {
+    name: 'Divyanshu Mishra',
+    role: 'Co-Founder & CTO',
+    focus: 'Manages all the technical side of the product.',
+    img: divyanshuImg
   },
 ];
 

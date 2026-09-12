@@ -702,7 +702,7 @@ export default function PatientTelemedicine() {
                         >
                           <option value="">— Select Doctor —</option>
                           {doctors.map(doc => {
-                            const isOnline = isDoctorOnline(doc._id);
+                            const isOnline = doc.isAvailable !== false;
                             return (
                               <option key={doc._id} value={doc._id}>
                                 Dr. {doc.name} ({doc.department || 'General'})
@@ -713,12 +713,12 @@ export default function PatientTelemedicine() {
                           })}
                         </select>
                       )}
-                      {form.doctorId && isDoctorOnline(form.doctorId) && (
+                      {form.doctorId && doctors.find(d => d._id === form.doctorId)?.isAvailable !== false && (
                         <div style={{ marginTop: 4, fontSize: 12, color: '#22c55e' }}>
                           ✅ This doctor is currently online
                         </div>
                       )}
-                      {form.doctorId && !isDoctorOnline(form.doctorId) && (
+                      {form.doctorId && doctors.find(d => d._id === form.doctorId)?.isAvailable === false && (
                         <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444' }}>
                           ⚠️ This doctor is currently offline. They will be notified when they come online.
                         </div>
@@ -848,7 +848,8 @@ export default function PatientTelemedicine() {
                     gap: 16,
                   }}>
                     {filteredDoctors.map(doc => {
-                      const isOnline = isDoctorOnline(doc._id);
+                      const isAvailable = doc.isAvailable !== false;
+                      const isOnline = isAvailable;
                       return (
                         <div key={doc._id} style={{
                           background: '#fff',
@@ -859,6 +860,8 @@ export default function PatientTelemedicine() {
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 10,
+                          opacity: isAvailable ? 1 : 0.45,
+                          filter: isAvailable ? 'none' : 'grayscale(45%)',
                         }}>
                           {/* Avatar + name row */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

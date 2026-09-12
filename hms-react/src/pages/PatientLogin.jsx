@@ -2,12 +2,14 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import TurnstileWidget from '../components/TurnstileWidget';
 import curelexLogo from "../../assets/logo.png";
 
 export default function PatientLogin() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -26,7 +28,12 @@ export default function PatientLogin() {
       return;
     }
 
-    const result = await login(form.email, form.password);
+    if (!captchaToken) {
+      setError('Please complete the verification challenge.');
+      return;
+    }
+
+    const result = await login(form.email, form.password, captchaToken);
 
     if (result.success) {
       if (result.user?.role === 'patient') {
@@ -116,8 +123,10 @@ export default function PatientLogin() {
             </small>
           </div>
 
-          <button className="btn btn-primary" type="submit" disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: 0 }}>
+          <TurnstileWidget onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+          
+          <button className="btn btn-primary" type="submit" disabled={loading || !captchaToken}
+            style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: 0, opacity: (loading || !captchaToken) ? 0.6 : 1, cursor: (loading || !captchaToken) ? 'not-allowed' : 'pointer' }}>
             {loading ? 'Signing in...' : 'Sign In as Patient'}
           </button>
         </form>

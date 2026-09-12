@@ -33,6 +33,7 @@ const DoctorProfileSchema = new mongoose.Schema({
   reviewedAt: { type: Date, default: null },
   rejectionReason: { type: String, default: '' },
   isActive: { type: Boolean, default: false },
+  isAvailable: { type: Boolean, default: true },
 }, { timestamps: true });
 
 export default mongoose.model('DoctorProfile', DoctorProfileSchema);

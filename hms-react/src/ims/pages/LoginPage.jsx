@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import TurnstileWidget from "../../components/TurnstileWidget";
 
 const LoginPage = () => {
   const { user, login, signup } = useAuth();
@@ -9,6 +10,7 @@ const LoginPage = () => {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
 
   // Already logged in — go straight to dashboard
   if (user) {
@@ -36,17 +38,23 @@ const LoginPage = () => {
       return;
     }
 
+    if (!captchaToken) {
+      setError("Please complete the verification challenge.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (isSignup) {
         await signup({
           name: form.name,
           email: form.email,
+          captchaToken,
           password: form.password,
         });
         // signup sets user → Navigate above redirects on re-render
       } else {
-        await login({ email: form.email, password: form.password });
+        await login({ email: form.email, password: form.password, captchaToken });
         const redirectPath =
           sessionStorage.getItem("ims_redirectPath") || "/dashboard/pharmacy/dashboard";
         sessionStorage.removeItem("ims_redirectPath");
@@ -125,9 +133,11 @@ const LoginPage = () => {
             </p>
           )}
 
+          <TurnstileWidget onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
+          
           <button
             type="button"
-            disabled={submitting}
+            disabled={submitting || !captchaToken}
             onClick={handleSubmit}
             className="w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >

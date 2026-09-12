@@ -265,6 +265,35 @@ function DoctorApprovalsTab({ onRefresh }) {
                       )}
                     </div>
 
+                    {/* Bank Details */}
+                    {(() => {
+                      const bd = profile.userId?.bankDetails;
+                      const hasBank = bd && (bd.accountNumber || bd.upiId);
+                      return (
+                        <div style={{
+                          marginTop: 8,
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          background: hasBank ? '#f0fdf4' : '#fef2f2',
+                          border: `1px solid ${hasBank ? '#bbf7d0' : '#fecaca'}`,
+                          fontSize: 12,
+                        }}>
+                          <div style={{ fontWeight: 700, color: hasBank ? '#166534' : '#991b1b', marginBottom: hasBank ? 4 : 0 }}>
+                            {hasBank ? '🏦 Bank Details Provided' : '⚠️ Bank Details Not Set Up'}
+                          </div>
+                          {hasBank && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '2px 12px', color: '#166534' }}>
+                              {bd.accountHolderName && <div>👤 {bd.accountHolderName}</div>}
+                              {bd.accountNumber && <div>🔢 A/C: ••••{String(bd.accountNumber).slice(-4)}</div>}
+                              {bd.bankName && <div>🏛️ {bd.bankName}</div>}
+                              {bd.ifscCode && <div>🔑 IFSC: {bd.ifscCode}</div>}
+                              {bd.upiId && <div>📲 UPI: {bd.upiId}</div>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* Bio */}
                     {profile.bio && (
                       <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>

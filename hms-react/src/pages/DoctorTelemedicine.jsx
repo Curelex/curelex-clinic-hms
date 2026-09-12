@@ -396,14 +396,6 @@ const setupComplete = hasFeeSet && hasBankDetails;
         'Add bank details to go online'}
   </span>
 )}
-
-{!setupComplete && (
-  <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
-    ⚠️ {!hasFeeSet && !hasBankDetails ? 'Set fee & bank details to go online' :
-        !hasFeeSet ? 'Set consultation fee to go online' :
-        'Add bank details to go online'}
-  </span>
-)}
           {/* Consultation Fee Input */}
           <div style={{
             display: 'flex',

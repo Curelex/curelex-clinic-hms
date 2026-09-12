@@ -233,10 +233,10 @@ export const AuthProvider = ({ children }) => {
     return user?.clinicId || patient?.clinicId || user?.clinic || null;
   }, [user, patient, superAdminClinicId]);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email, password, captchaToken) => {
     setLoading(true);
     try {
-      const { data } = await API.post('/auth/login', { email, password });
+      const { data } = await API.post('/auth/login', { email, password, captchaToken });
       console.log('✅ LOGIN SUCCESS:', data.user);
 
       localStorage.setItem('hms_token', data.token);

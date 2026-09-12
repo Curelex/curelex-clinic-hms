@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Card, Btn, Badge, Modal, Input, Select, Alert } from './UI';
+import FollowUpModal from './FollowUpModal';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -24,6 +25,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
   const [showReceipt, setShowReceipt] = useState(null);
   const [activeTokenError, setActiveTokenError] = useState(null);
   const [patients, setPatients] = useState([]);
+  const [followUpToken, setFollowUpToken] = useState(null);
 
   // ── Token Generation Modal ──
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -274,6 +276,8 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
         gender: genForm.gender,
         symptoms: genForm.symptoms,
         consultationType: genForm.consultationType,
+        totalFee: genForm.totalFee ? parseFloat(genForm.totalFee) : undefined,
+        paymentAmount: genForm.paid ? parseFloat(genForm.paid) : 0,
       };
 
       console.log('📤 Generating token:', payload);
@@ -528,6 +532,7 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
                             token={t}
                             onUpdate={updateStatus}
                             onRefresh={fetchTokens}
+                            onFollowUp={() => setFollowUpToken(t)}
                           />
                         </td>
                       )}
@@ -735,9 +740,10 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
                     </select>
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, fontSize: 12 }}>Email (optional)</label>
+                    <label style={{ ...labelStyle, fontSize: 12 }}>Email *</label>
                     <input
                       type="email"
+                      required
                       value={genForm.email}
                       onChange={e => setGenForm({ ...genForm, email: e.target.value })}
                       placeholder="Email address"
@@ -804,8 +810,19 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
               <select
                 value={genForm.doctorId}
                 onChange={e => {
-                  console.log('🩺 Doctor selected:', e.target.value);
-                  setGenForm({ ...genForm, doctorId: e.target.value });
+                  const selectedId = e.target.value;
+                  const selectedDoctor = doctors.find(d => d._id === selectedId);
+                  console.log('🩺 Doctor selected:', selectedId);
+                  setGenForm({
+                    ...genForm,
+                    doctorId: selectedId,
+                    // Auto-fill Total Fee from the doctor's consultation fee.
+                    // Only overwrite if the field is still empty/zero, so we
+                    // don't clobber a fee the receptionist already typed in manually.
+                    totalFee: (!genForm.totalFee || Number(genForm.totalFee) === 0) && selectedDoctor?.consultationFee > 0
+                      ? String(selectedDoctor.consultationFee)
+                      : genForm.totalFee,
+                  });
                 }}
                 style={inputStyle}
               >
@@ -998,6 +1015,15 @@ export default function TokenQueue({ clinicId, activePlan, onRefresh }) {
           </div>
         </Modal>
       )}
+
+      {followUpToken && (
+        <FollowUpModal
+          token={followUpToken}
+          clinicId={clinicId}
+          onClose={() => setFollowUpToken(null)}
+          onSuccess={() => { setFollowUpToken(null); fetchTokens(); toast.success('Follow-up scheduled'); }}
+        />
+      )}
     </div>
   );
 }
@@ -1016,7 +1042,7 @@ function StatCard({ label, value, color }) {
 }
 
 // ── Token Actions ──
-function TokenActions({ token, onUpdate, onRefresh }) {
+function TokenActions({ token, onUpdate, onRefresh, onFollowUp }) {
   const [busy, setBusy] = useState(false);
 
   const act = async (status) => {
@@ -1064,6 +1090,14 @@ function TokenActions({ token, onUpdate, onRefresh }) {
           ↩ Back
         </Btn>
       </div>
+    );
+  }
+
+  if (token.status === 'Done') {
+    return (
+      <Btn size="sm" variant="ghost" onClick={onFollowUp}>
+        📅 Follow-up
+      </Btn>
     );
   }
 

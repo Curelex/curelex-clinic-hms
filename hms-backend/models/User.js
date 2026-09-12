@@ -18,6 +18,7 @@ const UserSchema = new mongoose.Schema({
     default: '',
   },
   isActive: { type: Boolean, default: true },
+  isAvailable: { type: Boolean, default: true },
 
   // ✅ Every user belongs to a clinic
   clinicId: {

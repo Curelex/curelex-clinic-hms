@@ -5,6 +5,7 @@ import env from "../config/env.js";
 import { STAFF_PERMISSIONS, ROLES } from "../utils/permissions.js";
 import User from "../../../models/User.js";
 import SsoToken from "../models/SsoToken.js";
+import { verifyTurnstile } from "../../../utils/turnstile.js";
 
 const signToken = (userId, clinicId = null) =>
   jwt.sign({ id: userId, clinicId }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
@@ -38,7 +39,14 @@ export const signup = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, captchaToken } = req.body;
+
+  const turnstileResult = await verifyTurnstile(captchaToken, req.ip);
+  if (!turnstileResult.success) {
+    res.status(400);
+    throw new Error("Verification failed. Please try again.");
+  }
+
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user || !(await user.matchPassword(password))) {
     res.status(401);

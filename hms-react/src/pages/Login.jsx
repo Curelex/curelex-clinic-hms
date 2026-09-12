@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import curelexLogo from "../../assets/logo.png";
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const { login, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,7 +38,12 @@ export default function Login() {
       return;
     }
 
-    const result = await login(form.email, form.password);
+    if (!captchaToken) {
+      setError('Please complete the verification challenge.');
+      return;
+    }
+
+    const result = await login(form.email, form.password, captchaToken);
 
     if (result.success) {
       redirectByRole(result.user?.role);
@@ -122,11 +129,13 @@ export default function Login() {
             </p>
           </div>
 
+          <TurnstileWidget onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+          
           <button
             className="btn btn-primary"
             type="submit"
-            disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+            disabled={loading || !captchaToken}
+            style={{ width: '100%', justifyContent: 'center', padding: '12px', opacity: (loading || !captchaToken) ? 0.6 : 1, cursor: (loading || !captchaToken) ? 'not-allowed' : 'pointer' }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

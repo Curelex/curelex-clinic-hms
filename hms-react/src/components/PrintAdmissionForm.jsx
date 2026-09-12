@@ -1,7 +1,16 @@
 // hms-react/src/components/PrintAdmissionForm.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import API from '../utils/api';
 
 export default function PrintAdmissionForm({ admission, onClose }) {
+  const [clinicName, setClinicName] = useState('');
+
+  useEffect(() => {
+    API.get('/clinics/me')
+      .then(({ data }) => setClinicName(data?.name || ''))
+      .catch(() => setClinicName(''));
+  }, []);
+
   if (!admission) return null;
 
   const p = admission.patient || {};
@@ -134,7 +143,7 @@ export default function PrintAdmissionForm({ admission, onClose }) {
             {/* Form Header */}
             <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: 10, marginBottom: 14 }}>
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: 0.5, color: '#0f172a' }}>
-                CURELEX HOSPITAL MANAGEMENT SYSTEM (HMS)
+                {clinicName ? clinicName.toUpperCase() : 'CURELEX HOSPITAL MANAGEMENT SYSTEM (HMS)'}
               </h2>
               <h3 style={{ margin: '4px 0 0', fontSize: 16, fontWeight: 700, textTransform: 'uppercase', textDecoration: 'underline' }}>
                 PATIENT ADMISSION FORM

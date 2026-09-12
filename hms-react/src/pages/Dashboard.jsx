@@ -1088,14 +1088,10 @@ const showTasks = isFeatureVisible(effectiveType, planKey, 'tasks');
         )}
         {showBilling && hasPerm('billing') && (
           <>
-            <StatCard label="Total Revenue" value={`₹${(stats?.totalRevenue || 0).toLocaleString()}`} icon="💰" color="#d1fae5" />
-            <StatCard label="Pending Bills" value={stats?.pendingBills || 0} icon="📋" color="#fee2e2" />
           </>
         )}
         {showInventoryAlerts && (
           <>
-            <StatCard label="Low Stock Items" value={notifications.lowStock.length} icon="⚠️" color="#fef3c7" />
-            <StatCard label="Out of Stock" value={notifications.outOfStock.length} icon="❌" color="#fee2e2" />
           </>
         )}
         {showIPD && hasPerm('ipd') && (
@@ -1179,9 +1175,6 @@ const showTasks = isFeatureVisible(effectiveType, planKey, 'tasks');
                 <StatCard label="Total Products" value={imsStats.totalProducts || 0} icon="💊" color="#ede9fe" />
                 <StatCard label="Low Stock" value={imsStats.lowStock || 0} icon="⚠️" color="#fef3c7" />
                 <StatCard label="Out of Stock" value={imsStats.outOfStock || 0} icon="❌" color="#fee2e2" />
-                <StatCard label="Total Sales" value={`₹${(imsStats.totalSales || 0).toLocaleString()}`} icon="💰" color="#d1fae5" />
-                <StatCard label="Total Purchases" value={`₹${(imsStats.totalPurchases || 0).toLocaleString()}`} icon="🛒" color="#dbeafe" />
-                <StatCard label="Total Profit" value={`₹${(imsStats.totalProfit || 0).toLocaleString()}`} icon="📈" color="#10b981" />
               </div>
 
               {/* Top Products */}

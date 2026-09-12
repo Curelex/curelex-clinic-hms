@@ -1,2 +1,19 @@
 *.env
 node_modules/
+# Env files (all variants)
+.env
+.env.*
+*.env.backup
+*.env.bak*
+
+# Backup files and folders
+*.bak
+*.bak2
+*.backup
+hms-backend-backup-*/
+
+# Patient uploads (sensitive, not source code)
+hms-backend/uploads/
+
+# One-off scripts with potential secrets
+hms-backend/updateSuperAdmin.js

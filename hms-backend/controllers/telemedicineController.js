@@ -852,6 +852,21 @@ export const getDoctorEarnings = async (req, res) => {
     const processingPayouts = transactions.find(t => t._id === 'processing')?.total || 0;
     const completedPayouts  = transactions.find(t => t._id === 'completed')?.total  || 0;
 
+    // Today's telemedicine earnings — same-day sum, independent of payout status,
+    // so "Today's Income" on the doctor dashboard reflects money actually earned today.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const todayAgg = await Transaction.aggregate([
+      {
+        $match: {
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          createdAt: { $gte: startOfToday },
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$doctorFee' } } },
+    ]);
+    const todayEarnings = todayAgg[0]?.total || 0;
+
     // FIX: no clinicId filter
     const recentTransactions = await Transaction.find({ doctorId })
       .populate('patientId', 'name email phone')
@@ -875,7 +890,7 @@ export const getDoctorEarnings = async (req, res) => {
 
     res.json({
       success: true,
-      earnings: { total: totalEarnings, pending: pendingPayouts, processing: processingPayouts, completed: completedPayouts, breakdown: transactions },
+      earnings: { total: totalEarnings, today: todayEarnings, pending: pendingPayouts, processing: processingPayouts, completed: completedPayouts, breakdown: transactions },
       recentTransactions,
       pendingPayouts: formattedPendingPayouts
     });

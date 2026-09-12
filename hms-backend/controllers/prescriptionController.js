@@ -106,7 +106,7 @@ export const createPrescription = async (req, res) => {
 export const getPrescriptionsByPatient = async (req, res) => {
   try {
     const patientId = req.params.id;
-    const clinicId = req.user?.clinicId;
+    const clinicId = req.user?.clinicId || null;
     const isPatientRole = req.user?.role === 'patient';
 
     if (!isPatientRole && !clinicId) {
@@ -153,21 +153,20 @@ export const getPrescriptionsByDoctor = async (req, res) => {
 
     
 
-    if (!clinicId) {
-      return res.status(400).json({ success: false, message: 'Clinic ID is required' });
-    }
-
-    // Check if doctor exists (don't require role: 'doctor' - just check by ID and clinic)
-    const doctor = await User.findOne({ _id: doctorId, clinicId });
+    // Solo/independent doctors (role: separate_doctor) have no clinicId — that's
+    // expected, not an error. Only hospital-employed doctors are scoped to a clinic.
+    const doctorQuery = clinicId ? { _id: doctorId, clinicId } : { _id: doctorId };
+    const doctor = await User.findOne(doctorQuery);
     if (!doctor) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
 
     // Find all prescriptions for this doctor
-    const prescriptions = await Prescription.find({
-      doctorId: doctor._id,
-      clinicId,
-    })
+    const prescriptionQuery = clinicId
+      ? { doctorId: doctor._id, clinicId }
+      : { doctorId: doctor._id };
+
+    const prescriptions = await Prescription.find(prescriptionQuery)
       .populate('patientId', 'name patientId phone email')
       .populate('medicines.medicineId', 'name dosageForm strength')
       .sort({ createdAt: -1 });
