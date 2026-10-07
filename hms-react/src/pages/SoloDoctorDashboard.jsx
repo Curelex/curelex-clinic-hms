@@ -12,8 +12,6 @@ const NAV_ITEMS = [
   { icon: 'fa-home', label: 'Dashboard', key: 'home' },
   { icon: 'fa-user-injured', label: 'My Patients', key: 'patients' },
   { icon: 'fa-video', label: 'Video Consultations', key: 'video' },
-  { icon: 'fa-file-medical-alt', label: 'Medical Reports', key: 'reports' },
-  { icon: 'fa-comment-dots', label: 'Feedback', key: 'feedback' },
   { icon: 'fa-pills', label: 'My Medicines', key: 'medicines' },
   { icon: 'fa-flask', label: 'My Tests', key: 'mytests' },
   { divider: true },

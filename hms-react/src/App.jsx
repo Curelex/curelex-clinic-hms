@@ -25,6 +25,8 @@ import PatientDashboard from './pages/PatientDashboard';
 import PatientLogin from './pages/PatientLogin';
 import PatientRegister from './pages/PatientRegister';
 import PatientAppointments from './pages/PatientAppointments';
+import BrowseClinicsHospitals from './pages/BrowseClinicsHospitals';
+import ClinicDetail from './pages/ClinicDetail';
 import PatientAdmission from './pages/PatientAdmission';
 import TaskAllocation from './pages/TaskAllocation';
 import About from './pages/About';
@@ -59,6 +61,10 @@ const PrivateRoute = ({ children }) => {
   const { user, authReady, clinicType, activePlan } = useAuth();
   if (!authReady) return null;
   if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
+  if (user.role === 'patient') return <Navigate to="/patient-dashboard" replace />;
+  if (user.role === 'separate_doctor') return <Navigate to="/solo-doctor-dashboard" replace />;
 
   if (clinicType === 'clinic' && user?.role === 'admin') {
     return <Navigate to="/clinic-dashboard" replace />;
@@ -353,6 +359,14 @@ function App() {
           <Route
             path="/patient-appointments"
             element={<PatientRoute><PatientAppointments /></PatientRoute>}
+          />
+          <Route
+            path="/browse/:type"
+            element={<PatientRoute><BrowseClinicsHospitals /></PatientRoute>}
+          />
+          <Route
+            path="/clinic-detail/:clinicId"
+            element={<PatientRoute><ClinicDetail /></PatientRoute>}
           />
           <Route
             path="/patient-admission"

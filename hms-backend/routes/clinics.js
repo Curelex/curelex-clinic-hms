@@ -9,6 +9,7 @@ import roleCheck from '../middleware/roleCheck.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
 import Billing from '../models/Billing.js';
 import Sale from '../ims/src/models/Sale.js';
+import { geocodeAddress } from '../utils/geocode.js';
 
 // ── GET /api/clinics - Fetch / search registered clinics ──────────────────
 // Query: ?search=xyz  → case-insensitive partial match on clinic name
@@ -192,6 +193,24 @@ router.put('/me', auth, roleCheck('admin'), async (req, res) => {
     }
     const clinic = await Clinic.findByIdAndUpdate(req.user.clinicId, fields, { new: true });
     if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
+
+    // Re-geocode if any location-related field was part of this update.
+    const locationFields = ['address', 'city', 'state', 'pincode'];
+    if (locationFields.some(f => fields[f] !== undefined)) {
+      try {
+        const coords = await geocodeAddress({
+          address: clinic.address, city: clinic.city, state: clinic.state, pincode: clinic.pincode,
+        });
+        if (coords) {
+          clinic.latitude = coords.latitude;
+          clinic.longitude = coords.longitude;
+          await clinic.save();
+        }
+      } catch (geoErr) {
+        console.error('Clinic geocode failed on /me update:', geoErr.message);
+      }
+    }
+
     res.json(clinic);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -571,3 +590,70 @@ router.get('/revenue-report', auth, async (req, res) => {
 });
 
 export default router;
+
+
+// ── GET /api/clinics/nearby — clinics/hospitals within a radius (default 30km) ──
+// Query: ?lat=<num>&lng=<num>&radius=<km, optional, default 30>
+// Returns clinics sorted by distance, each with the doctors working there.
+router.get('/nearby', async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ success: false, message: 'lat and lng are required' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const radiusKm = parseFloat(radius) || 30;
+
+    const clinics = await Clinic.find({
+      latitude: { $ne: null },
+      longitude: { $ne: null },
+      status: 'Active',
+    }).lean();
+
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const haversineKm = (lat1, lon1, lat2, lon2) => {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const nearby = clinics
+      .map((c) => ({ ...c, distanceKm: haversineKm(userLat, userLng, c.latitude, c.longitude) }))
+      .filter((c) => c.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    const clinicIds = nearby.map((c) => c._id);
+    const doctors = await User.find(
+      { clinicId: { $in: clinicIds }, role: { $in: ['doctor', 'separate_doctor'] } },
+      'name department clinicId'
+    ).lean();
+
+    const doctorsByClinic = new Map();
+    doctors.forEach((d) => {
+      const key = String(d.clinicId);
+      if (!doctorsByClinic.has(key)) doctorsByClinic.set(key, []);
+      doctorsByClinic.get(key).push({ name: d.name, specialization: d.department || 'General' });
+    });
+
+    const result = nearby.map((c) => ({
+      _id: c._id,
+      name: c.name,
+      type: c.type,
+      address: c.address,
+      city: c.city,
+      distanceKm: Math.round(c.distanceKm * 10) / 10,
+      doctors: doctorsByClinic.get(String(c._id)) || [],
+    }));
+
+    res.json({ success: true, clinics: result });
+  } catch (err) {
+    console.error('Error fetching nearby clinics:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});

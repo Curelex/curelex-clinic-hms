@@ -903,13 +903,22 @@ export const getDoctorEarnings = async (req, res) => {
 // ── Get pending payouts (super_admin only) ──
 export const getPendingPayouts = async (req, res) => {
   try {
-    const pendingPayouts = await Telemedicine.find({
-      doctorPayoutStatus: 'processing',
-      status:             'completed'
-    })
+    // Optional ?payoutStatus= query param: 'processing' (default, awaiting action),
+    // 'completed' (already paid out), or 'all' (both).
+    const { payoutStatus } = req.query;
+    let filter = { doctorPayoutStatus: 'processing', status: 'completed' };
+    if (payoutStatus === 'all') {
+      filter = { status: 'completed', doctorPayoutStatus: { $in: ['pending', 'processing', 'completed'] } };
+    } else if (payoutStatus) {
+      filter = { doctorPayoutStatus: payoutStatus, status: 'completed' };
+    }
+
+    const sortOrder = (payoutStatus === 'completed' || payoutStatus === 'all') ? -1 : 1;
+
+    const pendingPayouts = await Telemedicine.find(filter)
     .populate('doctorId',  'name email phone bankDetails')
     .populate('patientId', 'name email phone')
-    .sort({ createdAt: 1 });
+    .sort({ createdAt: sortOrder });
 
     const totalAmount = pendingPayouts.reduce((sum, item) => sum + (item.doctorPayoutAmount || 0), 0);
 

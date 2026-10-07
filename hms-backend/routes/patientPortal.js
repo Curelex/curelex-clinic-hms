@@ -9,6 +9,8 @@ import Billing from '../models/Billing.js';
 import VentilatorLog from '../models/VentilatorLog.js';
 import Admission from '../models/Admission.js';
 import otBillingService from '../services/otBillingService.js';
+import DoctorProfile from '../models/DoctorProfile.js';
+import Feedback from '../models/Feedback.js';
 
 const router = express.Router();
 
@@ -193,15 +195,57 @@ router.get('/doctors/:clinicId', patientAuth, async (req, res) => {
 
     const doctors = await User.find(
       query,
-      'name department consultationFee telemedicineFee'
+      'name department consultationFee telemedicineFee avatar'
     )
       .sort({ name: 1 })
       .skip((pageNum - 1) * limitNum)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean();
+
+    const doctorIds = doctors.map(d => d._id);
+
+    const profiles = await DoctorProfile.find(
+      { userId: { $in: doctorIds } },
+      'userId photoUrl specialization qualification experience bio'
+    ).lean();
+    const profileMap = new Map(profiles.map(p => [String(p.userId), p]));
+
+    const feedbackStats = await Feedback.aggregate([
+      { $match: { doctorId: { $in: doctorIds } } },
+      {
+        $group: {
+          _id: "$doctorId",
+          averageRating: { $avg: "$doctorRating" },
+          totalRatings: { $sum: 1 }
+        }
+      }
+    ]);
+    const feedbackMap = new Map();
+    feedbackStats.forEach(f => {
+      feedbackMap.set(String(f._id), {
+        averageRating: Number((f.averageRating || 0).toFixed(1)),
+        totalRatings: f.totalRatings
+      });
+    });
+
+    const enrichedDoctors = doctors.map(doc => {
+      const profile = profileMap.get(String(doc._id));
+      const feedback = feedbackMap.get(String(doc._id));
+      return {
+        ...doc,
+        photoUrl: profile?.photoUrl || doc.avatar || '',
+        specialization: profile?.specialization || doc.department || '',
+        qualification: profile?.qualification || '',
+        experience: profile?.experience || 0,
+        bio: profile?.bio || '',
+        averageRating: feedback?.averageRating || 0,
+        totalRatings: feedback?.totalRatings || 0,
+      };
+    });
 
     res.json({
       success: true,
-      doctors,
+      doctors: enrichedDoctors,
       total,
       page: pageNum,
       pages: Math.ceil(total / limitNum),
@@ -682,6 +726,51 @@ router.get('/:id/ot-charges', patientAuth, async (req, res) => {
   } catch (err) {
     console.error('Get OT charges error:', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET /:id/queue-status — token currently running for the patient's active appointments
+router.get('/:id/queue-status', patientAuth, async (req, res) => {
+  try {
+    let patient = await Patient.findById(req.params.id);
+    if (!patient) patient = await Patient.findOne({ userId: req.params.id });
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found' });
+    }
+
+    const patientIds = await getLinkedPatientIds(patient);
+
+    const mine = await Token.find({
+      patient: { $in: patientIds },
+      status: { $in: ['Waiting', 'Called'] },
+    })
+      .populate('doctor', 'name')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    const queues = [];
+    for (const t of mine) {
+      const docId = t.doctor && t.doctor._id ? t.doctor._id : t.doctor;
+      const running = await Token.findOne({
+        clinicId: t.clinicId,
+        doctor: docId,
+        date: t.date,
+        status: 'Called',
+      }).sort({ calledAt: -1 });
+
+      queues.push({
+        tokenId: t._id,
+        myToken: t.tokenNumber,
+        myStatus: t.status,
+        doctorName: t.doctor ? t.doctor.name : '',
+        nowRunning: running ? running.tokenNumber : null,
+        isMyTurn: running ? String(running._id) === String(t._id) : false,
+      });
+    }
+
+    res.json({ success: true, queues });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

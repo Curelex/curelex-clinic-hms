@@ -43,8 +43,8 @@ function DoctorApprovalsTab({ onRefresh }) {
     setLoading(true);
     setError('');
     try {
-      const { data } = await API.get('/auth/doctor-profiles/pending');
-      console.log('📡 Pending doctor profiles:', data);
+      const { data } = await API.get(`/auth/doctor-profiles/pending?status=${filterStatus || 'pending'}`);
+      console.log('📡 Doctor profiles:', data);
       setProfiles(data.profiles || []);
     } catch (err) {
       console.error('Failed to load doctor profiles:', err);
@@ -55,7 +55,7 @@ function DoctorApprovalsTab({ onRefresh }) {
 
   useEffect(() => {
     loadProfiles();
-  }, []);
+  }, [filterStatus]);
 
   const handleApprove = async (id) => {
     if (!window.confirm('Approve this doctor?')) return;
@@ -1593,6 +1593,178 @@ function ConsultationsTab() {
     </>
   );
 }
+// ── Doctor Payouts Tab (telemedicine consultation earnings) ────────────────
+function DoctorPayoutsTab() {
+  const [payouts, setPayouts] = React.useState([]);
+  const [totalAmount, setTotalAmount] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+  const [processingId, setProcessingId] = React.useState('');
+  const [payoutFilter, setPayoutFilter] = React.useState('processing');
+
+  const loadPayouts = async () => {
+    setLoading(true);
+    try {
+      const { data } = await API.get(`/telemedicine/pending-payouts?payoutStatus=${payoutFilter}`);
+      if (data.success) {
+        setPayouts(data.pendingPayouts || []);
+        setTotalAmount(data.totalAmount || 0);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load payout requests');
+    }
+    setLoading(false);
+  };
+
+  React.useEffect(() => { loadPayouts(); }, [payoutFilter]);
+
+  const handleMarkCompleted = async (payout) => {
+    if (!window.confirm(`Mark ₹${payout.doctorPayoutAmount} payout to Dr. ${payout.doctorId?.name} as completed?`)) return;
+    setProcessingId(payout._id);
+    try {
+      const { data } = await API.patch(`/telemedicine/${payout._id}/approve-payout`, {
+        payoutMethod: 'bank_transfer',
+      });
+      if (data.success) {
+        toast.success('Payout marked as completed');
+        loadPayouts();
+      } else {
+        toast.error(data.message || 'Failed to complete payout');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to complete payout');
+    }
+    setProcessingId('');
+  };
+
+  const cardStyle = {
+    background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb',
+    padding: '16px 20px', marginBottom: 12,
+  };
+
+  return (
+    <div style={{ padding: '0 4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a2236' }}>💰 Doctor Payouts</h3>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+            Telemedicine consultation earnings requested by doctors for payout
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ fontSize: 13, color: '#64748b' }}>
+            {payouts.length} pending · <strong style={{ color: '#0f4c81' }}>₹{totalAmount}</strong> total
+          </div>
+          <button onClick={loadPayouts} style={{
+            padding: '7px 16px', borderRadius: 8, border: '1px solid #e5e7eb',
+            background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}>
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {[
+          { key: 'processing', label: '⏳ Pending' },
+          { key: 'completed', label: '✅ Completed' },
+          { key: 'all', label: 'All' },
+        ].map(f => (
+          <button key={f.key} onClick={() => setPayoutFilter(f.key)} style={{
+            padding: '7px 16px', borderRadius: 20,
+            border: '1px solid ' + (payoutFilter === f.key ? '#2d6be4' : '#e5e7eb'),
+            background: payoutFilter === f.key ? '#2d6be4' : '#fff',
+            color: payoutFilter === f.key ? '#fff' : '#374151',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading payout requests...</div>
+      ) : payouts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb' }}>
+          No {payoutFilter === 'completed' ? 'completed' : payoutFilter === 'all' ? '' : 'pending'} payout requests
+        </div>
+      ) : (
+        payouts.map(payout => {
+          const bd = payout.doctorId?.bankDetails;
+          const hasBank = bd && (bd.accountNumber || bd.upiId);
+          const isProcessing = processingId === payout._id;
+
+          return (
+            <div key={payout._id} style={cardStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#1a2236' }}>
+                    Dr. {payout.doctorId?.name || 'Unknown'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    {payout.doctorId?.email} {payout.doctorId?.phone ? `· ${payout.doctorId.phone}` : ''}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#374151', marginTop: 6 }}>
+                    Patient: {payout.patientId?.name || payout.patientName || 'N/A'}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0f4c81', marginTop: 8 }}>
+                    ₹{payout.doctorPayoutAmount}
+                  </div>
+                </div>
+
+                <div style={{ flexShrink: 0, minWidth: 220 }}>
+                  {hasBank ? (
+                    <div style={{
+                      background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8,
+                      padding: '10px 14px', fontSize: 12,
+                    }}>
+                      <div style={{ fontWeight: 700, color: '#166534', marginBottom: 4 }}>🏦 Bank Details</div>
+                      {bd.accountHolderName && <div style={{ color: '#166534' }}>👤 {bd.accountHolderName}</div>}
+                      {bd.accountNumber && <div style={{ color: '#166534' }}>🔢 A/C: {bd.accountNumber}</div>}
+                      {bd.bankName && <div style={{ color: '#166534' }}>🏛️ {bd.bankName}</div>}
+                      {bd.ifscCode && <div style={{ color: '#166534' }}>🔑 IFSC: {bd.ifscCode}</div>}
+                      {bd.upiId && <div style={{ color: '#166534' }}>📲 UPI: {bd.upiId}</div>}
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                      padding: '10px 14px', fontSize: 12, color: '#991b1b', fontWeight: 600,
+                    }}>
+                      ⚠️ Bank details not set up
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  {payout.doctorPayoutStatus === 'completed' ? (
+                    <span style={{
+                      padding: '8px 16px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                      color: '#065f46', background: '#d1fae5',
+                    }}>
+                      ✅ Paid
+                    </span>
+                  ) : (
+                    <button
+                      disabled={isProcessing || !hasBank}
+                      onClick={() => handleMarkCompleted(payout)}
+                      style={{
+                        padding: '10px 20px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 13,
+                        color: '#fff', cursor: (isProcessing || !hasBank) ? 'not-allowed' : 'pointer',
+                        background: (isProcessing || !hasBank) ? '#94a3b8' : '#10b981',
+                      }}
+                    >
+                      {isProcessing ? 'Processing...' : '✅ Mark Completed'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ── Payroll Tab ──────────────────────────────────────────────────────────────
 function PayrollTab({ clinics, allUsers, onRefresh }) {
   const [payrolls, setPayrolls] = React.useState([]);
@@ -2307,7 +2479,7 @@ export default function SuperAdminDashboard() {
         {activeTab === 'Doctor Approvals' && <DoctorApprovalsTab onRefresh={loadData} />}
         {activeTab === 'Consultations' && <ConsultationsTab />}
         {activeTab === 'Clinic Dashboard' && <ClinicDashboardTab clinics={clinics} />}
-        {activeTab === 'Payroll' && <PayrollTab clinics={clinics} allUsers={allUsers} onRefresh={loadData} />}
+        {activeTab === 'Payroll' && <DoctorPayoutsTab />}
       </div>
     </div>
   );

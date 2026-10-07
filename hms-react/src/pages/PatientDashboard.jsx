@@ -48,7 +48,7 @@ function StarRating({ rating, reviews = 0 }) {
 }
 
 // ── Top Rated Card ──
-function TopRatedCard({ item, type, onSelect }) {
+export function TopRatedCard({ item, type, onSelect }) {
   const isMobile = useIsMobile();
 
   const getIcon = () => {
@@ -111,7 +111,10 @@ function TopRatedCard({ item, type, onSelect }) {
           {getSubText()}
         </div>
         <div style={{ marginTop: 4 }}>
-          <StarRating rating={item.rating || 0} reviews={item.reviews || 0} />
+          <StarRating
+            rating={type === 'doctor' ? (item.averageRating || 0) : (item.rating || 0)}
+            reviews={type === 'doctor' ? (item.totalRatings || 0) : (item.reviews || 0)}
+          />
         </div>
       </div>
       <div style={{
@@ -125,6 +128,86 @@ function TopRatedCard({ item, type, onSelect }) {
       }}>
         {type === 'doctor' ? 'Consult' : 'View'}
       </div>
+    </div>
+  );
+}
+
+function NearbyClinicCard({ item, onSelect }) {
+  const isMobile = useIsMobile();
+  const icon = item.type === 'hospital' ? '🏨' : '🏥';
+  const specializations = Array.from(
+    new Set((item.doctors || []).map(d => d.specialization).filter(Boolean))
+  ).slice(0, 3);
+
+  return (
+    <div
+      onClick={() => onSelect(item)}
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        padding: isMobile ? '14px 16px' : '16px 20px',
+        border: '1.5px solid #e5e7eb',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        minWidth: 240,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#2d6be4';
+        e.currentTarget.style.boxShadow = '0 4px 16px rgba(45,107,228,0.10)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#e5e7eb';
+        e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 10,
+          background: 'linear-gradient(135deg, #eff6ff, #dbeafe)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20, flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#1a2236' }}>{item.name}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            {item.address || 'Address not specified'}
+          </div>
+        </div>
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: '#16a34a',
+          background: '#f0fdf4', padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+        }}>
+          📍 {item.distanceKm} km
+        </div>
+      </div>
+
+      {specializations.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {specializations.map((spec, i) => (
+            <span key={i} style={{
+              fontSize: 11, fontWeight: 600, color: '#2d6be4',
+              background: '#eff6ff', padding: '3px 10px', borderRadius: 20,
+            }}>
+              {spec}
+            </span>
+          ))}
+          {item.doctors.length > specializations.length && (
+            <span style={{ fontSize: 11, color: '#94a3b8', padding: '3px 4px' }}>
+              +{item.doctors.length - specializations.length} more
+            </span>
+          )}
+        </div>
+      )}
+
+      {(!item.doctors || item.doctors.length === 0) && (
+        <div style={{ fontSize: 11, color: '#94a3b8' }}>No doctors listed yet</div>
+      )}
     </div>
   );
 }
@@ -154,10 +237,23 @@ export default function PatientDashboard() {
   const [loadingTopRated, setLoadingTopRated] = useState(true);
 
   const [locationLabel, setLocationLabel] = useState('Home');
+  const [nearbyClinics, setNearbyClinics] = useState([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
 
   useEffect(() => { detectLocation(); }, []);
+
+  async function fetchNearbyClinics(lat, lng) {
+    setLoadingNearby(true);
+    try {
+      const { data } = await API.get(`/clinics/nearby?lat=${lat}&lng=${lng}&radius=30`);
+      if (data.success) setNearbyClinics(data.clinics || []);
+    } catch (err) {
+      console.error('Failed to load nearby clinics:', err);
+    }
+    setLoadingNearby(false);
+  }
 
   function detectLocation() {
     if (!navigator.geolocation) { setLocationLabel('Home'); setLocationError('not-supported'); return; }
@@ -165,6 +261,7 @@ export default function PatientDashboard() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
+        fetchNearbyClinics(latitude, longitude);
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`,
@@ -226,10 +323,8 @@ export default function PatientDashboard() {
         state: { preSelectDoctor: item._id },
       });
     } else {
-      // For clinics/hospitals, open the clinic search or show details
-      navigate('/patient-appointments', {
-        state: { preSelectClinic: item._id },
-      });
+      // For clinics/hospitals, open the detail page with the doctor list
+      navigate(`/clinic-detail/${item._id}`);
     }
   };
 
@@ -576,6 +671,38 @@ export default function PatientDashboard() {
               </div>
             </div>
 
+            {/* ── NEARBY CLINICS & HOSPITALS (within 30km) ── */}
+            {(loadingNearby || nearbyClinics.length > 0) && (
+              <div style={{ marginBottom: 28 }}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span>📍</span> Nearby Clinics & Hospitals
+                  </h3>
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>Within 30 km</span>
+                </div>
+                {loadingNearby ? (
+                  <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                    <i className="fas fa-spinner fa-spin" /> Finding nearby clinics...
+                  </div>
+                ) : (
+                  <div style={scrollRowStyle}>
+                    {nearbyClinics.map(item => (
+                      <NearbyClinicCard
+                        key={item._id}
+                        item={item}
+                        onSelect={() => handleItemSelect(item, item.type)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {isMobile && nearbyClinics.length > 0 && (
+                  <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+                    ← swipe to see more →
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* ── TOP RATED CLINICS ── */}
             <div style={{ marginBottom: 28 }}>
               <div style={sectionHeaderStyle}>
@@ -583,7 +710,7 @@ export default function PatientDashboard() {
                   <span>🏥</span> Top Rated Clinics
                 </h3>
                 <button
-                  onClick={() => navigate('/patient-appointments')}
+                  onClick={() => navigate('/browse/clinic')}
                   style={viewAllStyle}
                 >
                   View All →
@@ -623,7 +750,7 @@ export default function PatientDashboard() {
                   <span>🏨</span> Top Rated Hospitals
                 </h3>
                 <button
-                  onClick={() => navigate('/patient-appointments')}
+                  onClick={() => navigate('/browse/hospital')}
                   style={viewAllStyle}
                 >
                   View All →

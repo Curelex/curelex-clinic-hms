@@ -1,6 +1,6 @@
 // hms-react/src/pages/PatientAppointments.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
 import '../css/PatientDashboard.css';
@@ -96,6 +96,9 @@ export default function PatientAppointments() {
   const patientName = patient?.name || user?.name || '';
   const patientEmail = patient?.email || user?.email || '';
 
+  const location = useLocation();
+  const [isPreSelected, setIsPreSelected] = useState(false);
+
   const [form, setForm] = useState({
     name: patientName,
     age: patient?.age || '',
@@ -111,7 +114,52 @@ export default function PatientAppointments() {
     if (!isPatient()) { navigate('/'); return; }
     loadAppointments();
     loadClinics();
+
+    const preClinic = location.state?.preSelectClinic;
+    const preDoctor = location.state?.preSelectDoctor;
+    if (preClinic) {
+      setForm(f => ({ ...f, clinicId: preClinic, doctorId: preDoctor || '' }));
+      loadDoctors(preClinic);
+      setIsPreSelected(true);
+      setStep(STEP_DETAILS);
+      setShowModal(true);
+      window.history.replaceState({}, document.title);
+
+      // Safety fallback: if pre-fill doesn't resolve within 6s, fall back to manual selection
+      const fallbackTimer = setTimeout(() => setIsPreSelected(false), 6000);
+      return () => clearTimeout(fallbackTimer);
+    }
   }, [user]);
+
+  // Fallback: once clinics list loads, if the pre-selected clinic isn't in it, go manual
+  useEffect(() => {
+    if (isPreSelected && clinics.length > 0 && !clinics.some(c => c._id === form.clinicId)) {
+      setIsPreSelected(false);
+    }
+  }, [clinics, isPreSelected, form.clinicId]);
+
+  // Fallback: once doctors finish loading, if the pre-selected doctor isn't in it, go manual
+  useEffect(() => {
+    if (isPreSelected && !doctorsLoading && form.doctorId && doctors.length > 0 && !doctors.some(d => d._id === form.doctorId)) {
+      setIsPreSelected(false);
+    }
+  }, [doctors, doctorsLoading, isPreSelected, form.doctorId]);
+
+    // ── Live queue banner: which token is running now ──
+  const [queues, setQueues] = useState([]);
+  useEffect(() => {
+    if (!patientId) return;
+    let stop = false;
+    const loadQueue = async () => {
+      try {
+        const res = await API.get(`/patient-portal/${patientId}/queue-status`);
+        if (!stop && res.data.success) setQueues(res.data.queues || []);
+      } catch (e) { /* ignore, retry on next tick */ }
+    };
+    loadQueue();
+    const timer = setInterval(loadQueue, 5000);
+    return () => { stop = true; clearInterval(timer); };
+  }, [patientId]);
 
   async function loadAppointments() {
     setLoading(true);
@@ -230,6 +278,7 @@ export default function PatientAppointments() {
     setFormError('');
     setStep(STEP_DETAILS);
     resetPaymentFields();
+    setIsPreSelected(false);
     setShowModal(true);
   };
 
@@ -444,6 +493,28 @@ export default function PatientAppointments() {
                 <i className="fas fa-plus" /> Create New Token
               </button>
             </div>
+
+            {/* ── Live queue banner ── */}
+            {queues.length > 0 && (
+              <div style={{ marginBottom: '16px', display: 'grid', gap: '10px' }}>
+                {queues.map(q => (
+                  <div key={q.tokenId} style={{
+                    padding: '14px 18px', borderRadius: 12, fontWeight: 600,
+                    background: q.isMyTurn ? '#dcfce7' : '#dbeafe',
+                    color: q.isMyTurn ? '#166534' : '#1e40af',
+                    border: `1px solid ${q.isMyTurn ? '#16a34a' : '#2563eb'}55`,
+                  }}>
+                    {q.isMyTurn ? (
+                      <span>🔔 Your turn! Token #{q.myToken} – please go to {q.doctorName}</span>
+                    ) : q.nowRunning ? (
+                      <span>Now running: Token #{q.nowRunning} ({q.doctorName}) · Your token: #{q.myToken}</span>
+                    ) : (
+                      <span>Waiting for {q.doctorName} to call the next token · Your token: #{q.myToken}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* ── Status legend ── */}
             <div style={{
@@ -697,6 +768,14 @@ export default function PatientAppointments() {
                       placeholder="Describe what's bothering you" />
                   </div>
 
+                  {isPreSelected ? (
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={labelStyle}>Clinic</label>
+                      <div style={{ ...inputStyle, background: '#f8fafc', color: '#475569' }}>
+                        {clinics.find(c => c._id === form.clinicId)?.name || 'Loading...'}
+                      </div>
+                    </div>
+                  ) : (
                   <div style={{ marginBottom: 14 }}>
                     <label style={labelStyle}>Clinic *</label>
                     <select value={form.clinicId}
@@ -713,6 +792,7 @@ export default function PatientAppointments() {
                       </p>
                     )}
                   </div>
+                  )}
 
                   {form.clinicId && (
                     <div style={{ marginBottom: 14 }}>
@@ -721,6 +801,13 @@ export default function PatientAppointments() {
                         <p style={{ fontSize: 13, color: '#6b7a99', margin: 0 }}>
                           <i className="fas fa-spinner fa-spin" /> Loading doctors...
                         </p>
+                      ) : isPreSelected ? (
+                        <div style={{ ...inputStyle, background: '#f8fafc', color: '#475569' }}>
+                          {(() => {
+                            const d = doctors.find(x => x._id === form.doctorId);
+                            return d ? `Dr. ${d.name} — ${d.department || 'General'} — ₹${d.consultationFee || 0}` : 'Loading...';
+                          })()}
+                        </div>
                       ) : (
                         <>
                           <select value={form.doctorId}
@@ -743,31 +830,12 @@ export default function PatientAppointments() {
                     </div>
                   )}
 
-                  {form.doctorId && (
+                  {form.doctorId && selectedDoctor && (
                     <div style={{ marginBottom: 18 }}>
-                      <label style={labelStyle}>Consultation Type *</label>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        {['in-person', 'online'].map(type => (
-                          <label key={type} style={{
-                            flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '10px 12px', borderRadius: 8,
-                            border: `1px solid ${form.consultationType === type ? '#2d6be4' : '#d1d5db'}`,
-                            background: form.consultationType === type ? '#eff6ff' : 'white',
-                            cursor: 'pointer', fontSize: 13, color: '#374151',
-                          }}>
-                            <input type="radio" name="consultationType" value={type}
-                              checked={form.consultationType === type}
-                              onChange={e => handleFormChange('consultationType', e.target.value)} />
-                            {type === 'in-person' ? 'In-Person' : 'Online'}
-                          </label>
-                        ))}
-                      </div>
-                      {selectedDoctor && (
-                        <p style={{ margin: '8px 0 0', fontSize: 13, color: '#374151' }}>
-                          Consultation fee: <strong>₹{selectedDoctor.consultationFee || 0}</strong>{' '}
-                          <span style={{ color: '#6b7a99' }}>(payable now to confirm your token)</span>
-                        </p>
-                      )}
+                      <p style={{ margin: 0, fontSize: 13, color: '#374151' }}>
+                        Consultation fee: <strong>₹{selectedDoctor.consultationFee || 0}</strong>{' '}
+                        <span style={{ color: '#6b7a99' }}>(payable now to confirm your token)</span>
+                      </p>
                     </div>
                   )}
 

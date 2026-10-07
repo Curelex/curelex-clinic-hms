@@ -81,6 +81,10 @@ export default function Profile() {
   };
 
   const handleSaveProfile = async () => {
+    if (patient?._id && !editForm.gender) {
+      alert('Please select your gender');
+      return;
+    }
     try {
       let avatarData = user?.avatar || '';
       if (selectedAvatar) {

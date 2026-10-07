@@ -6,6 +6,13 @@ const clinicSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   phone: { type: String },
   address: { type: String },
+  city: { type: String },
+  state: { type: String },
+  district: { type: String },
+  subDistrict: { type: String },
+  pincode: { type: String },
+  latitude: { type: Number, default: null },
+  longitude: { type: Number, default: null },
   type: { type: String, enum: ['clinic', 'hospital'], default: 'clinic' },
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
   
