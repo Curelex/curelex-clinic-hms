@@ -43,7 +43,7 @@ export default function Login() {
       return;
     }
 
-    const result = await login(form.email, form.password, captchaToken);
+    const result = await login(form.email, form.password, captchaToken, 'staff');
 
     if (result.success) {
       redirectByRole(result.user?.role);

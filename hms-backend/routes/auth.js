@@ -12,6 +12,7 @@ import Patient from '../models/Patient.js';
 import DoctorProfile from '../models/DoctorProfile.js';
 import { auth } from '../middleware/auth.js';
 import roleCheck from '../middleware/roleCheck.js';
+import { CREATABLE_ROLES, ROLE_PERMISSIONS_MAP } from '../config/roles.js';
 import { getClinicFilter } from '../middleware/clinicFilter.js';
 import Feedback from '../models/Feedback.js';
 import Subscription from '../models/Subscription.js';
@@ -95,6 +96,11 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
 
+    const PUBLIC_REGISTER_ROLES = ['admin', 'separate_doctor'];
+    if (role && !PUBLIC_REGISTER_ROLES.includes(role)) {
+      return res.status(403).json({ message: 'This role cannot self-register. Ask your clinic admin to create your account.' });
+    }
+
     // Admin registration: must provide clinicName to create a new clinic
     if (role === 'admin' || !role) {
       if (!clinicName) {
@@ -123,6 +129,18 @@ router.post('/register', async (req, res) => {
         type: type || 'hospital',
         address: address.trim()
       });
+
+      // Best-effort geocoding — never blocks registration if it fails.
+      try {
+        const coords = await geocodeAddress({ address: clinic.address });
+        if (coords) {
+          clinic.latitude = coords.latitude;
+          clinic.longitude = coords.longitude;
+          await clinic.save();
+        }
+      } catch (geoErr) {
+        console.error('Clinic geocode failed during registration:', geoErr.message);
+      }
 
       const user = await User.create({
         name, email, password,
@@ -170,22 +188,10 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    const ROLE_PERMISSIONS_MAP = {
-      doctor:          ['dashboard', 'patients', 'ipd', 'lab', 'prescriptions', 'telemedicine', 'followups'],
-      separate_doctor: ['dashboard', 'patients', 'telemedicine'],
-      nurse:           ['dashboard', 'patients', 'ipd'],
-      receptionist:    ['dashboard', 'patients', 'billing', 'tokens', 'followups'],
-      pharmacist:      [
-        'dashboard', 'pharmacy', 'inventory',
-        'suppliers.read', 'suppliers.write',
-        'products.read', 'products.write',
-        'purchases.read', 'purchases.write',
-        'inventory.adjust',
-        'sales.read', 'sales.create', 'sales.invoice',
-        'customers.read', 'customers.write',
-      ],
-      lab_technician:  ['dashboard', 'patients', 'lab'],
-    };
+
+    if (role === 'separate_doctor' && (!address || !address.trim())) {
+      return res.status(400).json({ message: 'Practice address is required for doctor registration' });
+    }
 
     const user = await User.create({
       name, email, password, role,
@@ -199,7 +205,6 @@ router.post('/register', async (req, res) => {
           message: 'Practice address is required for doctor registration' 
         });
       }
-      console.log(user);
       await DoctorProfile.create({
         userId: user._id,
         name: user.name,
@@ -450,6 +455,16 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ message: 'Your account has been deactivated' });
     }
 
+    // ── STEP 6b: Portal / role check ─────────────────────────────────────
+    const loginPortal = req.body.portal;
+    const isPatientPortal = loginPortal === 'patient';
+    if (isPatientPortal && user.role !== 'patient') {
+      return res.status(403).json({ message: 'This is a staff account. Please use the Clinic / Doctor login page.' });
+    }
+    if (!isPatientPortal && user.role === 'patient') {
+      return res.status(403).json({ message: 'This is a patient account. Please use the Patient Login page.' });
+    }
+
     // ── STEP 7: Generate token ──────────────────────────────────────────
     const token = jwt.sign(
       { id: user._id, role: user.role, clinicId: user.clinicId },
@@ -585,12 +600,16 @@ router.get('/all-users', auth, roleCheck('super_admin'), async (req, res) => {
 });
 
 // ── Create Staff (admin only) ─────────────────────────────────────────────
-router.post('/users', auth, roleCheck('admin', 'receptionist'), async (req, res) => {
+router.post('/users', auth, roleCheck('admin'), async (req, res) => {
   try {
-    const { name, email, password, role, department, phone, permissions, consultationFee, clinicId } = req.body;
-    console.log(req.body);
+    const { name, email, password, role, department, phone, consultationFee, clinicId } = req.body;
     if (!password) {
       return res.status(400).json({ message: 'Password is required' });
+    }
+
+    const allowedRoles = CREATABLE_ROLES[req.user.role] || [];
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({ message: 'You are not allowed to create this role' });
     }
 
     // ── Resolve clinicId ──
@@ -629,7 +648,7 @@ router.post('/users', auth, roleCheck('admin', 'receptionist'), async (req, res)
       department: department || '',
       phone: phone || '',
       clinicId: targetClinicId,
-      permissions: permissions || ['dashboard'],
+      permissions: ROLE_PERMISSIONS_MAP[role] || ['dashboard'],
       isActive: true,
     };
 
@@ -648,10 +667,14 @@ router.post('/users', auth, roleCheck('admin', 'receptionist'), async (req, res)
 });
 
 // ── Update Staff (admin only) ─────────────────────────────────────────────
-router.put('/users/:id', auth, async (req, res) => {
+router.put('/users/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
-    const { password, ...fields } = req.body;
-    delete fields.password;
+    const { password } = req.body;
+    const ALLOWED_UPDATE_FIELDS = ['name', 'email', 'department', 'phone', 'consultationFee', 'isActive', 'role'];
+    const fields = {};
+    for (const k of ALLOWED_UPDATE_FIELDS) {
+      if (req.body[k] !== undefined) fields[k] = req.body[k];
+    }
 
     // ── Resolve clinicId ──
     let targetClinicId;
@@ -676,6 +699,21 @@ router.put('/users/:id', auth, async (req, res) => {
     const user = await User.findOne({ _id: req.params.id, clinicId: targetClinicId });
     if (!user) {
       return res.status(404).json({ message: 'Staff member not found in this clinic' });
+    }
+
+    const manageable = CREATABLE_ROLES[req.user.role] || [];
+    const isSelf = String(user._id) === String(req.user._id || req.user.id);
+    if (!isSelf && !manageable.includes(user.role)) {
+      return res.status(403).json({ message: 'You cannot modify this user' });
+    }
+    if (fields.role !== undefined && fields.role !== user.role) {
+      if (isSelf) return res.status(403).json({ message: 'You cannot change your own role' });
+      if (!manageable.includes(fields.role)) {
+        return res.status(403).json({ message: 'You are not allowed to assign this role' });
+      }
+      fields.permissions = ROLE_PERMISSIONS_MAP[fields.role] || ['dashboard'];
+    } else {
+      delete fields.role;
     }
 
     // Check email conflict within the same clinic
@@ -1119,7 +1157,15 @@ router.put('/doctors/:id', auth, async (req, res) => {
 
 router.get('/doctor-profiles/pending', auth, roleCheck('super_admin'), async (req, res) => {
   try {
-    const profiles = await DoctorProfile.find({ verificationStatus: 'pending' })
+    // Optional ?status= query param lets the Super Admin dashboard switch
+    // between Pending / Approved / Rejected / All views from the same route.
+    // Defaults to 'pending' to preserve existing callers (e.g. the pending-count badge).
+    const { status } = req.query;
+    let filter = { verificationStatus: 'pending' };
+    if (status === 'all') filter = {};
+    else if (status) filter = { verificationStatus: status };
+
+    const profiles = await DoctorProfile.find(filter)
       .populate('userId', 'name email phone role isActive clinicId bankDetails telemedicineFee')
       .sort({ createdAt: -1 });
     res.json({ success: true, profiles });
@@ -1211,6 +1257,24 @@ router.put('/clinics/:id', auth, roleCheck('super_admin'), async (req, res) => {
   try {
     const clinic = await Clinic.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!clinic) return res.status(404).json({ message: 'Clinic not found' });
+
+    // Re-geocode if any location-related field was part of this update.
+    const locationFields = ['address', 'city', 'state', 'pincode'];
+    if (locationFields.some(f => req.body[f] !== undefined)) {
+      try {
+        const coords = await geocodeAddress({
+          address: clinic.address, city: clinic.city, state: clinic.state, pincode: clinic.pincode,
+        });
+        if (coords) {
+          clinic.latitude = coords.latitude;
+          clinic.longitude = coords.longitude;
+          await clinic.save();
+        }
+      } catch (geoErr) {
+        console.error('Clinic geocode failed on super-admin update:', geoErr.message);
+      }
+    }
+
     res.json({ success: true, clinic });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

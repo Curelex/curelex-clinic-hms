@@ -17,3 +17,8 @@ hms-backend/uploads/
 
 # One-off scripts with potential secrets
 hms-backend/updateSuperAdmin.js
+
+*.bak
+*.bak[0-9]
+*.bak.*
+.env*

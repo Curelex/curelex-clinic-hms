@@ -33,7 +33,7 @@ export default function PatientLogin() {
       return;
     }
 
-    const result = await login(form.email, form.password, captchaToken);
+    const result = await login(form.email, form.password, captchaToken, 'patient');
 
     if (result.success) {
       if (result.user?.role === 'patient') {

@@ -251,7 +251,7 @@ export default function ClinicLogin() {
 
       //   navigate('/clinic');
 
-      const result = await login(form.email, form.password, captchaToken);
+      const result = await login(form.email, form.password, captchaToken, 'staff');
       if (!result.success) {
         setErr(result.message || 'Login failed.');
         return;

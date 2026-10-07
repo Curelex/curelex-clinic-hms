@@ -127,11 +127,15 @@ import { isPaymentLive } from './services/paymentMode.js';
 async function seedSuperAdmin() {
   try {
     // 1. Seed Super Admin
-    const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || 'superadmin@curelex.com';
-    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || 'Password123';
+    const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+    const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
     
     let existingSuper = await User.findOne({ role: 'super_admin' });
     if (!existingSuper) {
+      if (!superAdminEmail || !superAdminPassword) {
+        console.error('No super admin exists and SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD are not set. Skipping seed.');
+        return;
+      }
       await User.create({
         name: 'Super Admin',
         email: superAdminEmail,
@@ -145,7 +149,7 @@ async function seedSuperAdmin() {
         ],
         isActive: true,
       });
-      console.log(`🚀 Seeded Super Admin: ${superAdminEmail} / ${superAdminPassword}`);
+      console.log(`🚀 Seeded Super Admin: ${superAdminEmail}`);
     }
 
     // Load Clinic model
