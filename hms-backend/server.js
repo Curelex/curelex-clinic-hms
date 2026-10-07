@@ -508,6 +508,8 @@ app.use('/api/v1/ims', imsRoutes);
 // app.use('/api/clinic', clinicApp);
 
 // Static files
+// Patient documents are served only via the authenticated /api/documents/file/:id route
+app.use('/uploads/documents', (req, res) => res.status(404).json({ message: 'Not found' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/health', (req, res) => {

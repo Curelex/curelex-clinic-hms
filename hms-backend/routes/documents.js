@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import express from 'express';
 import multer from 'multer';
+import mongoose from 'mongoose';
 
 import { auth } from '../middleware/auth.js';
 import Document from '../models/Document.js';
@@ -38,43 +39,35 @@ const upload = multer({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// resolvePatientAccess
-//
-// ROOT CAUSE FIX:
-//   The doctor's JWT clinicId (6a3ab3cddefcdfbba8b8adb3) did not match the
-//   patient's clinicId in DB (6a3ab3a6defcdfbba8b8ad95) because patients and
-//   doctors were registered under different Clinic documents in the DB.
-//
-//   Old logic: Patient.findOne({ _id: patientId, clinicId: doctorClinicId })
-//              → always returns null for cross-clinic patients → 404
-//
-//   Fix:
-//   - Doctors / staff → look up patient by _id ONLY (no clinicId filter).
-//     A doctor can treat any patient regardless of which Clinic record they
-//     belong to. Security is enforced by the auth token, not by clinicId.
-//   - Patients → look up by _id only, then verify they own the record via
-//     userId. clinicId is not used for access control here either.
-//
-//   The clinicId returned is always taken from the PATIENT record so that
-//   Document.create() stores the correct clinic reference.
+// resolvePatientAccess — tenant-scoped patient lookup.
+//   patient       → only their own record (userId match)
+//   super_admin   → any patient
+//   clinic staff  → only patients whose clinicIds contains the caller's clinicId
+//   anyone else   → denied
+// Out-of-scope patients return 404 so IDs cannot be probed across clinics.
 // ─────────────────────────────────────────────────────────────────────────────
 async function resolvePatientAccess(req, patientId) {
-  // Look up patient by _id only — no clinicId filter (see explanation above)
-  const patient = await Patient.findById(patientId);
-
-  if (!patient) {
-    console.warn('resolvePatientAccess: patient not found', { patientId });
+  if (!patientId || !mongoose.Types.ObjectId.isValid(patientId)) {
     return { ok: false, status: 404, message: 'Patient not found' };
   }
 
-  // Patients can only access their own records
-  if (req.user.role === 'patient' && String(patient.userId) !== String(req.user.id)) {
+  const role = req.user.role;
+  let patient = null;
+
+  if (role === 'patient') {
+    patient = await Patient.findOne({ _id: patientId, userId: req.user.id });
+  } else if (role === 'super_admin') {
+    patient = await Patient.findById(patientId);
+  } else if (req.user.clinicId) {
+    patient = await Patient.findOne({ _id: patientId, clinicIds: req.user.clinicId });
+  } else {
     return { ok: false, status: 403, message: 'Access denied' };
   }
 
-  // Patient model uses clinicIds[] (array), not a singular clinicId field.
-  // Pick the first associated clinic, or fall back to 'global' for patients
-  // who registered on the platform before visiting any clinic.
+  if (!patient) {
+    return { ok: false, status: 404, message: 'Patient not found' };
+  }
+
   const clinicId = (patient.clinicIds && patient.clinicIds.length > 0)
     ? String(patient.clinicIds[0])
     : 'global';
@@ -162,11 +155,9 @@ router.patch('/:id/visibility', auth, async (req, res) => {
     const access = await resolvePatientAccess(req, doc.patient);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
 
-    // Extra guard: patients can only toggle their own documents
-    if (req.user.role === 'patient') {
-      if (String(access.patient.userId) !== String(req.user.id)) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
+    // Only the patient controls sharing
+    if (req.user.role !== 'patient') {
+      return res.status(403).json({ message: 'Only the patient can change document sharing' });
     }
 
     doc.visibleToDoctor = visibleToDoctor;
@@ -197,7 +188,7 @@ router.get('/file/:id', auth, async (req, res) => {
     }
 
     res.setHeader('Content-Type', doc.mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${doc.originalName}"`);
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(doc.originalName)}`);
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -212,6 +203,15 @@ router.delete('/:id', auth, async (req, res) => {
 
     const access = await resolvePatientAccess(req, doc.patient);
     if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    const canDelete =
+      req.user.role === 'patient' ||
+      req.user.role === 'admin' ||
+      req.user.role === 'super_admin' ||
+      String(doc.uploadedBy) === String(req.user.id);
+    if (!canDelete) {
+      return res.status(403).json({ message: 'You cannot delete this document' });
+    }
 
     fs.unlink(path.join(UPLOAD_ROOT, doc.storedName), () => {});
     await doc.deleteOne();
