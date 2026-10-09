@@ -138,7 +138,7 @@ Contributions are welcome.
 This project is proprietary to Curelex. Add a license here if you plan to open-source it.
 
 ## Contact
-
+ 
 - Website: [curelex.in](https://curelex.in)
 - GitHub: [Curelex](https://github.com/Curelex)
 
